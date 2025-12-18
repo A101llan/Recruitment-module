@@ -1,0 +1,135 @@
+@model IEnumerable<HR.Web.Models.Position>
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+@{
+    ViewBag.Title = "Positions";
+    var openPositions = Model.Where(p => p.IsOpen).OrderByDescending(p => p.PostedOn).ToList();
+    var first = openPositions.FirstOrDefault();
+    Func<HR.Web.Models.Position, string> deptName = p => p != null && p.Department != null ? p.Department.Name : "Unassigned";
+}
+<style>
+    .pos-list .list-group-item {
+        padding: 14px 16px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+    .pos-list .list-group-item.active {
+        background-color: #e9f2ff;
+        border-color: #c7dcff;
+        color: #1f3a68;
+    }
+    .pos-meta {
+        line-height: 1.3;
+    }
+    .pos-detail-card {
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+</style>
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success">@TempData["Message"]</div>
+}
+<div class="d-flex align-items-center mb-3 flex-wrap">
+    @if (User != null && User.Identity != null && (User.IsInRole("Admin") || User.IsInRole("HR")))
+    {
+        <a class="btn btn-primary mr-3 mb-2" href="@Url.Action("Create")">Add New Position</a>
+    }
+    <div class="text-muted small">Select an open position to view details.</div>
+</div>
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="list-group pos-list" id="positionList">
+            @if (!openPositions.Any())
+            {
+                <div class="list-group-item">No open positions available.</div>
+            }
+            @foreach (var p in openPositions)
+            {
+                <a href="javascript:void(0);" 
+                   class="list-group-item list-group-item-action position-item @(p == first ? "active" : "")"
+                   data-id="@p.Id"
+                   data-title="@p.Title"
+                   data-desc="@p.Description"
+                   data-dept="@deptName(p)"
+                   data-posted="@p.PostedOn.ToShortDateString()"
+                   data-range="@(p.SalaryMin.HasValue && p.SalaryMax.HasValue ? string.Format("{0:C0} - {1:C0}", p.SalaryMin, p.SalaryMax) : "N/A")"
+                   data-url-details="@Url.Action("Details","Positions", new { id = p.Id })"
+                   data-url-edit="@Url.Action("Edit","Positions", new { id = p.Id })"
+                   data-url-apply="@Url.Action("Questionnaire","Applications", new { positionId = p.Id })">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="font-weight-bold">@p.Title</div>
+                            <div class="text-muted small pos-meta">@deptName(p)</div>
+                            <div class="text-muted small pos-meta">Posted: @p.PostedOn.ToShortDateString()</div>
+                        </div>
+                        <span class="badge badge-success">Open</span>
+                    </div>
+                </a>
+            }
+        </div>
+    </div>
+    <div class="col-md-8">
+                <div class="card pos-detail-card" id="positionDetail" @(first == null ? "style=\"display:none;\"" : "")>
+            <div class="card-body">
+                <h4 class="card-title" id="posTitle">@((first != null) ? first.Title : "")</h4>
+                <p class="text-muted mb-2" id="posDept">@deptName(first)</p>
+                <p id="posDesc">@((first != null) ? first.Description : "")</p>
+                <p class="mb-1"><strong>Posted:</strong> <span id="posPosted">@((first != null) ? first.PostedOn.ToShortDateString() : "")</span></p>
+                <p class="mb-3"><strong>Salary Range:</strong> <span id="posRange">@((first != null && first.SalaryMin.HasValue && first.SalaryMax.HasValue) ? string.Format("{0:C0} - {1:C0}", first.SalaryMin, first.SalaryMax) : "N/A")</span></p>
+                <div>
+                    @if (User != null && User.Identity != null && (User.IsInRole("Admin") || User.IsInRole("HR")))
+                    {
+                        <a class="btn btn-secondary btn-sm" id="posEdit" href="@(first != null ? Url.Action("Edit","Positions", new { id = first.Id }) : "#")">Edit</a>
+                    }
+                    else if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <a class="btn btn-primary btn-sm" id="posApply" href="@(first != null ? Url.Action("Questionnaire","Applications", new { positionId = first.Id }) : "#")">Apply</a>
+                    }
+                </div>
+            </div>
+        </div>
+        @if (first == null)
+        {
+            <div class="alert alert-info">No open positions to display. Add a new position to get started.</div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        var items = document.querySelectorAll('.position-item');
+        var title = document.getElementById('posTitle');
+        var desc = document.getElementById('posDesc');
+        var dept = document.getElementById('posDept');
+        var posted = document.getElementById('posPosted');
+        var range = document.getElementById('posRange');
+        var detail = document.getElementById('positionDetail');
+        var linkEdit = document.getElementById('posEdit');
+        var linkApply = document.getElementById('posApply');
+
+        items.forEach(function (el) {
+            el.addEventListener('click', function () {
+                items.forEach(function (i) { i.classList.remove('active'); });
+                el.classList.add('active');
+                title.textContent = el.getAttribute('data-title');
+                desc.textContent = el.getAttribute('data-desc') || "No description provided.";
+                dept.textContent = el.getAttribute('data-dept');
+                posted.textContent = el.getAttribute('data-posted');
+                range.textContent = el.getAttribute('data-range');
+                if (linkEdit) {
+                    linkEdit.href = el.getAttribute('data-url-edit');
+                }
+                if (linkApply) {
+                    linkApply.href = el.getAttribute('data-url-apply');
+                }
+                detail.style.display = '';
+            });
+        });
+    })();
+</script>
+}
+
+

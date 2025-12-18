@@ -1,0 +1,45 @@
+@model IEnumerable<HR.Web.Models.Interview>
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Interviews";
+}
+
+<h4 class="mb-3"><i class="fas fa-calendar-check"></i> Scheduled Interviews</h4>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No interviews scheduled yet.</div>
+}
+else
+{
+    <table class="table table-hover table-bordered">
+        <thead class="thead-light">
+            <tr>
+                <th>Applicant</th>
+                <th>Position</th>
+                <th>Interviewer</th>
+                <th>Scheduled</th>
+                <th>Mode</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            var applicantName = item.Application != null && item.Application.Applicant != null ? item.Application.Applicant.FullName : "N/A";
+            var positionTitle = item.Application != null && item.Application.Position != null ? item.Application.Position.Title : "N/A";
+            var interviewerName = item.Interviewer != null ? item.Interviewer.UserName : "N/A";
+            <tr>
+                <td class="align-middle">@applicantName</td>
+                <td class="align-middle">@positionTitle</td>
+                <td class="align-middle">@interviewerName</td>
+                <td class="align-middle">@item.ScheduledAt.ToString("g")</td>
+                <td class="align-middle">
+                    <span class="badge badge-info">@item.Mode</span>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+

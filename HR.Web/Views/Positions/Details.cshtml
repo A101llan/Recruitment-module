@@ -1,0 +1,39 @@
+@model HR.Web.Models.Position
+@{
+    ViewBag.Title = "Position Details";
+}
+<h3>@Model.Title</h3>
+<dl class="row">
+    <dt class="col-sm-3">Department</dt><dd class="col-sm-9">@Model.Department?.Name</dd>
+    <dt class="col-sm-3">Description</dt><dd class="col-sm-9">@Model.Description</dd>
+    <dt class="col-sm-3">Range</dt><dd class="col-sm-9">@Model.SalaryMin - @Model.SalaryMax</dd>
+    <dt class="col-sm-3">Posted</dt><dd class="col-sm-9">@Model.PostedOn</dd>
+    <dt class="col-sm-3">Open</dt><dd class="col-sm-9">@(Model.IsOpen ? "Yes" : "No")</dd>
+</dl>
+@if (User != null && User.Identity != null && User.IsInRole("Admin"))
+{
+    @Html.ActionLink("Edit", "Edit", new { id = Model.Id }, new { @class = "btn btn-secondary" })
+}
+else if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
+{
+    @Html.ActionLink("Apply", "Questionnaire", "Applications", new { positionId = Model.Id }, new { @class = "btn btn-primary" })
+}
+@Html.ActionLink("Back", "Index", null, new { @class = "btn btn-link" })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

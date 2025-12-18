@@ -1,0 +1,130 @@
+@model IEnumerable<HR.Web.Models.Application>
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Applications";
+    var interviewers = ViewBag.Interviewers as List<HR.Web.Models.User>;
+    var interviewedAppIds = ViewBag.InterviewedAppIds as List<int> ?? new List<int>();
+    var isAdmin = User != null && User.Identity != null && User.IsInRole("Admin");
+    
+    Func<string, string> badge = s =>
+    {
+        if (s == "Submitted") return "info";
+        if (s == "Screening") return "primary";
+        if (s == "Interviewing") return "warning";
+        if (s == "Offer") return "success";
+        if (s == "Rejected") return "danger";
+        if (s == "Hired") return "success";
+        return "secondary";
+    };
+}
+
+<div class="d-flex flex-wrap align-items-center mb-3">
+    <div class="form-inline mb-2">
+        <label class="mr-2 font-weight-bold">Filter by date:</label>
+        <input type="date" id="dateFrom" class="form-control mr-2" title="From date" />
+        <span class="mr-2">to</span>
+        <input type="date" id="dateTo" class="form-control" title="To date" />
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No applications yet.</div>
+}
+else
+{
+    <div class="row" id="appsCards">
+        @foreach (var item in Model)
+        {
+            var badgeClass = badge(item.Status);
+            var applicantName = item.Applicant != null ? item.Applicant.FullName : "N/A";
+            var positionTitle = item.Position != null ? item.Position.Title : "N/A";
+            var hasInterview = interviewedAppIds.Contains(item.Id);
+            <div class="col-md-6 mb-3" data-status="@item.Status" data-date="@item.AppliedOn.ToString("yyyy-MM-dd")">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="h5 mb-1">@applicantName</div>
+                                <div class="text-muted">for @positionTitle</div>
+                            </div>
+                            <span class="badge badge-@badgeClass">@item.Status</span>
+                        </div>
+                        <p class="text-muted mb-2 small">Applied: @item.AppliedOn.ToShortDateString()</p>
+                        @if (!string.IsNullOrEmpty(item.ResumePath))
+                        {
+                            <p class="mb-2 small">Resume: @item.ResumePath</p>
+                        }
+                        @if (isAdmin)
+                        {
+                            <div class="mt-auto">
+                                @if (hasInterview)
+                                {
+                                    <span class="badge badge-success"><i class="fas fa-check"></i> Interview Booked</span>
+                                }
+                                else
+                                {
+                                    using (Html.BeginForm("BookInterview", "Interviews", FormMethod.Post, new { @class = "form-inline" }))
+                                    {
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="applicationId" value="@item.Id" />
+                                        <select name="interviewerId" class="form-control form-control-sm mr-1" required style="width: 100px;">
+                                            <option value="">Interviewer</option>
+                                            @if (interviewers != null)
+                                            {
+                                                foreach (var i in interviewers)
+                                                {
+                                                    <option value="@i.Id">@i.UserName</option>
+                                                }
+                                            }
+                                        </select>
+                                        <input type="datetime-local" name="scheduledAt" class="form-control form-control-sm mr-1" required value="@DateTime.Now.AddDays(1).ToString("yyyy-MM-ddTHH:mm")" style="width: 170px;" />
+                                        <select name="mode" class="form-control form-control-sm mr-1" required style="width: 85px;">
+                                            <option value="Remote">Remote</option>
+                                            <option value="Onsite">Onsite</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-calendar-check"></i> Book</button>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+<script>
+    (function () {
+        var dateFrom = document.getElementById('dateFrom');
+        var dateTo = document.getElementById('dateTo');
+        var cards = document.querySelectorAll('#appsCards [data-date]');
+        
+        function applyFilters() {
+            var fromVal = dateFrom.value;
+            var toVal = dateTo.value;
+            
+            cards.forEach(function (c) {
+                var cardDate = c.getAttribute('data-date');
+                var dateMatch = true;
+                
+                if (fromVal && cardDate < fromVal) {
+                    dateMatch = false;
+                }
+                if (toVal && cardDate > toVal) {
+                    dateMatch = false;
+                }
+                
+                c.style.display = dateMatch ? '' : 'none';
+            });
+        }
+        
+        dateFrom.addEventListener('change', applyFilters);
+        dateTo.addEventListener('change', applyFilters);
+    })();
+</script>
+}
+
+

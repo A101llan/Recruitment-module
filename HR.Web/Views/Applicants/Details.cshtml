@@ -1,0 +1,146 @@
+@model HR.Web.Models.Applicant
+@{
+    ViewBag.Title = "Applicant Details";
+}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">@Model.FullName</h3>
+                        <small class="text-light">Applicant profile</small>
+                    </div>
+                    <div>
+                        @Html.ActionLink("Edit", "Edit", new { id = Model.Id }, new { @class = "btn btn-sm btn-outline-light mr-1" })
+                        @Html.ActionLink("Back", "Index", null, new { @class = "btn btn-sm btn-outline-light" })
+                    </div>
+                </div>
+                <div class="card-body bg-light">
+                    <div class="row">
+                        <div class="col-md-5 mb-3">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body">
+                                    <h5 class="card-title text-secondary">Contact Details</h5>
+                                    <hr />
+                                    <p class="mb-2">
+                                        <strong>Email:</strong><br />
+                                        <span class="text-muted">@Model.Email</span>
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Phone:</strong><br />
+                                        <span class="text-muted">@Model.Phone</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7 mb-3">
+                            @{
+                                var latestApp = ViewBag.LatestApplication as HR.Web.Models.Application;
+                                var answers = ViewBag.QuestionnaireAnswers as IEnumerable<HR.Web.Models.ApplicationAnswer>;
+                            }
+                            @if (latestApp != null)
+                            {
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-secondary">Latest Application</h5>
+                                        <hr />
+                                        @{
+                                            var positionTitle = latestApp.Position != null
+                                                ? latestApp.Position.Title
+                                                : "#" + latestApp.PositionId;
+                                        }
+                                        <dl class="row mb-0">
+                                            <dt class="col-sm-4">Position</dt>
+                                            <dd class="col-sm-8">@positionTitle</dd>
+
+                                            <dt class="col-sm-4">Applied on</dt>
+                                            <dd class="col-sm-8">@latestApp.AppliedOn.ToString("g")</dd>
+
+                                            <dt class="col-sm-4">Status</dt>
+                                            <dd class="col-sm-8">
+                                                <span class="badge badge-pill
+                                                    @(latestApp.Status == "Submitted" ? "badge-info" :
+                                                      latestApp.Status == "Screening" ? "badge-primary" :
+                                                      latestApp.Status == "Interviewing" ? "badge-warning" :
+                                                      latestApp.Status == "Offer" ? "badge-success" :
+                                                      latestApp.Status == "Rejected" ? "badge-danger" :
+                                                      latestApp.Status == "On Hold" ? "badge-secondary" : "badge-light")">
+                                                    @latestApp.Status
+                                                </span>
+                                            </dd>
+
+                                            <dt class="col-sm-4">Resume/CV</dt>
+                                            <dd class="col-sm-8">
+                                                @if (!string.IsNullOrEmpty(latestApp.ResumePath))
+                                                {
+                                                    <a class="btn btn-sm btn-outline-primary" href="@Url.Content(latestApp.ResumePath)" download>
+                                                        Download CV
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">No resume uploaded</span>
+                                                }
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-secondary">Questionnaire Answers</h5>
+                                        <hr />
+                                        @{
+                                            var hasAnswers = answers != null && answers.Any();
+                                        }
+                                        @if (hasAnswers)
+                                        {
+                                            <ul class="list-group list-group-flush">
+                                                @foreach (var ans in answers)
+                                                {
+                                                    <li class="list-group-item">
+                                                    <strong>@ans.Question?.Text</strong><br />
+                                                    <span class="text-muted">@ans.AnswerText</span>
+                                                </li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No questionnaire answers found for this application.</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info mb-0">
+                                    No applications found for this applicant yet.
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

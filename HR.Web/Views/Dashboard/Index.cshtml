@@ -1,0 +1,32 @@
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Dashboard";
+}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Open Positions</h5>
+                <p class="card-text display-4">@ViewBag.OpenPositions</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Pending Applications</h5>
+                <p class="card-text display-4">@ViewBag.PendingApplications</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Scheduled Interviews</h5>
+                <p class="card-text display-4">@ViewBag.ScheduledInterviews</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+

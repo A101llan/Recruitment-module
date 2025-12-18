@@ -1,0 +1,30 @@
+@model HR.Web.Models.Department
+@{
+    ViewBag.Title = "Delete Department";
+}
+<h3>Delete Department</h3>
+<p>Are you sure you want to delete @Model.Name?</p>
+@using (Html.BeginForm("Delete","Departments", new { id = Model.Id }, FormMethod.Post)) {
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-danger">Delete</button>
+    @Html.ActionLink("Cancel","Index", null, new { @class="btn btn-link"})
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

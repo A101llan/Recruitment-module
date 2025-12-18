@@ -1,0 +1,91 @@
+@model HR.Web.Models.ApplicationReviewViewModel
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Review Application";
+}
+
+<div class="card shadow-sm border-primary mb-4">
+    <div class="card-header bg-primary text-white">
+        <h3 class="mb-0">Review Your Application</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Please review your answers and CV before finishing your application.</p>
+
+        <dl class="row">
+            <dt class="col-sm-4">Position</dt>
+            <dd class="col-sm-8">@Model.PositionTitle</dd>
+
+            <dt class="col-sm-4">Applicant</dt>
+            <dd class="col-sm-8">@Model.ApplicantName (@Model.ApplicantEmail)</dd>
+
+            <dt class="col-sm-4">Why interested</dt>
+            <dd class="col-sm-8">@Model.WhyInterested</dd>
+
+            <dt class="col-sm-4">Years in field</dt>
+            <dd class="col-sm-8">@Model.YearsInField</dd>
+
+            <dt class="col-sm-4">Years in role</dt>
+            <dd class="col-sm-8">@Model.YearsInRole</dd>
+
+            <dt class="col-sm-4">Expected salary</dt>
+            <dd class="col-sm-8">@Model.ExpectedSalary</dd>
+
+            <dt class="col-sm-4">Education level</dt>
+            <dd class="col-sm-8">@Model.EducationLevel</dd>
+
+            <dt class="col-sm-4">Work availability</dt>
+            <dd class="col-sm-8">@Model.WorkAvailability</dd>
+
+            <dt class="col-sm-4">Preferred work mode</dt>
+            <dd class="col-sm-8">@Model.WorkMode</dd>
+
+            <dt class="col-sm-4">Availability to start</dt>
+            <dd class="col-sm-8">@Model.AvailabilityToStart</dd>
+
+            <dt class="col-sm-4">CV uploaded</dt>
+            <dd class="col-sm-8">
+                @if (!string.IsNullOrEmpty(Model.ResumePath))
+                {
+                    @System.IO.Path.GetFileName(Model.ResumePath)
+                }
+                else
+                {
+                    <span class="text-muted">No file</span>
+                }
+            </dd>
+        </dl>
+
+        @using (Html.BeginForm("FinishQuestionnaire", "Applications", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.PositionId)
+            @Html.HiddenFor(m => m.PositionTitle)
+            @Html.HiddenFor(m => m.ApplicantName)
+            @Html.HiddenFor(m => m.ApplicantEmail)
+            @Html.HiddenFor(m => m.WhyInterested)
+            @Html.HiddenFor(m => m.YearsInField)
+            @Html.HiddenFor(m => m.YearsInRole)
+            @Html.HiddenFor(m => m.ExpectedSalary)
+            @Html.HiddenFor(m => m.EducationLevel)
+            @Html.HiddenFor(m => m.WorkAvailability)
+            @Html.HiddenFor(m => m.WorkMode)
+            @Html.HiddenFor(m => m.AvailabilityToStart)
+            @Html.HiddenFor(m => m.ResumePath)
+
+            <div class="d-flex justify-content-between mt-3">
+                <a href="javascript:history.back();" class="btn btn-outline-secondary">Back to edit</a>
+                <button type="submit" class="btn btn-success">Finish</button>
+            </div>
+        }
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+

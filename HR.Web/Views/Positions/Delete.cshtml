@@ -1,0 +1,30 @@
+@model HR.Web.Models.Position
+@{
+    ViewBag.Title = "Delete Position";
+}
+<h3>Delete Position</h3>
+<p>Are you sure you want to delete @Model.Title?</p>
+@using (Html.BeginForm("DeleteConfirmed","Positions", new { id = Model.Id }, FormMethod.Post)) {
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-danger">Delete</button>
+    @Html.ActionLink("Cancel","Index", null, new { @class="btn btn-link"})
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

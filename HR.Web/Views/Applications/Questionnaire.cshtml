@@ -1,0 +1,133 @@
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Application Questionnaire";
+    var position = ViewBag.Position as HR.Web.Models.Position;
+    var applicant = ViewBag.Applicant as HR.Web.Models.Applicant;
+}
+<h3>Application Questionnaire</h3>
+@if (position != null)
+{
+    <div class="alert alert-info">Applying for: <strong>@position.Title</strong></div>
+}
+@if (applicant != null)
+{
+    <div class="alert alert-secondary mb-3">Applicant: <strong>@applicant.FullName</strong> (<span>@applicant.Email</span>)</div>
+}
+<div class="card shadow-sm border-primary mb-4">
+    <div class="card-header bg-primary text-white">
+        <h3 class="mb-0">Application Questionnaire</h3>
+    </div>
+    <div class="card-body">
+        @if (position != null)
+        {
+            <div class="alert alert-info">Applying for: <strong>@position.Title</strong></div>
+        }
+        @if (applicant != null)
+        {
+            <div class="alert alert-secondary mb-3">Applicant: <strong>@applicant.FullName</strong> (<span>@applicant.Email</span>)</div>
+        }
+        @{
+            var positionQuestions = ViewBag.PositionQuestions as IEnumerable<HR.Web.Models.PositionQuestion>;
+        }
+        @using (Html.BeginForm("Questionnaire", "Applications", FormMethod.Post, new { enctype = "multipart/form-data" })) {
+            @Html.AntiForgeryToken()
+            <div class="form-group">
+                <label>Why are you interested in this position?</label>
+                <select class="form-control" name="answer1" id="whyInterestedSelect" required onchange="document.getElementById('otherWhyField').style.display = this.value === 'Other' ? 'block' : 'none';">
+                    <option value="Career growth">Career growth</option>
+                    <option value="Company reputation">Company reputation</option>
+                    <option value="Skill match">Skill match</option>
+                    <option value="Other">Other</option>
+                </select>
+                <input type="text" class="form-control mt-2" name="otherWhy" id="otherWhyField" style="display:none;" placeholder="Please specify if Other" />
+            </div>
+            <div class="form-group">
+                <label>How many total years have you worked in this field or industry?</label>
+                <div>
+                    <label class="mr-3"><input type="radio" name="yearsInField" value="No experience" required /> No experience</label>
+                    <label class="mr-3"><input type="radio" name="yearsInField" value="Less than 1 year" /> Less than 1 year</label>
+                    <label class="mr-3"><input type="radio" name="yearsInField" value="1-3 years" /> 1-3 years</label>
+                    <label class="mr-3"><input type="radio" name="yearsInField" value="3-5 years" /> 3-5 years</label>
+                    <label class="mr-3"><input type="radio" name="yearsInField" value="5+ years" /> 5+ years</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>How many years have you specifically practiced the role you are applying for?</label>
+                <div>
+                    <label class="mr-3"><input type="radio" name="yearsInRole" value="No direct experience" required /> No direct experience</label>
+                    <label class="mr-3"><input type="radio" name="yearsInRole" value="Less than 1 year" /> Less than 1 year</label>
+                    <label class="mr-3"><input type="radio" name="yearsInRole" value="1-2 years" /> 1-2 years</label>
+                    <label class="mr-3"><input type="radio" name="yearsInRole" value="3-5 years" /> 3-5 years</label>
+                    <label class="mr-3"><input type="radio" name="yearsInRole" value="5+ years" /> 5+ years</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>What is your expected salary?</label>
+                <select class="form-control" name="answer3" required>
+                    <option value="$30,000 - $40,000">$30,000 - $40,000</option>
+                    <option value="$40,000 - $50,000">$40,000 - $50,000</option>
+                    <option value="$50,000 - $60,000">$50,000 - $60,000</option>
+                    <option value="$60,000+">$60,000+</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Highest Education Level</label>
+                <select class="form-control" name="educationLevel" required>
+                    <option value="High school">High school</option>
+                    <option value="Diploma / Certificate">Diploma / Certificate</option>
+                    <option value="Bachelor’s degree">Bachelor’s degree</option>
+                    <option value="Master’s degree">Master’s degree</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Work Availability</label>
+                <div>
+                    <label class="mr-3"><input type="radio" name="workAvailability" value="Full-time" required /> Full-time</label>
+                    <label class="mr-3"><input type="radio" name="workAvailability" value="Part-time" /> Part-time</label>
+                    <label class="mr-3"><input type="radio" name="workAvailability" value="Contract / Freelance" /> Contract / Freelance</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Preferred Work Mode</label>
+                <div>
+                    <label class="mr-3"><input type="radio" name="workMode" value="Remote" required /> Remote</label>
+                    <label class="mr-3"><input type="radio" name="workMode" value="On-site" /> On-site</label>
+                    <label class="mr-3"><input type="radio" name="workMode" value="Hybrid" /> Hybrid</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Availability to Start</label>
+                <div>
+                    <label class="mr-3"><input type="radio" name="availabilityToStart" value="Immediately" required /> Immediately</label>
+                    <label class="mr-3"><input type="radio" name="availabilityToStart" value="Within 2 weeks" /> Within 2 weeks</label>
+                    <label class="mr-3"><input type="radio" name="availabilityToStart" value="Within 1 month" /> Within 1 month</label>
+                    <label class="mr-3"><input type="radio" name="availabilityToStart" value="More than 1 month" /> More than 1 month</label>
+                </div>
+            </div>
+            if (positionQuestions != null)
+            {
+                <hr />
+                <h5>Additional questions</h5>
+                foreach (var pq in positionQuestions)
+                {
+                    <div class="form-group">
+                        <label>@pq.Question.Text</label>
+                        <textarea class="form-control" name="@("dynamicAnswer_" + pq.QuestionId)" rows="2"></textarea>
+                    </div>
+                }
+            }
+            else if (ViewBag.PositionQuestions != null)
+            {
+                <div class="alert alert-warning">Unable to display additional questions due to a data error.</div>
+            }
+            <div class="form-group">
+                <label>Upload your CV (PDF or Word)</label>
+                <input type="file" name="resume" class="form-control-file" accept=".pdf,.doc,.docx" required />
+                <small class="form-text text-muted">Please upload your most recent CV.</small>
+            </div>
+            @Html.Hidden("positionId", position != null ? position.Id : 0)
+            <button type="submit" class="btn btn-success">Review Application</button>
+        }
+    </div>
+</div>
