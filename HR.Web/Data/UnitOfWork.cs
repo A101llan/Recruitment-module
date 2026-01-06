@@ -29,13 +29,3 @@ namespace HR.Web.Data
         }
     }
 }
-
-
-
-
-
-
-
-
-
-

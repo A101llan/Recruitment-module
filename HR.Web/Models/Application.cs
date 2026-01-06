@@ -25,10 +25,21 @@ namespace HR.Web.Models
         [StringLength(30)]
         public string WorkExperienceLevel { get; set; } // No experience, Less than 1 year, etc.
 
+        public decimal? Score { get; set; } // AI evaluation score (0-100)
+        public string ScoreReason { get; set; } // Brief explanation of the score
+
         public virtual Applicant Applicant { get; set; }
         public virtual Position Position { get; set; }
     }
 }
+
+
+
+
+
+
+
+
 
 
 

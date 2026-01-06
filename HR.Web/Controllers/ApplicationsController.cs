@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
@@ -14,6 +15,7 @@ public class ApplicationsController : Controller
     private readonly UnitOfWork _uow = new UnitOfWork();
     private readonly IStorageService _storage = new StorageService();
     private readonly IEmailService _email = new EmailService();
+    private readonly ICandidateEvaluationService _evaluationService = new CandidateEvaluationService();
 
     // Questionnaire for position application
     [Authorize]
@@ -23,6 +25,27 @@ public class ApplicationsController : Controller
             .FirstOrDefault(p => p.Id == positionId);
         if (position == null)
             return HttpNotFound();
+        
+        // Check if user has already applied for this position
+        if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
+        {
+            var user = _uow.Users.GetAll().FirstOrDefault(u => u.UserName == User.Identity.Name);
+            if (user != null)
+            {
+                var applicant = _uow.Applicants.GetAll().FirstOrDefault(a => a.Email == user.Email);
+                if (applicant != null)
+                {
+                    var existingApplication = _uow.Applications.GetAll()
+                        .FirstOrDefault(a => a.ApplicantId == applicant.Id && a.PositionId == positionId);
+                    if (existingApplication != null)
+                    {
+                        TempData["ErrorMessage"] = "You have already applied for this position.";
+                        return RedirectToAction("Index", "Positions");
+                    }
+                }
+            }
+        }
+        
         ViewBag.Position = position;
         // Autofill applicant info from logged-in user
         if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
@@ -49,8 +72,8 @@ public class ApplicationsController : Controller
     [ValidateAntiForgeryToken]
     public ActionResult Questionnaire(
         int? positionId,
-        string answer1,
-        string otherWhy,
+        string[] interestReasons,
+        string interestLevel,
         string yearsInField,
         string yearsInRole,
         string answer3,
@@ -58,6 +81,9 @@ public class ApplicationsController : Controller
         string workAvailability,
         string workMode,
         string availabilityToStart,
+        string communicationSkills,
+        string problemSolvingSkills,
+        string teamworkSkills,
         HttpPostedFileBase resume)
     {
         if (!positionId.HasValue)
@@ -80,12 +106,10 @@ public class ApplicationsController : Controller
         if (position == null)
             return HttpNotFound();
 
-        // Normalize 'why interested'
-        var why = answer1;
-        if (string.Equals(answer1, "Other", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(otherWhy))
-        {
-            why = otherWhy;
-        }
+        // Normalize 'why interested' - combine selected reasons
+        var why = interestReasons != null && interestReasons.Length > 0 
+            ? string.Join(", ", interestReasons) 
+            : "";
 
         // Determine applicant info for display
         string applicantName = null;
@@ -122,7 +146,11 @@ public class ApplicationsController : Controller
             WorkAvailability = workAvailability,
             WorkMode = workMode,
             AvailabilityToStart = availabilityToStart,
-            ResumePath = resumePath
+            ResumePath = resumePath,
+            InterestLevel = interestLevel,
+            CommunicationSkills = communicationSkills,
+            ProblemSolvingSkills = problemSolvingSkills,
+            TeamworkSkills = teamworkSkills
         };
 
         // Capture dynamic answers
@@ -181,6 +209,15 @@ public class ApplicationsController : Controller
 
         if (applicant != null)
         {
+            // Check if applicant has already applied for this position
+            var existingApplication = _uow.Applications.GetAll()
+                .FirstOrDefault(a => a.ApplicantId == applicant.Id && a.PositionId == model.PositionId);
+            if (existingApplication != null)
+            {
+                TempData["ErrorMessage"] = "You have already applied for this position.";
+                return RedirectToAction("Index", "Positions");
+            }
+            
             var application = new Application
             {
                 ApplicantId = applicant.Id,
@@ -194,6 +231,7 @@ public class ApplicationsController : Controller
             _uow.Complete();
 
             // Store dynamic answers, if any
+            var applicationAnswers = new List<ApplicationAnswer>();
             foreach (string key in Request.Form.AllKeys)
             {
                 if (key != null && key.StartsWith("dynamicAnswer_", StringComparison.OrdinalIgnoreCase))
@@ -211,11 +249,27 @@ public class ApplicationsController : Controller
                                 AnswerText = ans
                             };
                             _uow.ApplicationAnswers.Add(appAns);
+                            applicationAnswers.Add(appAns);
                         }
                     }
                 }
             }
             _uow.Complete();
+
+            // Evaluate candidate using AI scoring
+            try
+            {
+                var score = _evaluationService.EvaluateApplication(application.Id, model, applicationAnswers);
+                application.Score = score.Score;
+                application.ScoreReason = score.Reason;
+                _uow.Applications.Update(application);
+                _uow.Complete();
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the application submission
+                System.Diagnostics.Debug.WriteLine("Error evaluating application: " + ex.Message);
+            }
         }
 
         TempData["QuestionnaireSuccess"] = "Your application and questionnaire have been submitted.";
@@ -228,7 +282,9 @@ public class ApplicationsController : Controller
             // If the user is Admin or HR, show all applications
             if (User != null && User.Identity != null && User.IsInRole("Admin"))
             {
-                var apps = _uow.Applications.GetAll(a => a.Applicant, a => a.Position);
+                var apps = _uow.Applications.GetAll(a => a.Applicant, a => a.Position)
+                    .OrderByDescending(a => a.Score ?? 0)
+                    .ThenByDescending(a => a.AppliedOn);
                 
                 // Get interviewers for booking
                 ViewBag.Interviewers = _uow.Users.GetAll().Where(u => u.Role == "Admin").ToList();
@@ -283,8 +339,13 @@ public class ApplicationsController : Controller
                     }
                 }
             }
+            if (positionId.HasValue)
+            {
+                var model = new Application { Status = "Submitted", AppliedOn = DateTime.UtcNow, PositionId = positionId.Value };
+                LoadLookups(model);
+                return View(model);
+            }
             LoadLookups();
-            if (positionId.HasValue) ViewBag.PositionId = positionId.Value;
             return View(new Application { Status = "Submitted", AppliedOn = DateTime.UtcNow });
         }
 

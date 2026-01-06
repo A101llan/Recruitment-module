@@ -1,135 +1,450 @@
 @model IEnumerable<HR.Web.Models.Position>
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
-}
-@{
     ViewBag.Title = "Positions";
-    var openPositions = Model.Where(p => p.IsOpen).OrderByDescending(p => p.PostedOn).ToList();
-    var first = openPositions.FirstOrDefault();
-    Func<HR.Web.Models.Position, string> deptName = p => p != null && p.Department != null ? p.Department.Name : "Unassigned";
+    var openPositions = Model ?? Enumerable.Empty<HR.Web.Models.Position>();
+    var isAdmin = User != null && User.Identity != null && User.IsInRole("Admin");
+    
+    // Helper function to safely get Responsibilities property
+    Func<HR.Web.Models.Position, string> getResponsibilities = (p) => {
+        try {
+            var prop = p.GetType().GetProperty("Responsibilities");
+            if (prop != null) {
+                var value = prop.GetValue(p);
+                return value != null ? value.ToString() : "";
+            }
+        } catch {}
+        return "";
+    };
+    
+    // Helper function to safely get Qualifications property
+    Func<HR.Web.Models.Position, string> getQualifications = (p) => {
+        try {
+            var prop = p.GetType().GetProperty("Qualifications");
+            if (prop != null) {
+                var value = prop.GetValue(p);
+                return value != null ? value.ToString() : "";
+            }
+        } catch {}
+        return "";
+    };
+    
+    // Helper function to format salary with currency
+    Func<HR.Web.Models.Position, decimal?, string> formatSalary = (p, amount) => {
+        if (!amount.HasValue) return "";
+        try {
+            var currencyProp = p.GetType().GetProperty("Currency");
+            string currency = "KES";
+            if (currencyProp != null) {
+                var currencyValue = currencyProp.GetValue(p);
+                currency = currencyValue != null ? currencyValue.ToString() : "KES";
+            }
+            if (string.IsNullOrEmpty(currency)) currency = "KES";
+            
+            // Use actual Unicode characters
+            var symbols = new Dictionary<string, string> {
+                {"KES", "KSh"}, 
+                {"USD", "$"}, 
+                {"EUR", "€"}, 
+                {"GBP", "£"}, 
+                {"CAD", "C$"}, 
+                {"AUD", "A$"},
+                {"JPY", "¥"}, 
+                {"CHF", "CHF"}, 
+                {"CNY", "¥"}, 
+                {"INR", "₹"}, 
+                {"BRL", "R$"}
+            };
+            
+            var symbol = symbols.ContainsKey(currency) ? symbols[currency] : "KSh";
+            var formatted = amount.Value.ToString("N0");
+            
+            // CHF: symbol after number with space
+            if (currency == "CHF") {
+                return formatted + " " + symbol;
+            }
+            
+            // KES: symbol before with space
+            if (currency == "KES") {
+                return symbol + " " + formatted;
+            }
+            
+            // JPY and CNY: symbol before, no space
+            if (currency == "JPY" || currency == "CNY") {
+                return symbol + formatted;
+            }
+            
+            // Multi-character symbols: add space
+            if (symbol.Length > 1) {
+                return symbol + " " + formatted;
+            }
+            
+            // Single character symbols: no space
+            return symbol + formatted;
+        } catch {
+            return amount.Value.ToString("C");
+        }
+    };
 }
+
 <style>
-    .pos-list .list-group-item {
-        padding: 14px 16px;
-        border-radius: 6px;
-        margin-bottom: 10px;
-    }
-    .pos-list .list-group-item.active {
-        background-color: #e9f2ff;
-        border-color: #c7dcff;
-        color: #1f3a68;
-    }
-    .pos-meta {
-        line-height: 1.3;
+    body {
+        font-size: 0.97rem;
+        background: #f6faff;
+        min-height: 100vh;
     }
     .pos-detail-card {
-        border-radius: 8px;
+        background: #fafdff;
+        border-radius: 0.4rem;
         box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        border: 1.2px solid #b2d7f7;
+        padding: 1.2rem;
+    }
+    .position-item { 
+        cursor: pointer; 
+        border: none;
+        border-bottom: 1px solid #e6f3fb;
+        background: #fafdff;
+        transition: all 0.2s;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: 0.4rem;
+    }
+    .position-item:hover {
+        background: #eaf4fb;
+    }
+    .position-item.active { 
+        box-shadow: 0 0 8px 2px #007bff, 0 0 0 2px #fff inset;
+        border-radius: 6px;
+        background: rgba(0,123,255,0.08);
+        border-left: 3px solid #007bff;
+        border-bottom: 1px solid #007bff;
+    }
+    .position-item.active h5 {
+        color: #007bff !important;
+        font-weight: 600;
+    }
+    .position-item.active p {
+        color: #333 !important;
+    }
+    .position-item.active .text-muted {
+        color: #007bff !important;
+        opacity: 0.9;
+    }
+    .position-item.active small {
+        color: #007bff !important;
+        opacity: 0.9;
+    }
+    .text-truncate { 
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+    }
+    .list-group {
+        background: transparent;
+        border: none;
+    }
+    .card-title, h4, h5 {
+        color: #0d2c4a;
+        font-weight: 600;
+    }
+    .btn-blue {
+        background: #6fb8dc;
+        color: #0d2c4a;
+        border: none;
+        transition: background 0.2s;
+        font-size: 0.97rem;
+        padding: 0.5rem 1.2rem;
+        border-radius: 0.4rem;
+        font-weight: 600;
+    }
+    .btn-blue:hover {
+        background: #3498db;
+        color: #fff;
+    }
+    .btn-primary {
+        background: #6fb8dc;
+        color: #0d2c4a;
+        border: none;
+        transition: background 0.2s;
+    }
+    .btn-primary:hover {
+        background: #3498db;
+        color: #fff;
+    }
+    .btn-outline-primary {
+        border-color: #6fb8dc;
+        color: #6fb8dc;
+    }
+    .btn-outline-primary:hover {
+        background: #6fb8dc;
+        color: #0d2c4a;
+    }
+    .text-muted {
+        color: #6c757d !important;
+    }
+    .modal-content {
+        border-radius: 0.4rem;
+    }
+    .modal-header {
+        background: #f6faff;
+        border-bottom: 1px solid #e6f3fb;
+    }
+    .modal-body {
+        background: #fafdff;
+    }
+    .modal-footer {
+        background: #f6faff;
+        border-top: 1px solid #e6f3fb;
+    }
+    .gap-2 {
+        gap: 0.5rem;
+    }
+    .d-flex.gap-2 {
+        display: flex;
+        flex-wrap: wrap;
     }
 </style>
-@if (TempData["Message"] != null)
+
+@if (isAdmin)
 {
-    <div class="alert alert-success">@TempData["Message"]</div>
-}
-<div class="d-flex align-items-center mb-3 flex-wrap">
-    @if (User != null && User.Identity != null && (User.IsInRole("Admin") || User.IsInRole("HR")))
-    {
-        <a class="btn btn-primary mr-3 mb-2" href="@Url.Action("Create")">Add New Position</a>
-    }
-    <div class="text-muted small">Select an open position to view details.</div>
-</div>
-<div class="row">
-    <div class="col-md-4 mb-3">
-        <div class="list-group pos-list" id="positionList">
-            @if (!openPositions.Any())
-            {
-                <div class="list-group-item">No open positions available.</div>
-            }
-            @foreach (var p in openPositions)
-            {
-                <a href="javascript:void(0);" 
-                   class="list-group-item list-group-item-action position-item @(p == first ? "active" : "")"
-                   data-id="@p.Id"
-                   data-title="@p.Title"
-                   data-desc="@p.Description"
-                   data-dept="@deptName(p)"
-                   data-posted="@p.PostedOn.ToShortDateString()"
-                   data-range="@(p.SalaryMin.HasValue && p.SalaryMax.HasValue ? string.Format("{0:C0} - {1:C0}", p.SalaryMin, p.SalaryMax) : "N/A")"
-                   data-url-details="@Url.Action("Details","Positions", new { id = p.Id })"
-                   data-url-edit="@Url.Action("Edit","Positions", new { id = p.Id })"
-                   data-url-apply="@Url.Action("Questionnaire","Applications", new { positionId = p.Id })">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="font-weight-bold">@p.Title</div>
-                            <div class="text-muted small pos-meta">@deptName(p)</div>
-                            <div class="text-muted small pos-meta">Posted: @p.PostedOn.ToShortDateString()</div>
-                        </div>
-                        <span class="badge badge-success">Open</span>
-                    </div>
-                </a>
-            }
-        </div>
+    <div class="mb-3">
+        <a class="btn btn-blue" href="@Url.Action("Create", "Positions")">
+            <i class="fas fa-plus"></i> New Position
+        </a>
     </div>
-    <div class="col-md-8">
-                <div class="card pos-detail-card" id="positionDetail" @(first == null ? "style=\"display:none;\"" : "")>
-            <div class="card-body">
-                <h4 class="card-title" id="posTitle">@((first != null) ? first.Title : "")</h4>
-                <p class="text-muted mb-2" id="posDept">@deptName(first)</p>
-                <p id="posDesc">@((first != null) ? first.Description : "")</p>
-                <p class="mb-1"><strong>Posted:</strong> <span id="posPosted">@((first != null) ? first.PostedOn.ToShortDateString() : "")</span></p>
-                <p class="mb-3"><strong>Salary Range:</strong> <span id="posRange">@((first != null && first.SalaryMin.HasValue && first.SalaryMax.HasValue) ? string.Format("{0:C0} - {1:C0}", first.SalaryMin, first.SalaryMax) : "N/A")</span></p>
-                <div>
-                    @if (User != null && User.Identity != null && (User.IsInRole("Admin") || User.IsInRole("HR")))
-                    {
-                        <a class="btn btn-secondary btn-sm" id="posEdit" href="@(first != null ? Url.Action("Edit","Positions", new { id = first.Id }) : "#")">Edit</a>
-                    }
-                    else if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
-                    {
-                        <a class="btn btn-primary btn-sm" id="posApply" href="@(first != null ? Url.Action("Questionnaire","Applications", new { positionId = first.Id }) : "#")">Apply</a>
-                    }
+}
+
+@if (!openPositions.Any())
+{
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No positions available at this time.
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-8">
+            <div class="list-group">
+                @foreach (var p in openPositions)
+                {
+                    <a class="list-group-item list-group-item-action position-item"
+                       href="#"
+                       data-title="@p.Title"
+                       data-desc="@(p.Description ?? "")"
+                       data-responsibilities="@getResponsibilities(p)"
+                       data-qualifications="@getQualifications(p)"
+                       data-dept="@(p.Department != null ? p.Department.Name : "")"
+                       data-posted="@p.PostedOn.ToShortDateString()"
+                       data-range="@(p.SalaryMin.HasValue && p.SalaryMax.HasValue ? formatSalary(p, p.SalaryMin) + " - " + formatSalary(p, p.SalaryMax) : "Salary Varies")"
+                       data-url-edit="@Url.Action("Edit", "Positions", new { id = p.Id })"
+                       data-url-apply="@Url.Action("Questionnaire", "Applications", new { positionId = p.Id })"
+                       data-url-applications="@Url.Action("Index", "Applications", new { positionId = p.Id })#appsCards-@p.Id">
+                        <div class="d-flex w-100 justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">@p.Title</h5>
+                                <small class="text-muted d-block">@(p.Department != null ? p.Department.Name : "No Department")</small>
+                            </div>
+                            <div class="text-right ml-3">
+                                <small class="text-muted d-block">@p.PostedOn.ToShortDateString()</small>
+                                @if (p.SalaryMin.HasValue)
+                                {
+                                    <small class="text-muted d-block">@formatSalary(p, p.SalaryMin)</small>
+                                }
+                            </div>
+                        </div>
+                        <p class="mb-2">@(string.IsNullOrEmpty(p.Description) ? "No description available." : (p.Description.Length > 150 ? p.Description.Substring(0, 150) + "..." : p.Description))</p>
+                    </a>
+                }
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div id="positionDetail" class="pos-detail-card" style="display:none;">
+                <h4 id="posTitle" class="mb-3"></h4>
+                <p class="text-muted mb-2" id="posDept"></p>
+                <p class="mb-2"><strong>Posted:</strong> <span id="posPosted"></span></p>
+                <p class="mb-3"><strong>Salary:</strong> <span id="posRange"></span></p>
+                <div class="d-flex flex-wrap gap-2">
+@* Conditional sidebar action buttons for admin/user on details card *@
+@if (isAdmin)
+{
+    <a id="posEdit" class="btn btn-sm btn-secondary" href="#">
+        <i class="fas fa-edit"></i> Edit
+    </a>
+    <a id="posViewApplications" class="btn btn-sm btn-warning" href="#">
+        <i class="fas fa-list-ul"></i> View Applications
+    </a>
+}
+else
+{
+    <a id="posApply" class="btn btn-sm btn-blue" href="#">
+        <i class="fas fa-paper-plane"></i> Apply
+    </a>
+}
+                    <button id="posViewDetails" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
                 </div>
             </div>
         </div>
-        @if (first == null)
-        {
-            <div class="alert alert-info">No open positions to display. Add a new position to get started.</div>
-        }
     </div>
+}
+
+<!-- Modal -->
+<div class="modal fade" id="positionModal" tabindex="-1" role="dialog" aria-labelledby="positionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPosTitle">Position</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-2" id="modalPosDept"></p>
+        <div id="modalPosDesc" class="mb-3"></div>
+        <div id="modalPosResponsibilities" class="mb-3" style="display:none;">
+          <strong class="d-block mb-2" style="color: #0d2c4a;">Key Responsibilities:</strong>
+          <div id="modalPosResponsibilitiesContent" style="white-space: pre-line; line-height: 1.8; color: #333;"></div>
+        </div>
+        <div id="modalPosQualifications" class="mb-3" style="display:none;">
+          <strong class="d-block mb-2" style="color: #0d2c4a;">Required Qualifications:</strong>
+          <div id="modalPosQualificationsContent" style="white-space: pre-line; line-height: 1.8; color: #333;"></div>
+        </div>
+        <p class="mb-2"><strong>Posted:</strong> <span id="modalPosPosted"></span></p>
+        <p class="mb-2"><strong>Salary:</strong> <span id="modalPosRange"></span></p>
+      </div>
+      <div class="modal-footer">
+@if (isAdmin)
+{
+    <a id="modalEdit" class="btn btn-secondary" href="#">
+        <i class="fas fa-edit"></i> Edit
+    </a>
+    <a id="modalViewApplications" class="btn btn-warning" href="#">
+        <i class="fas fa-list-ul"></i> View Applications
+    </a>
+}
+else
+{
+    <a id="modalApply" class="btn btn-blue" href="#">
+        <i class="fas fa-paper-plane"></i> Apply
+    </a>
+}
+        <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 @section Scripts {
-<script>
-    (function () {
-        var items = document.querySelectorAll('.position-item');
-        var title = document.getElementById('posTitle');
-        var desc = document.getElementById('posDesc');
-        var dept = document.getElementById('posDept');
-        var posted = document.getElementById('posPosted');
-        var range = document.getElementById('posRange');
-        var detail = document.getElementById('positionDetail');
-        var linkEdit = document.getElementById('posEdit');
-        var linkApply = document.getElementById('posApply');
+    <script>
+        (function () {
+            // Wait for DOM and jQuery to be ready
+            if (typeof jQuery === 'undefined') {
+                console.error('jQuery is not loaded');
+                return;
+            }
 
-        items.forEach(function (el) {
-            el.addEventListener('click', function () {
-                items.forEach(function (i) { i.classList.remove('active'); });
-                el.classList.add('active');
-                title.textContent = el.getAttribute('data-title');
-                desc.textContent = el.getAttribute('data-desc') || "No description provided.";
-                dept.textContent = el.getAttribute('data-dept');
-                posted.textContent = el.getAttribute('data-posted');
-                range.textContent = el.getAttribute('data-range');
-                if (linkEdit) {
-                    linkEdit.href = el.getAttribute('data-url-edit');
+            jQuery(document).ready(function ($) {
+                var items = document.querySelectorAll('.position-item');
+                var title = document.getElementById('posTitle');
+                var dept = document.getElementById('posDept');
+                var posted = document.getElementById('posPosted');
+                var range = document.getElementById('posRange');
+                var detail = document.getElementById('positionDetail');
+                var linkEdit = document.getElementById('posEdit');
+                var linkApply = document.getElementById('posApply');
+                var linkViewApplications = document.getElementById('posViewApplications');
+
+                // Check if required elements exist
+                if (!title || !dept || !posted || !range || !detail) {
+                    console.error('Required DOM elements not found');
+                    return;
                 }
-                if (linkApply) {
-                    linkApply.href = el.getAttribute('data-url-apply');
+
+                function makeActive(el) {
+                    if (!el) return;
+                    items.forEach(function (i) { i.classList.remove('active'); });
+                    el.classList.add('active');
+                    if (title) title.textContent = el.getAttribute('data-title') || '';
+                    if (dept) dept.textContent = el.getAttribute('data-dept') || '';
+                    if (posted) posted.textContent = el.getAttribute('data-posted') || '';
+                    if (range) range.textContent = el.getAttribute('data-range') || '';
+                    if (linkEdit) { linkEdit.href = el.getAttribute('data-url-edit') || '#'; }
+                    if (linkApply) { linkApply.href = el.getAttribute('data-url-apply') || '#'; }
+                    if (linkViewApplications) { linkViewApplications.href = el.getAttribute('data-url-applications') || '#'; }
+                    if (detail) detail.style.display = '';
                 }
-                detail.style.display = '';
+
+                items.forEach(function (el) {
+                    el.addEventListener('click', function () { makeActive(el); });
+                });
+
+                // modal elements
+                var modalTitle = document.getElementById('modalPosTitle');
+                var modalDesc = document.getElementById('modalPosDesc');
+                var modalResponsibilities = document.getElementById('modalPosResponsibilities');
+                var modalResponsibilitiesContent = document.getElementById('modalPosResponsibilitiesContent');
+                var modalQualifications = document.getElementById('modalPosQualifications');
+                var modalQualificationsContent = document.getElementById('modalPosQualificationsContent');
+                var modalDept = document.getElementById('modalPosDept');
+                var modalPosted = document.getElementById('modalPosPosted');
+                var modalRange = document.getElementById('modalPosRange');
+                var modalEdit = document.getElementById('modalEdit');
+                var modalApply = document.getElementById('modalApply');
+                var modalViewApplications = document.getElementById('modalViewApplications');
+
+                function populateModal(src) {
+                    if (!src) return;
+                    if (modalTitle) modalTitle.textContent = src.getAttribute('data-title') || '';
+                    var descText = src.getAttribute('data-desc') || '';
+                    if (modalDesc) {
+                        modalDesc.textContent = descText || 'No description provided.';
+                        modalDesc.style.display = descText ? 'block' : 'none';
+                    }
+                    var respText = src.getAttribute('data-responsibilities') || '';
+                    if (modalResponsibilities && modalResponsibilitiesContent) {
+                        if (respText) {
+                            modalResponsibilitiesContent.textContent = respText;
+                            modalResponsibilities.style.display = 'block';
+                        } else {
+                            modalResponsibilities.style.display = 'none';
+                        }
+                    }
+                    var qualText = src.getAttribute('data-qualifications') || '';
+                    if (modalQualifications && modalQualificationsContent) {
+                        if (qualText) {
+                            modalQualificationsContent.textContent = qualText;
+                            modalQualifications.style.display = 'block';
+                        } else {
+                            modalQualifications.style.display = 'none';
+                        }
+                    }
+                    if (modalDept) modalDept.textContent = src.getAttribute('data-dept') || '';
+                    if (modalPosted) modalPosted.textContent = src.getAttribute('data-posted') || '';
+                    if (modalRange) modalRange.innerHTML = src.getAttribute('data-range') || '';
+                    if (modalEdit) modalEdit.href = src.getAttribute('data-url-edit') || '#';
+                    if (modalApply) modalApply.href = src.getAttribute('data-url-apply') || '#';
+                    if (modalViewApplications) modalViewApplications.href = src.getAttribute('data-url-applications') || '#';
+                }
+
+
+                var cardView = document.getElementById('posViewDetails');
+                if (cardView) {
+                    cardView.addEventListener('click', function () {
+                        var active = document.querySelector('.position-item.active');
+                        if (!active) return;
+                        populateModal(active);
+                        var modal = $('#positionModal');
+                        if (modal.length) {
+                            modal.modal('show');
+                        }
+                    });
+                }
             });
-        });
-    })();
-</script>
+        })();
+    </script>
 }
+
 
 

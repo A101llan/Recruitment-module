@@ -242,6 +242,19 @@ else
         var cardsContainers = Array.from(document.querySelectorAll('[id^="appsCards-"]'));
         var cards = Array.from(document.querySelectorAll('[id^="appsCards-"] [data-date]'));
 
+        function scrollToPositionFromQuery() {
+            var params = new URLSearchParams(window.location.search);
+            var positionId = params.get('positionId');
+            if (!positionId) return;
+            var targetId = 'appsCards-' + positionId;
+            var target = document.getElementById(targetId);
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Briefly highlight the section for context
+            target.style.outline = '3px solid #6fb8dc';
+            setTimeout(function () { target.style.outline = ''; }, 1500);
+        }
+
         function sortCards() {
             if (!sortBy) return;
             
@@ -286,6 +299,8 @@ else
         }
         
         if (sortBy) sortBy.addEventListener('change', sortCards);
+        // Auto-scroll to the requested position section when arriving with a positionId
+        scrollToPositionFromQuery();
     })();
 </script>
 }

@@ -32,14 +32,26 @@
         @using (Html.BeginForm("Questionnaire", "Applications", FormMethod.Post, new { enctype = "multipart/form-data" })) {
             @Html.AntiForgeryToken()
             <div class="form-group">
-                <label>Why are you interested in this position?</label>
-                <select class="form-control" name="answer1" id="whyInterestedSelect" required onchange="document.getElementById('otherWhyField').style.display = this.value === 'Other' ? 'block' : 'none';">
-                    <option value="Career growth">Career growth</option>
-                    <option value="Company reputation">Company reputation</option>
-                    <option value="Skill match">Skill match</option>
-                    <option value="Other">Other</option>
-                </select>
-                <input type="text" class="form-control mt-2" name="otherWhy" id="otherWhyField" style="display:none;" placeholder="Please specify if Other" />
+                <label>Why are you interested in this position? <small class="text-muted">(Select all that apply)</small></label>
+                <div>
+                    <label class="mr-3"><input type="checkbox" name="interestReasons" value="Career growth" /> Career growth</label>
+                    <label class="mr-3"><input type="checkbox" name="interestReasons" value="Company reputation" /> Company reputation</label>
+                    <label class="mr-3"><input type="checkbox" name="interestReasons" value="Skill match" /> Skill match</label>
+                    <label class="mr-3"><input type="checkbox" name="interestReasons" value="Salary/benefits" /> Salary/benefits</label>
+                    <label class="mr-3"><input type="checkbox" name="interestReasons" value="Work-life balance" /> Work-life balance</label>
+                    <label class="mr-3"><input type="checkbox" name="interestReasons" value="Team/culture" /> Team/culture</label>
+                </div>
+                <small class="form-text text-muted">Selecting multiple reasons shows stronger interest (scored higher)</small>
+            </div>
+            <div class="form-group">
+                <label>Rate your interest level in this position: <small class="text-muted">(1 = Low, 5 = Very High)</small></label>
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn btn-outline-secondary"><input type="radio" name="interestLevel" value="1" required /> 1</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="interestLevel" value="2" /> 2</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="interestLevel" value="3" /> 3</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="interestLevel" value="4" /> 4</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="interestLevel" value="5" /> 5</label>
+                </div>
             </div>
             <div class="form-group">
                 <label>How many total years have you worked in this field or industry?</label>
@@ -62,13 +74,46 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>What is your expected salary?</label>
+                <label>What is your expected salary range?</label>
                 <select class="form-control" name="answer3" required>
+                    <option value="Below $30,000">Below $30,000</option>
                     <option value="$30,000 - $40,000">$30,000 - $40,000</option>
                     <option value="$40,000 - $50,000">$40,000 - $50,000</option>
                     <option value="$50,000 - $60,000">$50,000 - $60,000</option>
-                    <option value="$60,000+">$60,000+</option>
+                    <option value="$60,000 - $80,000">$60,000 - $80,000</option>
+                    <option value="$80,000 - $100,000">$80,000 - $100,000</option>
+                    <option value="$100,000+">$100,000+</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Rate your communication skills: <small class="text-muted">(1 = Poor, 5 = Excellent)</small></label>
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn btn-outline-secondary"><input type="radio" name="communicationSkills" value="1" required /> 1</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="communicationSkills" value="2" /> 2</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="communicationSkills" value="3" /> 3</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="communicationSkills" value="4" /> 4</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="communicationSkills" value="5" /> 5</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Rate your problem-solving skills: <small class="text-muted">(1 = Poor, 5 = Excellent)</small></label>
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn btn-outline-secondary"><input type="radio" name="problemSolvingSkills" value="1" required /> 1</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="problemSolvingSkills" value="2" /> 2</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="problemSolvingSkills" value="3" /> 3</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="problemSolvingSkills" value="4" /> 4</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="problemSolvingSkills" value="5" /> 5</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Rate your teamwork skills: <small class="text-muted">(1 = Poor, 5 = Excellent)</small></label>
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn btn-outline-secondary"><input type="radio" name="teamworkSkills" value="1" required /> 1</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="teamworkSkills" value="2" /> 2</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="teamworkSkills" value="3" /> 3</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="teamworkSkills" value="4" /> 4</label>
+                    <label class="btn btn-outline-secondary"><input type="radio" name="teamworkSkills" value="5" /> 5</label>
+                </div>
             </div>
             <div class="form-group">
                 <label>Highest Education Level</label>
@@ -112,8 +157,15 @@
                 foreach (var pq in positionQuestions)
                 {
                     <div class="form-group">
-                        <label>@pq.Question.Text</label>
-                        <textarea class="form-control" name="@("dynamicAnswer_" + pq.QuestionId)" rows="2"></textarea>
+                        <label>@pq.Question.Text <small class="text-muted">(Rate 1-5)</small></label>
+                        <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                            <label class="btn btn-outline-secondary"><input type="radio" name="@("dynamicAnswer_" + pq.QuestionId)" value="1" /> 1</label>
+                            <label class="btn btn-outline-secondary"><input type="radio" name="@("dynamicAnswer_" + pq.QuestionId)" value="2" /> 2</label>
+                            <label class="btn btn-outline-secondary"><input type="radio" name="@("dynamicAnswer_" + pq.QuestionId)" value="3" /> 3</label>
+                            <label class="btn btn-outline-secondary"><input type="radio" name="@("dynamicAnswer_" + pq.QuestionId)" value="4" /> 4</label>
+                            <label class="btn btn-outline-secondary"><input type="radio" name="@("dynamicAnswer_" + pq.QuestionId)" value="5" /> 5</label>
+                        </div>
+                        <small class="form-text text-muted">1 = Strongly Disagree / Poor, 5 = Strongly Agree / Excellent</small>
                     </div>
                 }
             }

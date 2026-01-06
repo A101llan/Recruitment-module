@@ -34,8 +34,23 @@ namespace HR.Web.Controllers
             var user = _uow.Users.GetAll().FirstOrDefault(u => u.UserName == username);
             if (user == null)
             {
-                ModelState.AddModelError("", "Invalid username. Please check your credentials.");
-                return View();
+                // Fallback: If trying to login as default demo users, create them if they don't exist
+                if (string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(username, "hr", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(username, "client", StringComparison.OrdinalIgnoreCase))
+                {
+                    var defaultRole = string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase) ? "Admin" :
+                                      string.Equals(username, "hr", StringComparison.OrdinalIgnoreCase) ? "HR" : "Client";
+                    var email = username.ToLower() + "@test.com";
+                    user = new User { UserName = username, Email = email, Role = defaultRole };
+                    _uow.Users.Add(user);
+                    _uow.Complete();
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Invalid username. Please check your credentials.");
+                    return View();
+                }
             }
 
             // Use the user's stored role from the database

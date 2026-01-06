@@ -167,6 +167,7 @@
     <Compile Include="Data\UnitOfWork.cs" />
     <Compile Include="Services\EmailService.cs" />
     <Compile Include="Services\StorageService.cs" />
+    <Compile Include="Services\CandidateEvaluationService.cs" />
     <Compile Include="Controllers\DashboardController.cs" />
     <Compile Include="Controllers\PositionsController.cs" />
     <Compile Include="Controllers\ApplicationsController.cs" />

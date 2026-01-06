@@ -35,12 +35,23 @@ namespace HR.Web
                     uow.Departments.Add(new Department { Name = "Engineering" });
                     uow.Departments.Add(new Department { Name = "HR" });
                 }
-                if (!uow.Users.GetAll().Any())
+                // Ensure default demo users exist
+                var existingUsers = uow.Users.GetAll().ToList();
+                var userNames = existingUsers.Select(u => u.UserName.ToLower()).ToList();
+                
+                if (!userNames.Contains("admin"))
                 {
                     uow.Users.Add(new User { UserName = "admin", Email = "admin@test.com", Role = "Admin" });
+                }
+                if (!userNames.Contains("hr"))
+                {
                     uow.Users.Add(new User { UserName = "hr", Email = "hr@test.com", Role = "HR" });
+                }
+                if (!userNames.Contains("client"))
+                {
                     uow.Users.Add(new User { UserName = "client", Email = "client@test.com", Role = "Client" });
                 }
+                uow.Complete();
                 if (!uow.Positions.GetAll().Any())
                 {
                     var eng = uow.Departments.GetAll().FirstOrDefault(d => d.Name == "Engineering");

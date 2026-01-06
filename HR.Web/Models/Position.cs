@@ -15,6 +15,17 @@ namespace HR.Web.Models
         [StringLength(2000)]
         public string Description { get; set; }
 
+        [StringLength(3000)]
+        [DataType(DataType.MultilineText)]
+        public string Responsibilities { get; set; }
+
+        [StringLength(3000)]
+        [DataType(DataType.MultilineText)]
+        public string Qualifications { get; set; }
+
+        [StringLength(10)]
+        public string Currency { get; set; }
+
         [Range(0, double.MaxValue)]
         public decimal? SalaryMin { get; set; }
 

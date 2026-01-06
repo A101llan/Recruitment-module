@@ -2,44 +2,82 @@
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewBag.Title = "Interviews";
+    var isAdmin = User != null && User.Identity != null && User.IsInRole("Admin");
 }
 
-<h4 class="mb-3"><i class="fas fa-calendar-check"></i> Scheduled Interviews</h4>
+<style>
+    body {
+        font-size: 0.97rem;
+        background: #f6faff;
+        min-height: 100vh;
+    }
+    .card-blue {
+        background: #fafdff;
+        border-radius: 0.4rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        border: 1.2px solid #b2d7f7;
+        padding: 1.5rem;
+        margin-top: 1.2rem;
+    }
+    .page-title {
+        color: #0d2c4a;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    .table thead th {
+        background-color: #e9f4ff;
+        border-color: #d3e6f7;
+    }
+</style>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">No interviews scheduled yet.</div>
-}
-else
-{
-    <table class="table table-hover table-bordered">
-        <thead class="thead-light">
-            <tr>
-                <th>Applicant</th>
-                <th>Position</th>
-                <th>Interviewer</th>
-                <th>Scheduled</th>
-                <th>Mode</th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var item in Model)
+<div class="container-fluid">
+    <div class="card-blue">
+        <h3 class="page-title"><i class="fas fa-calendar-check"></i> Scheduled Interviews</h3>
+
+        @if (!Model.Any())
         {
-            var applicantName = item.Application != null && item.Application.Applicant != null ? item.Application.Applicant.FullName : "N/A";
-            var positionTitle = item.Application != null && item.Application.Position != null ? item.Application.Position.Title : "N/A";
-            var interviewerName = item.Interviewer != null ? item.Interviewer.UserName : "N/A";
-            <tr>
-                <td class="align-middle">@applicantName</td>
-                <td class="align-middle">@positionTitle</td>
-                <td class="align-middle">@interviewerName</td>
-                <td class="align-middle">@item.ScheduledAt.ToString("g")</td>
-                <td class="align-middle">
-                    <span class="badge badge-info">@item.Mode</span>
-                </td>
-            </tr>
+            <div class="alert alert-info mb-0">No interviews scheduled yet.</div>
         }
-        </tbody>
-    </table>
-}
-
-
+        else
+        {
+            <table class="table table-hover table-bordered mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Applicant</th>
+                        <th>Position</th>
+                        <th>Interviewer</th>
+                        <th>Scheduled</th>
+                        <th>Mode</th>
+                        @if (isAdmin)
+                        {
+                            <th style="width: 120px;">Actions</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model)
+                {
+                    var applicantName = item.Application != null && item.Application.Applicant != null ? item.Application.Applicant.FullName : "N/A";
+                    var positionTitle = item.Application != null && item.Application.Position != null ? item.Application.Position.Title : "N/A";
+                    var interviewerName = item.Interviewer != null ? item.Interviewer.UserName : "N/A";
+                    <tr>
+                        <td class="align-middle">@applicantName</td>
+                        <td class="align-middle">@positionTitle</td>
+                        <td class="align-middle">@interviewerName</td>
+                        <td class="align-middle">@item.ScheduledAt.ToString("g")</td>
+                        <td class="align-middle">
+                            <span class="badge badge-info">@item.Mode</span>
+                        </td>
+                        @if (isAdmin)
+                        {
+                            <td class="align-middle">
+                                @Html.ActionLink("Reschedule", "Edit", "Interviews", new { id = item.Id }, new { @class = "btn btn-sm btn-blue" })
+                            </td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
