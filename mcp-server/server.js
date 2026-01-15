@@ -540,7 +540,7 @@ class HRQuestionnaireServer {
   }
 
   async generateQuestions(args) {
-    const { jobTitle, jobDescription, experience = 'mid', questionTypes = ['technical', 'behavioral'], count = 5 } = args;
+    const { jobTitle, jobDescription, experience = 'mid', questionTypes = ['Text', 'Choice', 'Number', 'Rating'], count = 5 } = args;
     
     // Extract keywords from job description
     const keywords = this.extractKeywords(jobDescription);
@@ -548,20 +548,47 @@ class HRQuestionnaireServer {
     // Get relevant questions from question bank
     const questions = [];
     
-    // Technical questions
-    if (questionTypes.includes('technical')) {
-      const techQuestions = [
+    // Text questions
+    if (questionTypes.includes('Text')) {
+      const textQuestions = [
         {
           text: `Describe your experience with ${keywords.primaryTech || 'relevant technologies'}.`,
           type: 'Text',
           category: 'technical',
-          suggestedOptions: [
-            { text: 'No experience', points: 0 },
-            { text: 'Basic knowledge', points: 4 },
-            { text: 'Proficient', points: 7 },
-            { text: 'Expert level', points: 10 }
-          ]
+          suggestedOptions: []
         },
+        {
+          text: 'Describe a challenging situation you faced at work and how you resolved it.',
+          type: 'Text',
+          category: 'problem-solving',
+          suggestedOptions: []
+        },
+        {
+          text: 'How do you handle feedback and criticism in the workplace?',
+          type: 'Text',
+          category: 'professionalism',
+          suggestedOptions: []
+        },
+        {
+          text: `What interests you about the ${jobTitle || 'position'} role?`,
+          type: 'Text',
+          category: 'motivation',
+          suggestedOptions: []
+        },
+        {
+          text: 'Describe your approach to problem-solving when faced with unexpected challenges.',
+          type: 'Text',
+          category: 'analytical',
+          suggestedOptions: []
+        }
+      ];
+      const textCount = Math.ceil(count * 0.25); // 25% text questions
+      questions.push(...textQuestions.slice(0, textCount));
+    }
+    
+    // Choice questions
+    if (questionTypes.includes('Choice')) {
+      const choiceQuestions = [
         {
           text: 'How do you ensure code quality and maintainability?',
           type: 'Choice',
@@ -572,38 +599,114 @@ class HRQuestionnaireServer {
             { text: 'Code reviews and testing', points: 7 },
             { text: 'Comprehensive quality practices', points: 10 }
           ]
-        }
-      ];
-      questions.push(...techQuestions.slice(0, Math.ceil(count / 2)));
-    }
-    
-    // Behavioral questions
-    if (questionTypes.includes('behavioral')) {
-      const behavQuestions = [
+        },
         {
-          text: 'Describe a challenging situation you faced at work and how you resolved it.',
-          type: 'Text',
-          category: 'problem-solving',
+          text: 'Which collaboration tools do you prefer for team projects?',
+          type: 'Choice',
+          category: 'teamwork',
           suggestedOptions: [
-            { text: 'No specific examples', points: 0 },
-            { text: 'Basic problem description', points: 4 },
-            { text: 'Clear problem and solution', points: 7 },
-            { text: 'Complex situation with successful outcome', points: 10 }
+            { text: 'Email only', points: 2 },
+            { text: 'Chat applications', points: 5 },
+            { text: 'Project management tools', points: 8 },
+            { text: 'Combination of tools', points: 10 }
           ]
         },
         {
-          text: 'How do you handle feedback and criticism?',
-          type: 'Text',
-          category: 'professionalism',
+          text: 'What is your preferred work environment?',
+          type: 'Choice',
+          category: 'work-style',
           suggestedOptions: [
-            { text: 'Struggle with feedback', points: 0 },
-            { text: 'Accept but don\'t act on it', points: 3 },
-            { text: 'Learn from feedback', points: 7 },
-            { text: 'Proactively seek and implement feedback', points: 10 }
+            { text: 'Remote only', points: 3 },
+            { text: 'Hybrid', points: 7 },
+            { text: 'In-office', points: 5 },
+            { text: 'Flexible', points: 10 }
           ]
         }
       ];
-      questions.push(...behavQuestions.slice(0, Math.floor(count / 2)));
+      const choiceCount = Math.ceil(count * 0.25); // 25% choice questions
+      questions.push(...choiceQuestions.slice(0, choiceCount));
+    }
+    
+    // Number questions
+    if (questionTypes.includes('Number')) {
+      const numberQuestions = [
+        {
+          text: 'How many years of experience do you have with version control systems?',
+          type: 'Number',
+          category: 'technical',
+          suggestedOptions: [
+            { text: '0-1 years', points: 2 },
+            { text: '2-4 years', points: 5 },
+            { text: '5-7 years', points: 8 },
+            { text: '8+ years', points: 10 }
+          ]
+        },
+        {
+          text: 'How many projects have you led from start to finish?',
+          type: 'Number',
+          category: 'leadership',
+          suggestedOptions: [
+            { text: '0 projects', points: 0 },
+            { text: '1-2 projects', points: 4 },
+            { text: '3-5 projects', points: 7 },
+            { text: '6+ projects', points: 10 }
+          ]
+        },
+        {
+          text: 'On a scale of 1-10, how would you rate your communication skills?',
+          type: 'Number',
+          category: 'communication',
+          suggestedOptions: [
+            { text: '1-3 (Needs improvement)', points: 2 },
+            { text: '4-6 (Average)', points: 5 },
+            { text: '7-8 (Good)', points: 8 },
+            { text: '9-10 (Excellent)', points: 10 }
+          ]
+        }
+      ];
+      const numberCount = Math.ceil(count * 0.25); // 25% number questions
+      questions.push(...numberQuestions.slice(0, numberCount));
+    }
+    
+    // Rating questions
+    if (questionTypes.includes('Rating')) {
+      const ratingQuestions = [
+        {
+          text: `What is your experience level with ${keywords.primaryTech || 'core technologies'}?`,
+          type: 'Rating',
+          category: 'technical',
+          suggestedOptions: [
+            { text: 'Beginner', points: 2 },
+            { text: 'Intermediate', points: 5 },
+            { text: 'Advanced', points: 8 },
+            { text: 'Expert', points: 10 }
+          ]
+        },
+        {
+          text: 'Rate your proficiency with database management systems.',
+          type: 'Rating',
+          category: 'technical',
+          suggestedOptions: [
+            { text: 'No experience', points: 0 },
+            { text: 'Basic knowledge', points: 4 },
+            { text: 'Proficient', points: 7 },
+            { text: 'Expert level', points: 10 }
+          ]
+        },
+        {
+          text: 'How would you rate your teamwork and collaboration skills?',
+          type: 'Rating',
+          category: 'teamwork',
+          suggestedOptions: [
+            { text: '1-3 (Needs improvement)', points: 2 },
+            { text: '4-6 (Average)', points: 5 },
+            { text: '7-8 (Good)', points: 8 },
+            { text: '9-10 (Excellent)', points: 10 }
+          ]
+        }
+      ];
+      const ratingCount = Math.ceil(count * 0.25); // 25% rating questions
+      questions.push(...ratingQuestions.slice(0, ratingCount));
     }
     
     return {
@@ -622,6 +725,22 @@ class HRQuestionnaireServer {
           }, null, 2)
         }
       ]
+    };
+  }
+
+  extractKeywords(jobDescription) {
+    // Simple keyword extraction
+    const techKeywords = ['javascript', 'python', 'java', 'c#', 'sql', 'react', 'angular', 'node.js', 'aws', 'azure', 'docker'];
+    const words = jobDescription.toLowerCase().split(/\s+/);
+    
+    const found = words.filter(word => 
+      techKeywords.some(tech => word.includes(tech))
+    );
+    
+    return {
+      primaryTech: found[0] || 'technologies',
+      secondaryTech: found[1] || 'systems',
+      allTech: found
     };
   }
 

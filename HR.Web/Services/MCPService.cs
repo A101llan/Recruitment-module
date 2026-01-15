@@ -40,6 +40,8 @@ namespace HR.Web.Services
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"MCP Service: Calling tool '{toolName}' with parameters: {JsonConvert.SerializeObject(parameters)}");
+                
                 var request = new
                 {
                     jsonrpc = "2.0",
@@ -53,10 +55,21 @@ namespace HR.Web.Services
                 };
 
                 var response = await ExecuteMCPCommandAsync(request);
-                return JsonConvert.DeserializeObject<MCPResponse>(response);
+                var mcpResponse = JsonConvert.DeserializeObject<MCPResponse>(response);
+                
+                System.Diagnostics.Debug.WriteLine($"MCP Service: Response success: {mcpResponse.Success}");
+                if (mcpResponse.Success && mcpResponse.Result != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"MCP Service: Response result: {mcpResponse.Result}");
+                }
+                
+                return mcpResponse;
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"MCP Service: Exception occurred: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"MCP Service: Falling back to stub response for {toolName}");
+                
                 // Fallback: return stubbed responses so UI remains usable in dev
                 try
                 {
@@ -187,6 +200,9 @@ namespace HR.Web.Services
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"MCP Service: Executing command with Node path: {_nodePath}");
+                System.Diagnostics.Debug.WriteLine($"MCP Service: Server path: {_mcpServerPath}");
+                
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = _nodePath,
@@ -204,17 +220,20 @@ namespace HR.Web.Services
                 {
                     process.Start();
 
-                    // Send the request then close stdin to signal EOF
+                    // Send request then close stdin to signal EOF
                     var requestJson = JsonConvert.SerializeObject(request);
+                    System.Diagnostics.Debug.WriteLine($"MCP Service: Sending request: {requestJson}");
                     process.StandardInput.WriteLine(requestJson);
                     process.StandardInput.Flush();
                     process.StandardInput.Close();
 
-                    // Wait for a short period; the server.js might be long-lived otherwise
-                    const int TimeoutMs = 2000;
+                    // Wait for a response; the server.js might be long-lived otherwise
+                    const int TimeoutMs = 35000;
+                    System.Diagnostics.Debug.WriteLine($"MCP Service: Waiting for response (timeout: {TimeoutMs}ms)");
                     var exited = process.WaitForExit(TimeoutMs);
                     if (!exited)
                     {
+                        System.Diagnostics.Debug.WriteLine("MCP Service: Process timed out, killing process");
                         try { process.Kill(); } catch { }
                         throw new TimeoutException("MCP server did not respond in time");
                     }
@@ -222,10 +241,12 @@ namespace HR.Web.Services
                     var error = process.StandardError.ReadToEnd();
                     if (!string.IsNullOrEmpty(error))
                     {
+                        System.Diagnostics.Debug.WriteLine($"MCP Service: Error output: {error}");
                         throw new Exception($"MCP Server Error: {error}");
                     }
 
                     var response = process.StandardOutput.ReadToEnd();
+                    System.Diagnostics.Debug.WriteLine($"MCP Service: Raw response: {response}");
                     return response;
                 }
             }

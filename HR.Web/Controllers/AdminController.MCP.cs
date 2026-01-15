@@ -6,6 +6,7 @@ using System.Web.Mvc;
 using System.Data.Entity;
 using HR.Web.Models;
 using HR.Web.Services;
+using HR.Web.ViewModels;
 using Newtonsoft.Json;
 
 namespace HR.Web.Controllers
@@ -21,7 +22,15 @@ namespace HR.Web.Controllers
         /// <summary>
         /// Generate questions using MCP based on job description
         /// </summary>
-        [AcceptVerbs(HttpVerbs.Get | HttpVerbs.Post)]
+        // GET: Admin/GenerateQuestions
+        [HttpGet]
+        public ActionResult GenerateQuestions()
+        {
+            return View(new GenerateQuestionsViewModel());
+        }
+
+        // POST: Admin/GenerateQuestions
+        [HttpPost]
         [AllowAnonymous]
         [OverrideAuthorization]
         public async Task<ActionResult> GenerateQuestions(string jobTitle, string jobDescription, string experience = "mid", string[] questionTypes = null, int count = 5)
@@ -123,18 +132,25 @@ namespace HR.Web.Controllers
                 var isConnected = await _mcpService.TestConnectionAsync();
                 System.Diagnostics.Debug.WriteLine($"MCP Connected: {isConnected}");
                 
-                // Guard with short timeout to avoid UI hangs
+                // Guard with timeout to avoid UI hangs
                 var callTask = _mcpService.CallToolAsync("generate-questions", parameters);
-                var completed = await Task.WhenAny(callTask, Task.Delay(5000)); // Increased timeout to 5 seconds
+                var completed = await Task.WhenAny(callTask, Task.Delay(30000)); // Increased timeout to 30 seconds
                 MCPResponse response;
                 if (completed == callTask)
                 {
                     response = callTask.Result;
                     System.Diagnostics.Debug.WriteLine("MCP Response received successfully");
+                    System.Diagnostics.Debug.WriteLine($"Response success: {response.Success}");
+                    if (response.Success && response.Result != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Response result type: {response.Result.GetType()}");
+                        System.Diagnostics.Debug.WriteLine($"Response result: {response.Result}");
+                    }
                 }
                 else
                 {
                     System.Diagnostics.Debug.WriteLine("MCP timeout - using fallback generation");
+                    System.Diagnostics.Debug.WriteLine($"Timeout occurred after 30 seconds");
                     // Generate fallback questions based on job description
                     var stubQuestions = new List<GeneratedQuestion>();
                     var templates = new[]
@@ -673,9 +689,9 @@ namespace HR.Web.Controllers
             try
             {
                 // Get all applications for the position
-                var applications = _uow.Applications.GetAll()
+                var applications = _uow.Context.Applications
                     .Where(a => a.PositionId == positionId)
-                    .Include(a => a.Candidate)
+                    .Include(a => a.Applicant)
                     .Include(a => a.ApplicationAnswers)
                     .ToList();
 
@@ -695,9 +711,9 @@ namespace HR.Web.Controllers
                 var candidatesData = applications.Select(app => new
                 {
                     applicationId = app.Id,
-                    candidateId = app.Candidate.Id,
-                    candidateName = app.Candidate.FullName,
-                    candidateEmail = app.Candidate.Email,
+                    candidateId = app.Applicant.Id,
+                    candidateName = app.Applicant.FullName,
+                    candidateEmail = app.Applicant.Email,
                     answers = app.ApplicationAnswers.Select(aa => new
                     {
                         questionText = positionQuestions.FirstOrDefault(pq => pq.QuestionId == aa.QuestionId)?.Question?.Text ?? "",
@@ -740,8 +756,8 @@ namespace HR.Web.Controllers
                 var fallbackEvaluations = applications.Select(app => new
                 {
                     applicationId = app.Id,
-                    candidateName = app.Candidate.FullName,
-                    candidateEmail = app.Candidate.Email,
+                    candidateName = app.Applicant.FullName,
+                    candidateEmail = app.Applicant.Email,
                     totalScore = _scoringService.CalculateApplicationScore(app),
                     answerCount = app.ApplicationAnswers.Count(),
                     redFlags = new List<string>() // No AI analysis available

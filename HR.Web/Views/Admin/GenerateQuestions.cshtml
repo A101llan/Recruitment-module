@@ -1,0 +1,569 @@
+@model HR.Web.ViewModels.GenerateQuestionsViewModel
+@{
+    ViewBag.Title = "Generate Questions with AI";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Generate Questions with AI</h2>
+        <div>
+            <a href="@Url.Action("QuestionsWithMCP", "Admin")" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Questions
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-success">@TempData["Message"]</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <!-- MCP Status -->
+    <div id="mcpStatus" class="alert alert-info">
+        <strong>Checking MCP Connection...</strong>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>AI Question Generation</h5>
+        </div>
+        <div class="card-body">
+            <form id="aiGenerationForm">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="batchJobTitle">Desired Position Title <span class="text-danger">*</span></label>
+                            <input type="text" id="batchJobTitle" class="form-control" placeholder="e.g., Senior Backend Developer" required />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="batchCount">Number of Questions</label>
+                            <input type="number" id="batchCount" class="form-control" value="10" min="1" max="20" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="batchJobDescription">Job Description <span class="text-danger">*</span></label>
+                    <textarea id="batchJobDescription" class="form-control" rows="4" placeholder="Provide a detailed job description including responsibilities, requirements, and skills..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Question Types</label>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Text" id="typeText" checked>
+                                <label class="form-check-label" for="typeText">Text</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Choice" id="typeChoice" checked>
+                                <label class="form-check-label" for="typeChoice">Multiple Choice</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Number" id="typeNumber">
+                                <label class="form-check-label" for="typeNumber">Number</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Rating" id="typeRating">
+                                <label class="form-check-label" for="typeRating">Rating</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="createNewPosition">
+                        <label class="form-check-label" for="createNewPosition">
+                            Also create a new position with these questions
+                        </label>
+                    </div>
+                </div>
+
+                <!-- New Position Fields (Hidden by default) -->
+                <div id="newPositionFields" style="display:none;">
+                    <hr />
+                    <h6>New Position Details</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Position Title</label>
+                                <input type="text" id="newPositionTitle" class="form-control" placeholder="e.g., Senior Backend Engineer" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Department</label>
+                                <select id="newPositionDepartment" class="form-control">
+                                    <option value="">-- Select Department --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Position Description</label>
+                        <textarea id="newPositionDescription" class="form-control" rows="3" placeholder="Brief description for the position listing"></textarea>
+                    </div>
+                    <small class="form-text text-muted">Position title and description are used to tailor generated questions.</small>
+                </div>
+
+                <button type="button" id="executeBatchGenerate" class="btn btn-primary">
+                    <i class="fas fa-magic"></i> Generate Questions
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Panel for Generated Questions -->
+    <div id="batchGenerationResults" style="display:none; margin-top:20px;">
+        <div class="card">
+            <div class="card-header">
+                <h5>Generated Questions</h5>
+            </div>
+            <div class="card-body">
+                <div id="batchQuestionsList"></div>
+                <div class="mt-3" id="generatedQuestionsActions" style="display:none;">
+                    <!-- Add to Sample Questions -->
+                    <div class="mb-2" id="addToSampleSection">
+                        <button type="button" class="btn btn-primary" onclick="addGeneratedQuestionsToSample()"
+                            data-bs-toggle="tooltip" data-bs-placement="top" 
+                            title="Add these questions to the sample questions collection">
+                            <i class="fas fa-bookmark"></i> Add to Sample Questions
+                        </button>
+                    </div>
+                    
+                    <!-- Always show Add to Question Bank -->
+                    <div class="mb-2" id="addToBankSection">
+                        <button type="button" class="btn btn-success" onclick="addGeneratedQuestionsToBank()"
+                            data-bs-toggle="tooltip" data-bs-placement="top" 
+                            title="Questions become available for all positions">
+                            <i class="fas fa-plus"></i> Add to Question Bank
+                        </button>
+                    </div>
+                    
+                    <!-- Only show Create Position when checkbox is checked -->
+                    <div id="createPositionSection" style="display:none;">
+                        <button type="button" class="btn btn-primary" onclick="createPositionAndAddQuestions()">
+                            <i class="fas fa-briefcase"></i> Create Position & Add Questions
+                        </button>
+                        <small class="form-text text-muted d-block mt-1">
+                            Create a new position with these questions assigned
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+// Store generated questions globally for action functions
+var generatedQuestions = [];
+
+// Define functions globally so they can be accessed by onclick handlers
+function addGeneratedQuestionsToBank() {
+    if (!generatedQuestions.length) {
+        alert('No questions to add. Please generate questions first.');
+        return;
+    }
+    
+    $.ajax({
+        url: '@Url.Action("AddGeneratedQuestionsToBank", "Admin")',
+        type: 'POST',
+        data: {
+            questionsJson: JSON.stringify(generatedQuestions)
+        },
+        success: function(response) {
+            if (response.success) {
+                alert(response.message);
+                // Clear the generated questions
+                generatedQuestions = [];
+                $('#batchGenerationResults').hide();
+                $('#generatedQuestionsActions').hide();
+                $('#batchQuestionsList').empty();
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error adding questions to bank');
+        }
+    });
+}
+
+function addGeneratedQuestionsToSample() {
+    if (!generatedQuestions.length) {
+        alert('No questions to add. Please generate questions first.');
+        return;
+    }
+
+    // Convert generated questions to the format expected by the backend
+    var questionsToAdd = generatedQuestions.map(function(q, index) {
+        return {
+            id: index, // Use index as temporary ID
+            text: q.text || q.question || '',
+            type: q.type || 'Text',
+            isActive: true
+        };
+    });
+
+    // Call backend to check for duplicates
+    $.ajax({
+        url: '@Url.Action("AddToSampleQuestions", "Admin")',
+        type: 'POST',
+        data: {
+            questionsJson: JSON.stringify(questionsToAdd)
+        },
+        success: function(response) {
+            if (response.success) {
+                if (response.requiresDecision) {
+                    // Show duplicate decision modal
+                    showDuplicateDecisionModal(response.duplicates, response.newQuestions);
+                } else {
+                    // No duplicates, show success
+                    alert(response.message);
+                    // Clear the generated questions
+                    generatedQuestions = [];
+                    $('#batchGenerationResults').hide();
+                    $('#generatedQuestionsActions').hide();
+                    $('#batchQuestionsList').empty();
+                    setTimeout(() => location.reload(), 1000);
+                }
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error adding questions to sample collection');
+        }
+    });
+}
+
+function createPositionAndAddQuestions() {
+    var positionTitle = $('#newPositionTitle').val();
+    var positionDescription = $('#newPositionDescription').val();
+    var positionDepartment = $('#newPositionDepartment').val();
+    
+    if (!positionTitle || !positionDescription) {
+        alert('Please fill in the new position details.');
+        return;
+    }
+    
+    if (!generatedQuestions.length) {
+        alert('No questions to add. Please generate questions first.');
+        return;
+    }
+    
+    // TODO: Implement server endpoint to create position and assign questions
+    alert('Feature coming soon: New position will be created and questions assigned.');
+}
+
+function showDuplicateDecisionModal(duplicates, newQuestions) {
+    var modalHtml = `
+        <div class="modal fade" id="duplicateDecisionModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Duplicate Questions Found</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>The following questions already exist in the sample questions. Please decide whether to keep them as new questions or skip them:</p>
+                        
+                        <h6>New Questions (${newQuestions.length})</h6>
+                        <div class="list-group mb-3">
+                            ${newQuestions.map(q => `
+                                <div class="list-group-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" checked>
+                                        <label class="form-check-label">
+                                            <strong>${q.text}</strong> (${q.type})
+                                        </label>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <h6>Potential Duplicates (${duplicates.length})</h6>
+                        <div class="list-group">
+                            ${duplicates.map(d => `
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="dup_${d.id}" 
+                                                   data-duplicate='${JSON.stringify(d).replace(/'/g, "&apos;")}'
+                                                   checked>
+                                            <label class="form-check-label" for="dup_${d.id}">
+                                                <strong>${d.text}</strong> (${d.type})
+                                                <br><small class="text-muted">Similar to: ${d.existingQuestionText}</small>
+                                            </label>
+                                        </div>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary me-1" 
+                                                    onclick="selectDuplicateAction('${d.id}', 'keep')">
+                                                Keep as New
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                                    onclick="selectDuplicateAction('${d.id}', 'skip')">
+                                                Skip
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="processDuplicateDecisions(${newQuestions.length}, ${duplicates.length})">
+                            Process Questions
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('body').append(modalHtml);
+    $('#duplicateDecisionModal').modal('show');
+    
+    // Clean up on modal hide
+    $('#duplicateDecisionModal').on('hidden.bs.modal', function () {
+        $(this).remove();
+    });
+}
+
+function selectDuplicateAction(duplicateId, action) {
+    var checkbox = $(`#dup_${duplicateId}`);
+    checkbox.data('action', action);
+    
+    // Update button styles
+    var parent = checkbox.closest('.list-group-item');
+    parent.find('.btn-outline-primary').toggleClass('btn-outline-primary btn-primary', action === 'keep');
+    parent.find('.btn-outline-secondary').toggleClass('btn-outline-secondary btn-secondary', action === 'skip');
+}
+
+function processDuplicateDecisions(newCount, duplicateCount) {
+    var decisions = [];
+    
+    // Add all new questions (they're checked by default)
+    for (let i = 0; i < newCount; i++) {
+        // These will be processed automatically
+    }
+    
+    // Process duplicate decisions
+    $('#duplicateDecisionModal input[data-duplicate]').each(function() {
+        var $this = $(this);
+        var duplicateData = JSON.parse($this.data('duplicate'));
+        var action = $this.data('action') || ($this.is(':checked') ? 'keep' : 'skip');
+        
+        decisions.push({
+            id: duplicateData.id,
+            newText: duplicateData.text,
+            type: duplicateData.type,
+            action: action,
+            existingQuestionId: duplicateData.existingQuestionId
+        });
+    });
+
+    if (decisions.length === 0) {
+        alert('Please make decisions for duplicate questions.');
+        return;
+    }
+
+    // Send decisions to backend
+    $.ajax({
+        url: '@Url.Action("ProcessDuplicateDecisions", "Admin")',
+        type: 'POST',
+        data: {
+            decisionsJson: JSON.stringify(decisions)
+        },
+        success: function(response) {
+            if (response.success) {
+                $('#duplicateDecisionModal').modal('hide');
+                alert(response.message);
+                // Clear the generated questions
+                generatedQuestions = [];
+                $('#batchGenerationResults').hide();
+                $('#generatedQuestionsActions').hide();
+                $('#batchQuestionsList').empty();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error processing duplicate decisions');
+        }
+    });
+}
+
+$(document).ready(function() {
+    // Check MCP connection
+    checkMCPConnection();
+
+    // Pre-load departments for new position dropdown
+    loadDepartments();
+
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Toggle new position fields
+    $('#createNewPosition').change(function() {
+        if ($(this).is(':checked')) {
+            $('#newPositionFields').show();
+            // Auto-populate position title from job title
+            $('#newPositionTitle').val($('#batchJobTitle').val());
+        } else {
+            $('#newPositionFields').hide();
+        }
+    });
+
+    // Auto-sync position title with job title when typing
+    $('#batchJobTitle').on('input', function() {
+        if ($('#createNewPosition').is(':checked')) {
+            $('#newPositionTitle').val($(this).val());
+        }
+    });
+
+    // Generate questions
+    $('#executeBatchGenerate').click(executeBatchGeneration);
+
+    // Functions
+    function checkMCPConnection() {
+        $.ajax({
+            url: '@Url.Action("TestMCPConnection", "Admin")',
+            type: 'GET',
+            success: function(response) {
+                if (response.success && response.connected) {
+                    $('#mcpStatus').removeClass('alert-warning').addClass('alert-success')
+                        .html('<strong>MCP Connected:</strong> AI features available');
+                } else {
+                    $('#mcpStatus').removeClass('alert-info').addClass('alert-warning')
+                        .html('<strong>MCP Not Available:</strong> Some AI features may be limited');
+                }
+            },
+            error: function() {
+                $('#mcpStatus').removeClass('alert-info').addClass('alert-danger')
+                    .html('<strong>MCP Error:</strong> Unable to connect to MCP server');
+            }
+        });
+    }
+
+    function loadDepartments() {
+        $.ajax({
+            url: '@Url.Action("GetDepartments", "Admin")',
+            type: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    var select = $('#newPositionDepartment');
+                    select.empty().append('<option value="">-- Select Department --</option>');
+                    response.departments.forEach(function(dept) {
+                        select.append('<option value="' + dept + '">' + dept + '</option>');
+                    });
+                }
+            },
+            error: function() {
+                console.error('Failed to load departments');
+            }
+        });
+    }
+
+    function executeBatchGeneration() {
+        var jobTitle = $('#batchJobTitle').val();
+        var jobDescription = $('#batchJobDescription').val();
+        var count = parseInt($('#batchCount').val()) || 10;
+        var questionTypes = [];
+
+        $('input[type="checkbox"]:checked').each(function() {
+            questionTypes.push($(this).val());
+        });
+
+        // Validate required fields
+        if (!jobTitle) {
+            alert('Please enter a desired position title.');
+            return;
+        }
+        if (!jobDescription) {
+            alert('Please provide a job description.');
+            return;
+        }
+
+        console.log('Sending parameters:', {
+            jobTitle: jobTitle,
+            jobDescription: jobDescription,
+            experience: 'mid',
+            questionTypes: questionTypes,
+            count: count
+        });
+
+        $.ajax({
+            url: '@Url.Action("GenerateQuestions", "Admin")',
+            type: 'POST',
+            traditional: true,
+            data: {
+                jobTitle: jobTitle,
+                jobDescription: jobDescription,
+                experience: 'mid',
+                questionTypes: questionTypes,
+                count: count
+            },
+            success: function(response) {
+                console.log('Received response:', response);
+                console.log('Number of questions:', response.questions ? response.questions.length : 0);
+                
+                if (response.success && response.questions && response.questions.length > 0) {
+                    // Store generated questions globally
+                    generatedQuestions = response.questions;
+                    
+                    // Render questions in results panel with action buttons
+                    var html = '<ol>';
+                    response.questions.forEach(function(q, i) {
+                        html += '<li style="margin-bottom:10px;"><strong>' + (q.text || q.question || '') + '</strong>';
+                        if (q.options && q.options.length > 0) {
+                            html += '<ul>';
+                            q.options.forEach(function(opt) {
+                                html += '<li>' + (opt.text || opt) + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        html += '</li>';
+                    });
+                    html += '</ol>';
+                    
+                    $('#batchQuestionsList').html(html);
+                    $('#batchGenerationResults').show();
+                    $('#generatedQuestionsActions').show();
+                } else {
+                    $('#batchQuestionsList').html('<div class="alert alert-warning">No questions generated. Try again or check your input.</div>');
+                    $('#batchGenerationResults').show();
+                    $('#generatedQuestionsActions').hide();
+                }
+            },
+            error: function() {
+                alert('Error generating questions');
+            }
+        });
+    }
+});
+</script>
+}
