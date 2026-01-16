@@ -117,7 +117,7 @@ namespace HR.Web.Controllers
                     return Json(new { success = false, message = "Job title and description are required" });
                 }
 
-                questionTypes = questionTypes ?? new[] { "technical", "behavioral" };
+                questionTypes = questionTypes ?? new[] { "Text", "Choice", "Number", "Rating" };
                 
                 var parameters = new
                 {
