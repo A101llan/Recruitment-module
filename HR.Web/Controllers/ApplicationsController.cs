@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
+using System.Data.Entity;
 using HR.Web.Data;
 using HR.Web.Models;
 using HR.Web.Services;
@@ -70,46 +72,23 @@ public class ApplicationsController : Controller
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public ActionResult Questionnaire(
-        int? positionId,
-        string[] interestReasons,
-        string interestLevel,
-        string yearsInField,
-        string yearsInRole,
-        string answer3,
-        string educationLevel,
-        string workAvailability,
-        string workMode,
-        string availabilityToStart,
-        string communicationSkills,
-        string problemSolvingSkills,
-        string teamworkSkills,
-        HttpPostedFileBase resume)
+    public ActionResult Questionnaire(int positionId, FormCollection form, HttpPostedFileBase resume)
     {
-        if (!positionId.HasValue)
-        {
-            // Try to recover from form field if possible
-            int parsed;
-            var raw = Request["positionId"];
-            if (!string.IsNullOrWhiteSpace(raw) && int.TryParse(raw, out parsed))
-            {
-                positionId = parsed;
-            }
-        }
-
-        if (!positionId.HasValue)
+        if (positionId <= 0)
         {
             return RedirectToAction("Index", "Positions");
         }
 
-        var position = _uow.Positions.Get(positionId.Value);
+        var position = _uow.Positions.Get(positionId);
         if (position == null)
             return HttpNotFound();
 
-        // Normalize 'why interested' - combine selected reasons
-        var why = interestReasons != null && interestReasons.Length > 0 
-            ? string.Join(", ", interestReasons) 
-            : "";
+        // Get position questions
+        var positionQuestions = _uow.Context.Set<PositionQuestion>()
+            .Where(pq => pq.PositionId == positionId)
+            .Include(pq => pq.Question)
+            .OrderBy(pq => pq.Order)
+            .ToList();
 
         // Determine applicant info for display
         string applicantName = null;
@@ -120,56 +99,83 @@ public class ApplicationsController : Controller
             if (user != null)
             {
                 var applicant = _uow.Applicants.GetAll().FirstOrDefault(a => a.Email == user.Email);
-                applicantName = applicant != null ? applicant.FullName : user.UserName;
-                applicantEmail = applicant != null ? applicant.Email : user.Email;
-            }
-        }
-
-        // Save CV immediately so we can show it on review
-        string resumePath = null;
-        if (resume != null)
-        {
-            resumePath = _storage.SaveResume(resume);
-        }
-
-        var review = new ApplicationReviewViewModel
-        {
-            PositionId = positionId.HasValue ? positionId.Value : 0,
-            PositionTitle = position.Title,
-            ApplicantName = applicantName,
-            ApplicantEmail = applicantEmail,
-            WhyInterested = why,
-            YearsInField = yearsInField,
-            YearsInRole = yearsInRole,
-            ExpectedSalary = answer3,
-            EducationLevel = educationLevel,
-            WorkAvailability = workAvailability,
-            WorkMode = workMode,
-            AvailabilityToStart = availabilityToStart,
-            ResumePath = resumePath,
-            InterestLevel = interestLevel,
-            CommunicationSkills = communicationSkills,
-            ProblemSolvingSkills = problemSolvingSkills,
-            TeamworkSkills = teamworkSkills
-        };
-
-        // Capture dynamic answers
-        foreach (string key in Request.Form.AllKeys)
-        {
-            if (key != null && key.StartsWith("dynamicAnswer_", StringComparison.OrdinalIgnoreCase))
-            {
-                var qidPart = key.Substring("dynamicAnswer_".Length);
-                if (int.TryParse(qidPart, out var qid))
+                if (applicant != null)
                 {
-                    var ans = Request.Form[key];
-                    // For now we just append to WhyInterested for display; answers will be stored in ApplicationAnswer on finish.
-                    if (!string.IsNullOrWhiteSpace(ans))
-                    {
-                        review.WhyInterested += "\n" + ans;
-                    }
+                    applicantName = applicant.FullName;
+                    applicantEmail = applicant.Email;
                 }
             }
         }
+
+        // Create application review model
+        var review = new ApplicationReviewViewModel
+        {
+            PositionId = positionId,
+            PositionTitle = position.Title,
+            ApplicantName = applicantName,
+            ApplicantEmail = applicantEmail,
+            QuestionAnswers = new List<QuestionAnswerViewModel>()
+        };
+
+        // Process dynamic question answers
+        foreach (var pq in positionQuestions)
+        {
+            var questionFieldName = "question_" + pq.Question.Id;
+            var answer = form[questionFieldName];
+            
+            review.QuestionAnswers.Add(new QuestionAnswerViewModel
+            {
+                QuestionId = pq.Question.Id,
+                QuestionText = pq.Question.Text,
+                QuestionType = pq.Question.Type,
+                Answer = answer ?? ""
+            });
+        }
+
+        // Handle resume upload
+        string resumePath = null;
+        if (resume != null && resume.ContentLength > 0)
+        {
+            // Validate file size (5MB max)
+            if (resume.ContentLength > 5 * 1024 * 1024)
+            {
+                TempData["ErrorMessage"] = "Resume file size must be less than 5MB.";
+                return RedirectToAction("Questionnaire", new { positionId = positionId });
+            }
+
+            // Validate file type
+            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
+            var fileExtension = System.IO.Path.GetExtension(resume.FileName).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                TempData["ErrorMessage"] = "Only PDF, DOC, and DOCX files are allowed.";
+                return RedirectToAction("Questionnaire", new { positionId = positionId });
+            }
+
+            try
+            {
+                resumePath = _storage.SaveResume(resume);
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "Error uploading resume: " + ex.Message;
+                return RedirectToAction("Questionnaire", new { positionId = positionId });
+            }
+        }
+        else
+        {
+            // CV required
+            TempData["ErrorMessage"] = "Please upload your CV/Resume to continue.";
+            return RedirectToAction("Questionnaire", new { positionId = positionId });
+        }
+
+        // Store answers in session for processing
+        Session["QuestionnaireAnswers"] = review.QuestionAnswers;
+        Session["PositionId"] = positionId;
+        Session["ResumePath"] = resumePath;
+
+        // Update review model with resume path
+        review.ResumePath = resumePath;
 
         return View("QuestionnaireReview", review);
     }
@@ -218,39 +224,38 @@ public class ApplicationsController : Controller
                 return RedirectToAction("Index", "Positions");
             }
             
-            var application = new Application
+            // Get resume path from session
+        var resumePath = Session["ResumePath"] as string;
+        
+        var application = new Application
             {
                 ApplicantId = applicant.Id,
                 PositionId = model.PositionId,
                 Status = "Submitted",
                 AppliedOn = DateTime.UtcNow,
-                WorkExperienceLevel = model.YearsInRole,
-                ResumePath = model.ResumePath
+                WorkExperienceLevel = model.YearsInRole ?? "Not specified",
+                ResumePath = resumePath ?? model.ResumePath
             };
             _uow.Applications.Add(application);
             _uow.Complete();
 
-            // Store dynamic answers, if any
+            // Store dynamic answers from session
             var applicationAnswers = new List<ApplicationAnswer>();
-            foreach (string key in Request.Form.AllKeys)
+            var questionAnswers = Session["QuestionnaireAnswers"] as List<QuestionAnswerViewModel>;
+            if (questionAnswers != null)
             {
-                if (key != null && key.StartsWith("dynamicAnswer_", StringComparison.OrdinalIgnoreCase))
+                foreach (var qa in questionAnswers)
                 {
-                    var qidPart = key.Substring("dynamicAnswer_".Length);
-                    if (int.TryParse(qidPart, out var qid))
+                    if (!string.IsNullOrWhiteSpace(qa.Answer))
                     {
-                        var ans = Request.Form[key];
-                        if (!string.IsNullOrWhiteSpace(ans))
+                        var appAns = new ApplicationAnswer
                         {
-                            var appAns = new ApplicationAnswer
-                            {
-                                ApplicationId = application.Id,
-                                QuestionId = qid,
-                                AnswerText = ans
-                            };
-                            _uow.ApplicationAnswers.Add(appAns);
-                            applicationAnswers.Add(appAns);
-                        }
+                            ApplicationId = application.Id,
+                            QuestionId = qa.QuestionId,
+                            AnswerText = qa.Answer
+                        };
+                        _uow.ApplicationAnswers.Add(appAns);
+                        applicationAnswers.Add(appAns);
                     }
                 }
             }
@@ -271,6 +276,11 @@ public class ApplicationsController : Controller
                 System.Diagnostics.Debug.WriteLine("Error evaluating application: " + ex.Message);
             }
         }
+
+        // Clean up session
+        Session.Remove("QuestionnaireAnswers");
+        Session.Remove("PositionId");
+        Session.Remove("ResumePath");
 
         TempData["QuestionnaireSuccess"] = "Your application and questionnaire have been submitted.";
         return RedirectToAction("Index", "Positions");

@@ -18,6 +18,7 @@ namespace HR.Web.Models
 
         public virtual ICollection<PositionQuestion> PositionQuestions { get; set; }
         public virtual ICollection<ApplicationAnswer> ApplicationAnswers { get; set; }
+        public virtual ICollection<QuestionOption> QuestionOptions { get; set; }
     }
 }
 

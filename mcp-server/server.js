@@ -590,36 +590,58 @@ class HRQuestionnaireServer {
     if (questionTypes.includes('Choice')) {
       const choiceQuestions = [
         {
-          text: 'How do you ensure code quality and maintainability?',
+          text: 'How do you prefer to receive feedback on your work?',
           type: 'Choice',
-          category: 'quality',
+          category: 'professionalism',
           suggestedOptions: [
-            { text: 'No specific approach', points: 0 },
-            { text: 'Basic testing', points: 3 },
-            { text: 'Code reviews and testing', points: 7 },
-            { text: 'Comprehensive quality practices', points: 10 }
+            { text: 'I prefer not to receive feedback', points: 1 },
+            { text: 'Written feedback via email', points: 4 },
+            { text: 'One-on-one discussions', points: 7 },
+            { text: 'Regular, constructive feedback in any format', points: 10 }
           ]
         },
         {
-          text: 'Which collaboration tools do you prefer for team projects?',
-          type: 'Choice',
-          category: 'teamwork',
-          suggestedOptions: [
-            { text: 'Email only', points: 2 },
-            { text: 'Chat applications', points: 5 },
-            { text: 'Project management tools', points: 8 },
-            { text: 'Combination of tools', points: 10 }
-          ]
-        },
-        {
-          text: 'What is your preferred work environment?',
+          text: 'What type of work environment helps you be most productive?',
           type: 'Choice',
           category: 'work-style',
           suggestedOptions: [
-            { text: 'Remote only', points: 3 },
-            { text: 'Hybrid', points: 7 },
-            { text: 'In-office', points: 5 },
-            { text: 'Flexible', points: 10 }
+            { text: 'Quiet, isolated environment', points: 3 },
+            { text: 'Collaborative team space', points: 6 },
+            { text: 'Flexible hybrid arrangement', points: 8 },
+            { text: 'Adaptable to various environments', points: 10 }
+          ]
+        },
+        {
+          text: 'How do you approach learning new technologies or skills?',
+          type: 'Choice',
+          category: 'learning',
+          suggestedOptions: [
+            { text: 'I wait for training to be provided', points: 2 },
+            { text: 'I learn when required for projects', points: 5 },
+            { text: 'I proactively explore new technologies', points: 8 },
+            { text: 'I continuously learn and share knowledge with others', points: 10 }
+          ]
+        },
+        {
+          text: 'What motivates you most in a job role?',
+          type: 'Choice',
+          category: 'motivation',
+          suggestedOptions: [
+            { text: 'Job security and stability', points: 4 },
+            { text: 'Competitive salary and benefits', points: 6 },
+            { text: 'Career growth opportunities', points: 8 },
+            { text: 'Meaningful work and impact', points: 10 }
+          ]
+        },
+        {
+          text: 'How do you handle conflicting priorities or deadlines?',
+          type: 'Choice',
+          category: 'time-management',
+          suggestedOptions: [
+            { text: 'I focus on one task at a time', points: 3 },
+            { text: 'I seek guidance from my manager', points: 5 },
+            { text: 'I prioritize based on urgency and importance', points: 8 },
+            { text: 'I negotiate priorities and communicate proactively', points: 10 }
           ]
         }
       ];
@@ -631,36 +653,36 @@ class HRQuestionnaireServer {
     if (questionTypes.includes('Number')) {
       const numberQuestions = [
         {
-          text: 'How many years of experience do you have with version control systems?',
+          text: 'How many years of professional experience do you have?',
+          type: 'Number',
+          category: 'experience',
+          suggestedOptions: [
+            { text: '0-1 years (Entry level)', points: 2 },
+            { text: '2-4 years (Junior)', points: 5 },
+            { text: '5-7 years (Mid-level)', points: 8 },
+            { text: '8+ years (Senior/Lead)', points: 10 }
+          ]
+        },
+        {
+          text: 'How many team projects have you collaborated on?',
+          type: 'Number',
+          category: 'teamwork',
+          suggestedOptions: [
+            { text: '0-2 projects', points: 2 },
+            { text: '3-5 projects', points: 5 },
+            { text: '6-10 projects', points: 8 },
+            { text: '11+ projects', points: 10 }
+          ]
+        },
+        {
+          text: 'How many technical skills or programming languages are you proficient in?',
           type: 'Number',
           category: 'technical',
           suggestedOptions: [
-            { text: '0-1 years', points: 2 },
-            { text: '2-4 years', points: 5 },
-            { text: '5-7 years', points: 8 },
-            { text: '8+ years', points: 10 }
-          ]
-        },
-        {
-          text: 'How many projects have you led from start to finish?',
-          type: 'Number',
-          category: 'leadership',
-          suggestedOptions: [
-            { text: '0 projects', points: 0 },
-            { text: '1-2 projects', points: 4 },
-            { text: '3-5 projects', points: 7 },
-            { text: '6+ projects', points: 10 }
-          ]
-        },
-        {
-          text: 'On a scale of 1-10, how would you rate your communication skills?',
-          type: 'Number',
-          category: 'communication',
-          suggestedOptions: [
-            { text: '1-3 (Needs improvement)', points: 2 },
-            { text: '4-6 (Average)', points: 5 },
-            { text: '7-8 (Good)', points: 8 },
-            { text: '9-10 (Excellent)', points: 10 }
+            { text: '1-2 skills', points: 3 },
+            { text: '3-5 skills', points: 6 },
+            { text: '6-8 skills', points: 8 },
+            { text: '9+ skills', points: 10 }
           ]
         }
       ];
@@ -672,36 +694,51 @@ class HRQuestionnaireServer {
     if (questionTypes.includes('Rating')) {
       const ratingQuestions = [
         {
-          text: `What is your experience level with ${keywords.primaryTech || 'core technologies'}?`,
+          text: 'Rate your proficiency with problem-solving and analytical thinking.',
           type: 'Rating',
-          category: 'technical',
+          category: 'analytical',
           suggestedOptions: [
-            { text: 'Beginner', points: 2 },
-            { text: 'Intermediate', points: 5 },
-            { text: 'Advanced', points: 8 },
-            { text: 'Expert', points: 10 }
+            { text: '1 (Beginner - Needs guidance)', points: 2 },
+            { text: '2 (Basic - Can handle simple problems)', points: 4 },
+            { text: '3 (Intermediate - Can solve most problems)', points: 6 },
+            { text: '4 (Advanced - Handles complex issues)', points: 8 },
+            { text: '5 (Expert - Innovative solutions)', points: 10 }
           ]
         },
         {
-          text: 'Rate your proficiency with database management systems.',
-          type: 'Rating',
-          category: 'technical',
-          suggestedOptions: [
-            { text: 'No experience', points: 0 },
-            { text: 'Basic knowledge', points: 4 },
-            { text: 'Proficient', points: 7 },
-            { text: 'Expert level', points: 10 }
-          ]
-        },
-        {
-          text: 'How would you rate your teamwork and collaboration skills?',
+          text: 'Rate your ability to work effectively in a team environment.',
           type: 'Rating',
           category: 'teamwork',
           suggestedOptions: [
-            { text: '1-3 (Needs improvement)', points: 2 },
-            { text: '4-6 (Average)', points: 5 },
-            { text: '7-8 (Good)', points: 8 },
-            { text: '9-10 (Excellent)', points: 10 }
+            { text: '1 (Prefer working alone)', points: 2 },
+            { text: '2 (Comfortable in teams)', points: 4 },
+            { text: '3 (Good team contributor)', points: 6 },
+            { text: '4 (Strong collaborator)', points: 8 },
+            { text: '5 (Exceptional team player)', points: 10 }
+          ]
+        },
+        {
+          text: 'Rate your written and verbal communication skills.',
+          type: 'Rating',
+          category: 'communication',
+          suggestedOptions: [
+            { text: '1 (Needs improvement)', points: 2 },
+            { text: '2 (Basic communication)', points: 4 },
+            { text: '3 (Clear and effective)', points: 6 },
+            { text: '4 (Professional and polished)', points: 8 },
+            { text: '5 (Outstanding communicator)', points: 10 }
+          ]
+        },
+        {
+          text: 'Rate your ability to adapt to new challenges and changes.',
+          type: 'Rating',
+          category: 'adaptability',
+          suggestedOptions: [
+            { text: '1 (Resistant to change)', points: 2 },
+            { text: '2 (Slow to adapt)', points: 4 },
+            { text: '3 (Adaptable with time)', points: 6 },
+            { text: '4 (Quickly adapts)', points: 8 },
+            { text: '5 (Thrives on change)', points: 10 }
           ]
         }
       ];

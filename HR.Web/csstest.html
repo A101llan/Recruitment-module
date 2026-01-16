@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSS Test</title>
+    <link rel="stylesheet" href="/Content/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/Content/css/font-awesome.min.css" />
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="alert alert-info">
+            <h2>CSS Test Page</h2>
+            <p>If you see Bootstrap styling, CSS is working.</p>
+            <div class="card">
+                <div class="card-body">
+                    <h4>Bootstrap Components Test</h4>
+                    <button class="btn btn-primary me-2">Primary Button</button>
+                    <button class="btn btn-success me-2">Success Button</button>
+                    <button class="btn btn-danger">Danger Button</button>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Warning Alert
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i> Success Alert
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/Scripts/jquery-3.6.0.min.js"></script>
+    <script src="/Scripts/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            console.log("jQuery loaded successfully");
+            $('.btn').click(function() {
+                alert('Button clicked! JavaScript is working.');
+            });
+        });
+    </script>
+</body>
+</html>

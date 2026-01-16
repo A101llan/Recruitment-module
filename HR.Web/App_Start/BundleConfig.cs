@@ -1,3 +1,4 @@
+using System.Web;
 using System.Web.Optimization;
 
 namespace HR.Web
@@ -6,12 +7,24 @@ namespace HR.Web
     {
         public static void RegisterBundles(BundleCollection bundles)
         {
-            bundles.Add(new ScriptBundle("~/bundles/jquery").Include(
-                "~/Scripts/jquery-{version}.js"));
+            // CSS Bundles
+            var cssBundle = new StyleBundle("~/Content/css");
+            cssBundle.Include("~/Content/css/bootstrap.min.css", "~/Content/css/font-awesome.min.css");
+            bundles.Add(cssBundle);
 
-            bundles.Add(new ScriptBundle("~/bundles/jqueryval").Include(
-                "~/Scripts/jquery.validate*",
-                "~/Scripts/jquery.unobtrusive*"));
+            // Script Bundles
+            var scriptBundle = new ScriptBundle("~/Scripts/js");
+            scriptBundle.Include("~/Scripts/jquery-3.6.0.min.js", "~/Scripts/bootstrap.bundle.min.js");
+            bundles.Add(scriptBundle);
+
+            var validationBundle = new ScriptBundle("~/Scripts/validation");
+            validationBundle.Include("~/Scripts/jquery.validate.min.js", "~/Scripts/jquery.validate.unobtrusive.min.js");
+            bundles.Add(validationBundle);
+
+            // Admin scripts bundle
+            var adminBundle = new ScriptBundle("~/Scripts/admin");
+            adminBundle.Include("~/Scripts/Sortable.min.js");
+            bundles.Add(adminBundle);
         }
     }
 }

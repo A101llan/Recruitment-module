@@ -9,7 +9,7 @@
         <h3 class="mb-0">Review Your Application</h3>
     </div>
     <div class="card-body">
-        <p class="text-muted">Please review your answers and CV before finishing your application.</p>
+        <p class="text-muted">Please review your answers before finishing your application.</p>
 
         <dl class="row">
             <dt class="col-sm-4">Position</dt>
@@ -17,30 +17,6 @@
 
             <dt class="col-sm-4">Applicant</dt>
             <dd class="col-sm-8">@Model.ApplicantName (@Model.ApplicantEmail)</dd>
-
-            <dt class="col-sm-4">Why interested</dt>
-            <dd class="col-sm-8">@Model.WhyInterested</dd>
-
-            <dt class="col-sm-4">Years in field</dt>
-            <dd class="col-sm-8">@Model.YearsInField</dd>
-
-            <dt class="col-sm-4">Years in role</dt>
-            <dd class="col-sm-8">@Model.YearsInRole</dd>
-
-            <dt class="col-sm-4">Expected salary</dt>
-            <dd class="col-sm-8">@Model.ExpectedSalary</dd>
-
-            <dt class="col-sm-4">Education level</dt>
-            <dd class="col-sm-8">@Model.EducationLevel</dd>
-
-            <dt class="col-sm-4">Work availability</dt>
-            <dd class="col-sm-8">@Model.WorkAvailability</dd>
-
-            <dt class="col-sm-4">Preferred work mode</dt>
-            <dd class="col-sm-8">@Model.WorkMode</dd>
-
-            <dt class="col-sm-4">Availability to start</dt>
-            <dd class="col-sm-8">@Model.AvailabilityToStart</dd>
 
             <dt class="col-sm-4">CV uploaded</dt>
             <dd class="col-sm-8">
@@ -55,6 +31,38 @@
             </dd>
         </dl>
 
+        <!-- Dynamic Question Answers -->
+        @if (Model.QuestionAnswers != null && Model.QuestionAnswers.Any())
+        {
+            <h5 class="mt-4 mb-3">Your Answers</h5>
+            <div class="list-group">
+                @foreach (var qa in Model.QuestionAnswers)
+                {
+                    <div class="list-group-item">
+                        <h6 class="mb-2">@qa.QuestionText</h6>
+                        <p class="mb-0">
+                            <strong>Your Answer:</strong> 
+                            @if (string.IsNullOrEmpty(qa.Answer))
+                            {
+                                <span class="text-muted">No answer provided</span>
+                            }
+                            else
+                            {
+                                @qa.Answer
+                            }
+                        </p>
+                        <small class="text-muted">Question Type: @qa.QuestionType</small>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning mt-4">
+                No questions were answered. Please go back and complete the questionnaire.
+            </div>
+        }
+
         @using (Html.BeginForm("FinishQuestionnaire", "Applications", FormMethod.Post))
         {
             @Html.AntiForgeryToken()
@@ -62,19 +70,11 @@
             @Html.HiddenFor(m => m.PositionTitle)
             @Html.HiddenFor(m => m.ApplicantName)
             @Html.HiddenFor(m => m.ApplicantEmail)
-            @Html.HiddenFor(m => m.WhyInterested)
-            @Html.HiddenFor(m => m.YearsInField)
-            @Html.HiddenFor(m => m.YearsInRole)
-            @Html.HiddenFor(m => m.ExpectedSalary)
-            @Html.HiddenFor(m => m.EducationLevel)
-            @Html.HiddenFor(m => m.WorkAvailability)
-            @Html.HiddenFor(m => m.WorkMode)
-            @Html.HiddenFor(m => m.AvailabilityToStart)
             @Html.HiddenFor(m => m.ResumePath)
 
-            <div class="d-flex justify-content-between mt-3">
-                <a href="javascript:history.back();" class="btn btn-red btn-sm">Back to edit</a>
-                <button type="submit" class="btn btn-success">Finish</button>
+            <div class="d-flex justify-content-between mt-4">
+                <a href="javascript:history.back();" class="btn btn-secondary btn-sm">Back to edit</a>
+                <button type="submit" class="btn btn-success">Finish Application</button>
             </div>
         }
     </div>

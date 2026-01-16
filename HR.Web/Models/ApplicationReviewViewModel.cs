@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace HR.Web.Models
 {
@@ -13,7 +14,10 @@ namespace HR.Web.Models
         public string ApplicantName { get; set; }
         public string ApplicantEmail { get; set; }
 
-        // Questionnaire answers
+        // Dynamic question answers
+        public List<QuestionAnswerViewModel> QuestionAnswers { get; set; } = new List<QuestionAnswerViewModel>();
+
+        // Legacy questionnaire answers (for backward compatibility)
         public string WhyInterested { get; set; }
         public string YearsInField { get; set; }
         public string YearsInRole { get; set; }
@@ -31,6 +35,17 @@ namespace HR.Web.Models
         public string CommunicationSkills { get; set; }
         public string ProblemSolvingSkills { get; set; }
         public string TeamworkSkills { get; set; }
+    }
+
+    /// <summary>
+    /// View model for a question and its answer
+    /// </summary>
+    public class QuestionAnswerViewModel
+    {
+        public int QuestionId { get; set; }
+        public string QuestionText { get; set; }
+        public string QuestionType { get; set; }
+        public string Answer { get; set; }
     }
 }
 

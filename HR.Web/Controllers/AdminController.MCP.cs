@@ -117,7 +117,7 @@ namespace HR.Web.Controllers
                     return Json(new { success = false, message = "Job title and description are required" });
                 }
 
-                questionTypes = questionTypes ?? new[] { "technical", "behavioral" };
+                questionTypes = questionTypes ?? new[] { "Text", "Choice", "Number", "Rating" };
                 
                 var parameters = new
                 {
@@ -768,8 +768,8 @@ namespace HR.Web.Controllers
                     success = true, 
                     evaluations = fallbackEvaluations,
                     summary = new { 
-                        totalCandidates = applications.Count,
-                        evaluatedCandidates = fallbackEvaluations.Count,
+                        totalCandidates = applications.Count(),
+                        evaluatedCandidates = fallbackEvaluations.Count(),
                         evaluationMethod = "basic_scoring",
                         note = "AI evaluation unavailable - using basic scoring"
                     },
