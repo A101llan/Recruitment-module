@@ -593,7 +593,7 @@ class HRQuestionnaireServer {
           text: 'How do you prefer to receive feedback on your work?',
           type: 'Choice',
           category: 'professionalism',
-          suggestedOptions: [
+          options: [
             { text: 'I prefer not to receive feedback', points: 1 },
             { text: 'Written feedback via email', points: 4 },
             { text: 'One-on-one discussions', points: 7 },
@@ -604,7 +604,7 @@ class HRQuestionnaireServer {
           text: 'What type of work environment helps you be most productive?',
           type: 'Choice',
           category: 'work-style',
-          suggestedOptions: [
+          options: [
             { text: 'Quiet, isolated environment', points: 3 },
             { text: 'Collaborative team space', points: 6 },
             { text: 'Flexible hybrid arrangement', points: 8 },
@@ -615,7 +615,7 @@ class HRQuestionnaireServer {
           text: 'How do you approach learning new technologies or skills?',
           type: 'Choice',
           category: 'learning',
-          suggestedOptions: [
+          options: [
             { text: 'I wait for training to be provided', points: 2 },
             { text: 'I learn when required for projects', points: 5 },
             { text: 'I proactively explore new technologies', points: 8 },
@@ -626,7 +626,7 @@ class HRQuestionnaireServer {
           text: 'What motivates you most in a job role?',
           type: 'Choice',
           category: 'motivation',
-          suggestedOptions: [
+          options: [
             { text: 'Job security and stability', points: 4 },
             { text: 'Competitive salary and benefits', points: 6 },
             { text: 'Career growth opportunities', points: 8 },
@@ -637,7 +637,7 @@ class HRQuestionnaireServer {
           text: 'How do you handle conflicting priorities or deadlines?',
           type: 'Choice',
           category: 'time-management',
-          suggestedOptions: [
+          options: [
             { text: 'I focus on one task at a time', points: 3 },
             { text: 'I seek guidance from my manager', points: 5 },
             { text: 'I prioritize based on urgency and importance', points: 8 },
@@ -656,7 +656,7 @@ class HRQuestionnaireServer {
           text: 'How many years of professional experience do you have?',
           type: 'Number',
           category: 'experience',
-          suggestedOptions: [
+          options: [
             { text: '0-1 years (Entry level)', points: 2 },
             { text: '2-4 years (Junior)', points: 5 },
             { text: '5-7 years (Mid-level)', points: 8 },
@@ -667,7 +667,7 @@ class HRQuestionnaireServer {
           text: 'How many team projects have you collaborated on?',
           type: 'Number',
           category: 'teamwork',
-          suggestedOptions: [
+          options: [
             { text: '0-2 projects', points: 2 },
             { text: '3-5 projects', points: 5 },
             { text: '6-10 projects', points: 8 },
@@ -678,7 +678,7 @@ class HRQuestionnaireServer {
           text: 'How many technical skills or programming languages are you proficient in?',
           type: 'Number',
           category: 'technical',
-          suggestedOptions: [
+          options: [
             { text: '1-2 skills', points: 3 },
             { text: '3-5 skills', points: 6 },
             { text: '6-8 skills', points: 8 },
@@ -697,7 +697,7 @@ class HRQuestionnaireServer {
           text: 'Rate your proficiency with problem-solving and analytical thinking.',
           type: 'Rating',
           category: 'analytical',
-          suggestedOptions: [
+          options: [
             { text: '1 (Beginner - Needs guidance)', points: 2 },
             { text: '2 (Basic - Can handle simple problems)', points: 4 },
             { text: '3 (Intermediate - Can solve most problems)', points: 6 },
@@ -709,7 +709,7 @@ class HRQuestionnaireServer {
           text: 'Rate your ability to work effectively in a team environment.',
           type: 'Rating',
           category: 'teamwork',
-          suggestedOptions: [
+          options: [
             { text: '1 (Prefer working alone)', points: 2 },
             { text: '2 (Comfortable in teams)', points: 4 },
             { text: '3 (Good team contributor)', points: 6 },
@@ -721,7 +721,7 @@ class HRQuestionnaireServer {
           text: 'Rate your written and verbal communication skills.',
           type: 'Rating',
           category: 'communication',
-          suggestedOptions: [
+          options: [
             { text: '1 (Needs improvement)', points: 2 },
             { text: '2 (Basic communication)', points: 4 },
             { text: '3 (Clear and effective)', points: 6 },
@@ -733,7 +733,7 @@ class HRQuestionnaireServer {
           text: 'Rate your ability to adapt to new challenges and changes.',
           type: 'Rating',
           category: 'adaptability',
-          suggestedOptions: [
+          options: [
             { text: '1 (Resistant to change)', points: 2 },
             { text: '2 (Slow to adapt)', points: 4 },
             { text: '3 (Adaptable with time)', points: 6 },
