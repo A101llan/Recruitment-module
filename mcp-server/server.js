@@ -540,7 +540,16 @@ class HRQuestionnaireServer {
   }
 
   async generateQuestions(args) {
-    const { jobTitle, jobDescription, experience = 'mid', questionTypes = ['Text', 'Choice', 'Number', 'Rating'], count = 5 } = args;
+    const { jobTitle, jobDescription, experience = 'mid', questionTypes = ['Text', 'Choice', 'Number', 'Rating'], count } = args;
+    
+    // Validate input
+    if (!count || count <= 0) {
+      throw new McpError(ErrorCode.InvalidParams, 'Number of questions must be greater than 0');
+    }
+    
+    if (count > 25) {
+      throw new McpError(ErrorCode.InvalidParams, 'Number of questions cannot exceed 25');
+    }
     
     // Extract keywords from job description
     const keywords = this.extractKeywords(jobDescription);
@@ -766,18 +775,37 @@ class HRQuestionnaireServer {
   }
 
   extractKeywords(jobDescription) {
-    // Simple keyword extraction
+    // Simple but more effective keyword extraction
     const techKeywords = ['javascript', 'python', 'java', 'c#', 'sql', 'react', 'angular', 'node.js', 'aws', 'azure', 'docker'];
+    const skillKeywords = ['experience', 'skills', 'knowledge', 'expertise', 'proficiency', 'background'];
+    const roleKeywords = ['developer', 'engineer', 'manager', 'analyst', 'designer', 'consultant', 'specialist', 'coordinator'];
+    const businessKeywords = ['leadership', 'communication', 'teamwork', 'project', 'strategy', 'marketing', 'sales', 'customer', 'finance', 'operations'];
+    
     const words = jobDescription.toLowerCase().split(/\s+/);
     
-    const found = words.filter(word => 
-      techKeywords.some(tech => word.includes(tech))
-    );
+    const found = words.filter(word => {
+      const cleanWord = word.replace(/[^\w]/g, '');
+      return cleanWord.length > 2 && (
+        techKeywords.includes(cleanWord) ||
+        skillKeywords.includes(cleanWord) ||
+        roleKeywords.includes(cleanWord) ||
+        businessKeywords.includes(cleanWord)
+      );
+    });
+    
+    // Extract primary technology (first tech keyword found)
+    const primaryTech = found.find(word => techKeywords.includes(word)) || 'technologies';
+    
+    // Extract role-specific terms
+    const roleTerms = found.filter(word => roleKeywords.includes(word));
+    const businessTerms = found.filter(word => businessKeywords.includes(word));
     
     return {
-      primaryTech: found[0] || 'technologies',
-      secondaryTech: found[1] || 'systems',
-      allTech: found
+      primaryTech: primaryTech,
+      roleTerms: roleTerms,
+      businessTerms: businessTerms,
+      allTech: found.filter(word => techKeywords.includes(word)),
+      allKeywords: found
     };
   }
 

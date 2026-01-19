@@ -58,14 +58,29 @@
     
     <!-- Questions Table -->
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <h5>Sample Questions (@Model.Count)</h5>
+            <div class="batch-actions">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="selectAllQuestions">
+                    <label class="form-check-label" for="selectAllQuestions">Select All</label>
+                </div>
+                <button id="batchDeleteBtn" class="btn btn-danger btn-sm ml-3" disabled>
+                    Delete Selected (<span id="selectedCount">0</span>)
+                </button>
+                <button id="testBtn" class="btn btn-info btn-sm ml-2">
+                    Test JS
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered table-striped" id="questionsTable">
                     <thead>
                         <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox" id="headerCheckbox" class="form-check-input">
+                            </th>
                             <th>Question</th>
                             <th>Type</th>
                             <th>Options</th>
@@ -76,6 +91,9 @@
                     <tbody>
                         @foreach (var q in Model) {
                             <tr data-question-id="@q.Id" data-question-text="@q.Text" data-question-type="@q.Type">
+                                <td>
+                                    <input type="checkbox" class="question-checkbox form-check-input" value="@q.Id">
+                                </td>
                                 <td>
                                     <strong>@q.Text</strong>
                                     <br/>
@@ -172,6 +190,8 @@
 @section Scripts {
 <script>
 $(document).ready(function() {
+    console.log('Document ready - initializing batch delete functionality');
+    
     // Check MCP connection
     checkMCPConnection();
 
@@ -182,6 +202,89 @@ $(document).ready(function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Batch delete functionality
+    try {
+        console.log('Starting batch delete initialization');
+        updateSelectedCount();
+        
+        // Debug: Verify elements exist
+        var selectAllEl = $('#selectAllQuestions');
+        var headerEl = $('#headerCheckbox');
+        var questionCheckboxes = $('.question-checkbox');
+        
+        console.log('Select All checkbox found:', selectAllEl.length);
+        console.log('Header checkbox found:', headerEl.length);
+        console.log('Question checkboxes found:', questionCheckboxes.length);
+        
+        if (selectAllEl.length === 0) {
+            console.error('Select All checkbox not found!');
+            return;
+        }
+        
+        if (headerEl.length === 0) {
+            console.error('Header checkbox not found!');
+            return;
+        }
+        
+        if (questionCheckboxes.length === 0) {
+            console.warn('No question checkboxes found - might be no questions in table');
+        }
+        
+        // Header checkbox select all/deselect all
+        headerEl.change(function() {
+            var isChecked = $(this).prop('checked');
+            console.log('Header checkbox clicked, checked:', isChecked);
+            questionCheckboxes.prop('checked', isChecked);
+            selectAllEl.prop('checked', isChecked);
+            updateSelectedCount();
+        });
+        
+        // Individual checkbox change
+        questionCheckboxes.change(function() {
+            console.log('Individual checkbox changed');
+            updateSelectedCount();
+            updateHeaderCheckbox();
+        });
+        
+        // Select all checkbox
+        selectAllEl.change(function() {
+            var isChecked = $(this).prop('checked');
+            console.log('Select All clicked, checked:', isChecked);
+            console.log('Found checkboxes:', questionCheckboxes.length);
+            questionCheckboxes.prop('checked', isChecked);
+            headerEl.prop('checked', isChecked);
+            updateSelectedCount();
+            console.log('After select all, checked count:', $('.question-checkbox:checked').length);
+        });
+        
+        console.log('Batch delete initialization completed successfully');
+    } catch (error) {
+        console.error('Error initializing batch delete functionality:', error);
+    }
+    
+    // Test button to verify JavaScript is working
+    $('#testBtn').click(function() {
+        console.log('Test button clicked!');
+        alert('JavaScript is working! Found ' + $('.question-checkbox').length + ' question checkboxes.');
+    });
+    
+    // Batch delete button
+    $('#batchDeleteBtn').click(function() {
+        var selectedIds = [];
+        $('.question-checkbox:checked').each(function() {
+            selectedIds.push($(this).val());
+        });
+        
+        if (selectedIds.length === 0) {
+            alert('Please select at least one question to delete.');
+            return;
+        }
+        
+        if (confirm('Are you sure you want to delete ' + selectedIds.length + ' question(s)? This action cannot be undone.')) {
+            batchDeleteQuestions(selectedIds);
+        }
     });
 
     // Search functionality
@@ -713,6 +816,53 @@ $(document).ready(function() {
             }
         });
     }
-});
+
+    // Batch delete helper functions
+    function updateSelectedCount() {
+        var count = $('.question-checkbox:checked').length;
+        $('#selectedCount').text(count);
+        $('#batchDeleteBtn').prop('disabled', count === 0);
+    }
+
+    function updateHeaderCheckbox() {
+        var totalCheckboxes = $('.question-checkbox').length;
+        var checkedCheckboxes = $('.question-checkbox:checked').length;
+        
+        if (checkedCheckboxes === 0) {
+            $('#headerCheckbox').prop('checked', false);
+            $('#headerCheckbox').prop('indeterminate', false);
+            $('#selectAllQuestions').prop('checked', false);
+        } else if (checkedCheckboxes === totalCheckboxes) {
+            $('#headerCheckbox').prop('checked', true);
+            $('#headerCheckbox').prop('indeterminate', false);
+            $('#selectAllQuestions').prop('checked', true);
+        } else {
+            $('#headerCheckbox').prop('indeterminate', true);
+            $('#selectAllQuestions').prop('checked', false);
+        }
+    }
+
+    function batchDeleteQuestions(questionIds) {
+        $.ajax({
+            url: '@Url.Action("BatchDeleteQuestions", "Admin")',
+            type: 'POST',
+            data: {
+                questionIds: questionIds,
+                __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+            },
+            traditional: true,
+            success: function(response) {
+                if (response.success) {
+                    alert(response.message || 'Questions deleted successfully.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to delete questions.'));
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error: Failed to delete questions. ' + error);
+            }
+        });
+    }
 </script>
 }

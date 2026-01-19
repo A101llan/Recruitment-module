@@ -158,18 +158,12 @@ namespace HR.Web.Controllers
         /// </summary>
         public ActionResult ViewApplicationDetails(int applicationId)
         {
-            /* TODO: Implement detailed view
-             * var application = db.Applications
-             *     .Include(a => a.Position)
-             *     .Include(a => a.User)
-             *     .FirstOrDefault(a => a.Id == applicationId);
-             * 
-             * if (application == null)
-             *     return HttpNotFound();
-             * 
-             * return View(application);
-             */
-            return HttpNotFound();
+            var application = _uow.Applications.Get(applicationId);
+            if (application == null)
+            {
+                return HttpNotFound();
+            }
+            return View(application);
         }
 
         /// <summary>
@@ -330,12 +324,102 @@ namespace HR.Web.Controllers
         {
             var q = _uow.Questions.Get(id);
             if (q == null) return HttpNotFound();
-            var options = _uow.Context.Set<QuestionOption>().Where(o => o.QuestionId == id);
-            _uow.Context.Set<QuestionOption>().RemoveRange(options);
-            _uow.Questions.Remove(q);
-            _uow.Complete();
-            TempData["Message"] = "Question deleted.";
+            
+            try
+            {
+                // Delete related records in proper order due to foreign key constraints
+                
+                // 1. Delete ApplicationAnswer records that reference this question
+                var applicationAnswers = _uow.Context.Set<ApplicationAnswer>().Where(aa => aa.QuestionId == id);
+                _uow.Context.Set<ApplicationAnswer>().RemoveRange(applicationAnswers);
+                
+                // 2. Delete PositionQuestionOption records (through QuestionOptions)
+                var questionOptions = _uow.Context.Set<QuestionOption>().Where(qo => qo.QuestionId == id).ToList();
+                foreach (var option in questionOptions)
+                {
+                    // Delete PositionQuestionOption records that reference this QuestionOption
+                    var positionQuestionOptions = _uow.Context.Set<PositionQuestionOption>().Where(pqo => pqo.QuestionOptionId == option.Id);
+                    _uow.Context.Set<PositionQuestionOption>().RemoveRange(positionQuestionOptions);
+                }
+                
+                // 3. Delete QuestionOption records
+                _uow.Context.Set<QuestionOption>().RemoveRange(questionOptions);
+                
+                // 4. Delete PositionQuestion records that reference this question
+                var positionQuestions = _uow.Context.Set<PositionQuestion>().Where(pq => pq.QuestionId == id);
+                _uow.Context.Set<PositionQuestion>().RemoveRange(positionQuestions);
+                
+                // 5. Finally delete the question itself
+                _uow.Questions.Remove(q);
+                
+                _uow.Complete();
+                TempData["Message"] = "Question deleted successfully.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error deleting question: " + ex.Message;
+                // Log the full exception for debugging
+                System.Diagnostics.Debug.WriteLine("DeleteQuestion Error: " + ex.ToString());
+            }
+            
             return RedirectToAction("Questions");
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public ActionResult BatchDeleteQuestions(int[] questionIds)
+        {
+            if (questionIds == null || questionIds.Length == 0)
+            {
+                return Json(new { success = false, message = "No questions selected for deletion." });
+            }
+
+            try
+            {
+                int deletedCount = 0;
+                
+                foreach (var id in questionIds)
+                {
+                    var q = _uow.Questions.Get(id);
+                    if (q == null) continue;
+                    
+                    // Delete related records in proper order due to foreign key constraints
+                    
+                    // 1. Delete ApplicationAnswer records that reference this question
+                    var applicationAnswers = _uow.Context.Set<ApplicationAnswer>().Where(aa => aa.QuestionId == id);
+                    _uow.Context.Set<ApplicationAnswer>().RemoveRange(applicationAnswers);
+                    
+                    // 2. Delete PositionQuestionOption records (through QuestionOptions)
+                    var questionOptions = _uow.Context.Set<QuestionOption>().Where(qo => qo.QuestionId == id).ToList();
+                    foreach (var option in questionOptions)
+                    {
+                        // Delete PositionQuestionOption records that reference this QuestionOption
+                        var positionQuestionOptions = _uow.Context.Set<PositionQuestionOption>().Where(pqo => pqo.QuestionOptionId == option.Id);
+                        _uow.Context.Set<PositionQuestionOption>().RemoveRange(positionQuestionOptions);
+                    }
+                    
+                    // 3. Delete QuestionOption records
+                    _uow.Context.Set<QuestionOption>().RemoveRange(questionOptions);
+                    
+                    // 4. Delete PositionQuestion records that reference this question
+                    var positionQuestions = _uow.Context.Set<PositionQuestion>().Where(pq => pq.QuestionId == id);
+                    _uow.Context.Set<PositionQuestion>().RemoveRange(positionQuestions);
+                    
+                    // 5. Finally delete the question itself
+                    _uow.Questions.Remove(q);
+                    
+                    deletedCount++;
+                }
+                
+                _uow.Complete();
+                TempData["Message"] = $"Successfully deleted {deletedCount} question(s).";
+                return Json(new { success = true, message = $"Successfully deleted {deletedCount} question(s)." });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error deleting questions: " + ex.Message });
+            }
         }
         public ActionResult TestQuestions()
         {

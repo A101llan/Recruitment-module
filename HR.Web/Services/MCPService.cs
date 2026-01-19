@@ -76,16 +76,26 @@ namespace HR.Web.Services
                     switch ((toolName ?? string.Empty).ToLowerInvariant())
                     {
                         case "generate-questions":
+                            // Dynamic fallback generation based on job parameters
+                            var genParams = parameters as Newtonsoft.Json.Linq.JObject;
+                            var jobTitle = genParams?.Value<string>("jobTitle") ?? "Sample Position";
+                            var jobDesc = genParams?.Value<string>("jobDescription") ?? "";
+                            var count = genParams?.Value<int>("count") ?? 5;
+                            var questionTypes = genParams?.Value<string[]>("questionTypes") ?? new[] { "Text", "Choice", "Rating" };
+                            
+                            var keywords = ExtractKeywords(jobDesc);
+                            var fallbackQuestions = GenerateDynamicFallbackQuestions(jobTitle, keywords, questionTypes, count);
+                            
                             var genPayload = new GeneratedQuestionsResponse
                             {
                                 success = true,
-                                metadata = new Metadata { jobTitle = "Sample", experience = "mid", keywords = new List<string> { "c#", "asp.net", "sql" }, generatedAt = DateTime.UtcNow.ToString("o") },
-                                questions = new List<GeneratedQuestion>
-                                {
-                                    new GeneratedQuestion{ text = "Describe a challenging bug you fixed in production.", type = "Text", category = "behavioral", suggestedOptions = new List<MCPQuestionOption>()},
-                                    new GeneratedQuestion{ text = "Rate your proficiency with SQL (1-5)", type = "Rating", category = "technical", suggestedOptions = new List<MCPQuestionOption>()},
-                                    new GeneratedQuestion{ text = "Which cloud services have you used?", type = "Choice", category = "technical", suggestedOptions = new List<MCPQuestionOption>{ new MCPQuestionOption{ text="AWS", points=5}, new MCPQuestionOption{ text="Azure", points=5}, new MCPQuestionOption{ text="GCP", points=5} } }
-                                }
+                                metadata = new Metadata { 
+                                    jobTitle = jobTitle, 
+                                    experience = "mid", 
+                                    keywords = keywords.Take(3).ToList(), 
+                                    generatedAt = DateTime.UtcNow.ToString("o") 
+                                },
+                                questions = fallbackQuestions
                             };
                             return BuildToolSuccess(genPayload);
                         case "validate-question":
@@ -283,6 +293,179 @@ namespace HR.Web.Services
                     }
                 }
             };
+        }
+
+        // Helper methods for dynamic fallback generation
+        private List<string> ExtractKeywords(string jobDescription)
+        {
+            if (string.IsNullOrEmpty(jobDescription))
+                return new List<string> { "skills", "experience", "teamwork" };
+
+            var techKeywords = new[] { 
+                "javascript", "python", "java", "c#", "sql", "react", "angular", "node.js", 
+                "aws", "azure", "docker", "git", "api", "database", "web", "mobile", 
+                "cloud", "devops", "testing", "agile", "scrum", "microservices", "frontend", 
+                "backend", "fullstack", "machine learning", "ai", "data", "analytics"
+            };
+            
+            var businessKeywords = new[] {
+                "management", "leadership", "communication", "project", "strategy", "marketing",
+                "sales", "customer", "finance", "operations", "hr", "recruitment", "training"
+            };
+
+            var words = jobDescription.ToLower().Split(new[] { ' ', ',', '.', ';', ':', '-', '_', '/', '(', ')', '[', ']' }, StringSplitOptions.RemoveEmptyEntries);
+            var found = words.Where(word => 
+                techKeywords.Contains(word) || 
+                businessKeywords.Contains(word) ||
+                word.Length > 4 // Include longer words that might be relevant
+            ).Distinct().ToList();
+
+            if (!found.Any())
+            {
+                // Default keywords based on common job categories
+                found = new List<string> { "professional", "experience", "skills", "teamwork" };
+            }
+
+            return found.Take(5).ToList(); // Limit to top 5 keywords
+        }
+
+        private List<GeneratedQuestion> GenerateDynamicFallbackQuestions(string jobTitle, List<string> keywords, string[] questionTypes, int count)
+        {
+            var questions = new List<GeneratedQuestion>();
+            var random = new Random();
+            
+            // Text question templates
+            var textTemplates = new[]
+            {
+                $"Describe your experience with {{0}} and how you've applied it in professional settings.",
+                $"Give an example of a challenging situation involving {{0}} and how you resolved it.",
+                $"How do you stay updated with the latest developments in {{0}}?",
+                $"What interests you most about working with {{0}} in the {jobTitle} role?",
+                $"Describe a project where you used {{0}} to achieve significant results.",
+                $"What specific {{0}} skills would you bring to our team?",
+                $"How have you used {{0}} to solve business problems?",
+                $"Describe your approach to learning and mastering {{0}} technologies."
+            };
+
+            // Choice question templates
+            var choiceTemplates = new[]
+            {
+                $"How would you rate your proficiency with {{0}}?",
+                $"Which approach do you prefer when working with {{0}}?",
+                $"What's your experience level with {{0}}?",
+                $"How often do you use {{0}} in your daily work?",
+                $"What {{0}} tools or technologies have you worked with?",
+                $"How do you handle {{0}} related challenges in a team environment?"
+            };
+
+            // Rating question templates
+            var ratingTemplates = new[]
+            {
+                $"Rate your expertise in {{0}} (1-5).",
+                $"Rate your problem-solving skills with {{0}} (1-5).",
+                $"Rate your communication skills when discussing {{0}} (1-5).",
+                $"Rate your ability to learn new {{0}} technologies (1-5).",
+                $"Rate your teamwork skills in {{0}} projects (1-5)."
+            };
+
+            // Number question templates
+            var numberTemplates = new[]
+            {
+                $"How many years of experience do you have with {{0}}?",
+                $"How many projects have you completed using {{0}}?",
+                $"How many team members have you mentored on {{0}}?",
+                $"How many certifications do you have related to {{0}}?",
+                $"How many {{0}} systems have you implemented?",
+                $"On a scale of 1-10, how would you rate your {{0}} knowledge?"
+            };
+
+            foreach (var questionType in questionTypes)
+            {
+                if (questions.Count >= count) break;
+
+                string[] templates;
+                switch (questionType)
+                {
+                    case "Text":
+                        templates = textTemplates;
+                        break;
+                    case "Choice":
+                        templates = choiceTemplates;
+                        break;
+                    case "Rating":
+                        templates = ratingTemplates;
+                        break;
+                    case "Number":
+                        templates = numberTemplates;
+                        break;
+                    default:
+                        continue;
+                }
+
+                // Generate questions for this type
+                var typeCount = Math.Ceiling((double)count / questionTypes.Length);
+                for (int i = 0; i < typeCount && questions.Count < count; i++)
+                {
+                    var template = templates[random.Next(templates.Length)];
+                    var keyword = keywords.Count > 0 ? keywords[random.Next(keywords.Count)] : "relevant skills";
+                    var questionText = template.Replace("{0}", keyword);
+
+                    var options = new List<MCPQuestionOption>();
+                    
+                    if (questionType == "Choice")
+                    {
+                        var choices = keyword.Contains("experience") || keyword.Contains("skill") 
+                            ? new[] { "Beginner", "Intermediate", "Advanced", "Expert" }
+                            : keyword.Contains("communication") || keyword.Contains("team")
+                            ? new[] { "Poor", "Fair", "Good", "Excellent" }
+                            : new[] { "None", "Basic", "Proficient", "Expert" };
+                        
+                        for (int c = 0; c < choices.Length; c++)
+                        {
+                            options.Add(new MCPQuestionOption { text = choices[c], points = (choices.Length - c) * 2 + 2 });
+                        }
+                    }
+                    else if (questionType == "Rating")
+                    {
+                        for (int r = 1; r <= 5; r++)
+                        {
+                            options.Add(new MCPQuestionOption { text = r.ToString(), points = r * 2 });
+                        }
+                    }
+                    else if (questionType == "Number")
+                    {
+                        var ranges = keyword.Contains("year") || keyword.Contains("experience")
+                            ? new[] { "0-1 years", "2-3 years", "4-6 years", "7+ years" }
+                            : new[] { "0-2", "3-5", "6-10", "11+" };
+                        
+                        for (int r = 0; r < ranges.Length; r++)
+                        {
+                            options.Add(new MCPQuestionOption { text = ranges[r], points = (r + 1) * 2 + 2 });
+                        }
+                    }
+
+                    questions.Add(new GeneratedQuestion
+                    {
+                        text = questionText,
+                        type = questionType,
+                        category = GetCategoryForKeyword(keyword),
+                        suggestedOptions = options
+                    });
+                }
+            }
+
+            return questions.Take(count).ToList();
+        }
+
+        private string GetCategoryForKeyword(string keyword)
+        {
+            if (new[] { "javascript", "python", "java", "c#", "sql", "react", "node.js", "aws", "docker" }.Contains(keyword))
+                return "technical";
+            if (new[] { "management", "leadership", "communication", "team" }.Contains(keyword))
+                return "professional";
+            if (new[] { "project", "strategy", "marketing", "sales" }.Contains(keyword))
+                return "business";
+            return "general";
         }
     }
 

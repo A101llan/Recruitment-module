@@ -33,7 +33,7 @@ namespace HR.Web.Controllers
         [HttpPost]
         [AllowAnonymous]
         [OverrideAuthorization]
-        public async Task<ActionResult> GenerateQuestions(string jobTitle, string jobDescription, string experience = "mid", string[] questionTypes = null, int count = 5)
+        public async Task<ActionResult> GenerateQuestions(string jobTitle, string jobDescription, int count, string experience = "mid", string[] questionTypes = null)
         {
             try
             {
@@ -115,6 +115,16 @@ namespace HR.Web.Controllers
                 if (string.IsNullOrEmpty(jobTitle) || string.IsNullOrEmpty(jobDescription))
                 {
                     return Json(new { success = false, message = "Job title and description are required" });
+                }
+
+                if (count <= 0)
+                {
+                    return Json(new { success = false, message = "Number of questions must be greater than 0" });
+                }
+
+                if (count > 25)
+                {
+                    return Json(new { success = false, message = "Number of questions cannot exceed 25" });
                 }
 
                 questionTypes = questionTypes ?? new[] { "Text", "Choice", "Number", "Rating" };
