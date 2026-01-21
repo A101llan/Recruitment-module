@@ -10,6 +10,21 @@ using System.Web;
 
 namespace HR.Web.Services
 {
+    public class JobAnalysis
+    {
+        public string JobTitle { get; set; }
+        public string JobDescription { get; set; }
+        public string SeniorityLevel { get; set; }
+        public List<string> KeyRequirements { get; set; }
+        public List<string> TechnicalSkills { get; set; }
+        public List<string> SoftSkills { get; set; }
+        public List<string> Responsibilities { get; set; }
+        public string Industry { get; set; }
+        public string Department { get; set; }
+        public List<string> CompanyValues { get; set; }
+        public Dictionary<string, decimal> SkillWeights { get; set; }
+    }
+
     public class MCPService
     {
         private readonly string _mcpServerPath;
@@ -21,19 +36,34 @@ namespace HR.Web.Services
             var baseDir = AppDomain.CurrentDomain.BaseDirectory; // typically ...\HR.Web\bin\
             var appRoot = HttpRuntime.AppDomainAppPath;          // typically ...\HR.Web\
 
+            // First try the expected locations
             var candidates = new List<string>
             {
                 Path.Combine(appRoot ?? baseDir, "..", "mcp-server", "server.js"),            // ...\HR\mcp-server\server.js
                 Path.Combine(baseDir, "..", "..", "mcp-server", "server.js"),               // from bin two levels up
                 Path.Combine(baseDir, "mcp-server", "server.js"),                              // local fallback
-                Path.Combine(appRoot ?? baseDir, "mcp-server", "server.js")
+                Path.Combine(appRoot ?? baseDir, "mcp-server", "server.js"),
+                @"c:\Users\allan\Documents\Examples\HR\mcp-server\server.js"                 // absolute fallback
             };
 
-            _mcpServerPath = candidates.FirstOrDefault(File.Exists) ?? Path.Combine(baseDir, "..", "..", "mcp-server", "server.js");
+            _mcpServerPath = candidates.FirstOrDefault(File.Exists) ?? candidates.Last();
 
             // Resolve Node path (prefer absolute, fallback to PATH)
-            var defaultNode = @"C:\\Program Files\\nodejs\\node.exe";
-            _nodePath = File.Exists(defaultNode) ? defaultNode : "node";
+            var nodePaths = new[]
+            {
+                @"C:\Program Files\nodejs\node.exe",
+                @"C:\Program Files (x86)\nodejs\node.exe",
+                "node"
+            };
+            _nodePath = nodePaths.FirstOrDefault(File.Exists) ?? "node";
+            
+            // Debug logging
+            System.Diagnostics.Debug.WriteLine($"MCP Service: BaseDir = {baseDir}");
+            System.Diagnostics.Debug.WriteLine($"MCP Service: AppRoot = {appRoot}");
+            System.Diagnostics.Debug.WriteLine($"MCP Service: ServerPath = {_mcpServerPath}");
+            System.Diagnostics.Debug.WriteLine($"MCP Service: NodePath = {_nodePath}");
+            System.Diagnostics.Debug.WriteLine($"MCP Service: Server exists = {File.Exists(_mcpServerPath)}");
+            System.Diagnostics.Debug.WriteLine($"MCP Service: Node exists = {File.Exists(_nodePath) || _nodePath == "node"}");
         }
 
         public async Task<MCPResponse> CallToolAsync(string toolName, object parameters)
@@ -222,6 +252,7 @@ namespace HR.Web.Services
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
+                    WorkingDirectory = Path.GetDirectoryName(_mcpServerPath),
                     StandardOutputEncoding = Encoding.UTF8,
                     StandardErrorEncoding = Encoding.UTF8
                 };
@@ -379,6 +410,19 @@ namespace HR.Web.Services
                 $"On a scale of 1-10, how would you rate your {{0}} knowledge?"
             };
 
+            // Calculate how many questions to generate per type
+            var questionsPerType = new Dictionary<string, int>();
+            var remainingQuestions = count;
+            var typesCount = questionTypes.Length;
+            
+            // Distribute questions evenly among types
+            for (int i = 0; i < typesCount; i++)
+            {
+                var questionsForThisType = Math.Ceiling((double)remainingQuestions / (typesCount - i));
+                questionsPerType[questionTypes[i]] = (int)questionsForThisType;
+                remainingQuestions -= (int)questionsForThisType;
+            }
+
             foreach (var questionType in questionTypes)
             {
                 if (questions.Count >= count) break;
@@ -403,7 +447,7 @@ namespace HR.Web.Services
                 }
 
                 // Generate questions for this type
-                var typeCount = Math.Ceiling((double)count / questionTypes.Length);
+                var typeCount = questionsPerType.ContainsKey(questionType) ? questionsPerType[questionType] : 0;
                 for (int i = 0; i < typeCount && questions.Count < count; i++)
                 {
                     var template = templates[random.Next(templates.Length)];
@@ -538,6 +582,7 @@ namespace HR.Web.Services
         public string experience { get; set; }
         public List<string> keywords { get; set; }
         public string generatedAt { get; set; }
+        public JobAnalysis analysis { get; set; }
     }
 
     public class ValidationResponse

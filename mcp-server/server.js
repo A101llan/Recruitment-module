@@ -392,6 +392,14 @@ class HRQuestionnaireServer {
                 type: 'string',
                 description: 'Full job description with requirements',
               },
+              keyResponsibilities: {
+                type: 'string',
+                description: 'Key responsibilities and duties for the role',
+              },
+              requiredQualifications: {
+                type: 'string',
+                description: 'Required qualifications and skills for the role',
+              },
               experience: {
                 type: 'string',
                 enum: ['entry', 'junior', 'mid', 'senior', 'lead'],
@@ -540,7 +548,7 @@ class HRQuestionnaireServer {
   }
 
   async generateQuestions(args) {
-    const { jobTitle, jobDescription, experience = 'mid', questionTypes = ['Text', 'Choice', 'Number', 'Rating'], count } = args;
+    const { jobTitle, jobDescription, keyResponsibilities = '', requiredQualifications = '', experience = 'mid', questionTypes = ['Text', 'Choice', 'Number', 'Rating'], count } = args;
     
     // Validate input
     if (!count || count <= 0) {
@@ -551,11 +559,24 @@ class HRQuestionnaireServer {
       throw new McpError(ErrorCode.InvalidParams, 'Number of questions cannot exceed 25');
     }
     
-    // Extract keywords from job description
-    const keywords = this.extractKeywords(jobDescription);
+    // Extract keywords from job description, responsibilities, and qualifications
+    const fullDescription = `${jobDescription} ${keyResponsibilities} ${requiredQualifications}`;
+    const keywords = this.extractKeywords(fullDescription);
     
     // Get relevant questions from question bank
     const questions = [];
+    
+    // Calculate how many questions to generate per type
+    const availableTypes = questionTypes.filter(type => 
+      type === 'Text' || type === 'Choice' || type === 'Number' || type === 'Rating'
+    );
+    const typesCount = availableTypes.length;
+    
+    // Distribute questions evenly among requested types
+    const baseQuestionsPerType = Math.floor(count / typesCount);
+    const remainingQuestions = count % typesCount;
+    
+    let questionIndex = 0;
     
     // Text questions
     if (questionTypes.includes('Text')) {
@@ -591,8 +612,9 @@ class HRQuestionnaireServer {
           suggestedOptions: []
         }
       ];
-      const textCount = Math.ceil(count * 0.25); // 25% text questions
+      const textCount = baseQuestionsPerType + (questionIndex < remainingQuestions ? 1 : 0);
       questions.push(...textQuestions.slice(0, textCount));
+      questionIndex++;
     }
     
     // Choice questions
@@ -654,8 +676,9 @@ class HRQuestionnaireServer {
           ]
         }
       ];
-      const choiceCount = Math.ceil(count * 0.25); // 25% choice questions
+      const choiceCount = baseQuestionsPerType + (questionIndex < remainingQuestions ? 1 : 0);
       questions.push(...choiceQuestions.slice(0, choiceCount));
+      questionIndex++;
     }
     
     // Number questions
@@ -695,8 +718,9 @@ class HRQuestionnaireServer {
           ]
         }
       ];
-      const numberCount = Math.ceil(count * 0.25); // 25% number questions
+      const numberCount = baseQuestionsPerType + (questionIndex < remainingQuestions ? 1 : 0);
       questions.push(...numberQuestions.slice(0, numberCount));
+      questionIndex++;
     }
     
     // Rating questions
@@ -751,8 +775,9 @@ class HRQuestionnaireServer {
           ]
         }
       ];
-      const ratingCount = Math.ceil(count * 0.25); // 25% rating questions
+      const ratingCount = baseQuestionsPerType + (questionIndex < remainingQuestions ? 1 : 0);
       questions.push(...ratingQuestions.slice(0, ratingCount));
+      questionIndex++;
     }
     
     return {

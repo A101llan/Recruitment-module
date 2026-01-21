@@ -55,6 +55,23 @@
                     <textarea id="batchJobDescription" class="form-control" rows="4" placeholder="Provide a detailed job description including responsibilities, requirements, and skills..." required></textarea>
                 </div>
 
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="batchKeyResponsibilities">Key Responsibilities</label>
+                            <textarea id="batchKeyResponsibilities" class="form-control" rows="3" placeholder="e.g., Develop and implement social media strategies, Create engaging content, Analyze performance metrics..."></textarea>
+                            <small class="form-text text-muted">Specific duties and responsibilities for this role</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="batchRequiredQualifications">Required Qualifications</label>
+                            <textarea id="batchRequiredQualifications" class="form-control" rows="3" placeholder="e.g., 3+ years social media experience, Proficiency in analytics tools, Strong communication skills..."></textarea>
+                            <small class="form-text text-muted">Required skills, experience, and qualifications</small>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Question Types</label>
                     <div class="row">
@@ -491,6 +508,8 @@ $(document).ready(function() {
     function executeBatchGeneration() {
         var jobTitle = $('#batchJobTitle').val();
         var jobDescription = $('#batchJobDescription').val();
+        var keyResponsibilities = $('#batchKeyResponsibilities').val();
+        var requiredQualifications = $('#batchRequiredQualifications').val();
         var count = parseInt($('#batchCount').val()) || 10;
         var questionTypes = [];
 
@@ -511,6 +530,8 @@ $(document).ready(function() {
         console.log('Sending parameters:', {
             jobTitle: jobTitle,
             jobDescription: jobDescription,
+            keyResponsibilities: keyResponsibilities,
+            requiredQualifications: requiredQualifications,
             experience: 'mid',
             questionTypes: questionTypes,
             count: count
@@ -523,6 +544,8 @@ $(document).ready(function() {
             data: {
                 jobTitle: jobTitle,
                 jobDescription: jobDescription,
+                keyResponsibilities: keyResponsibilities,
+                requiredQualifications: requiredQualifications,
                 experience: 'mid',
                 questionTypes: questionTypes,
                 count: count

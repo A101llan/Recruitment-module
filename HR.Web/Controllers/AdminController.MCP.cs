@@ -29,85 +29,38 @@ namespace HR.Web.Controllers
             return View(new GenerateQuestionsViewModel());
         }
 
+        // GET: Admin/RankingTest
+        [HttpGet]
+        public ActionResult RankingTest()
+        {
+            return View();
+        }
+
         // POST: Admin/GenerateQuestions
         [HttpPost]
         [AllowAnonymous]
         [OverrideAuthorization]
-        public async Task<ActionResult> GenerateQuestions(string jobTitle, string jobDescription, int count, string experience = "mid", string[] questionTypes = null)
+        public async Task<ActionResult> GenerateQuestions(string jobTitle, string jobDescription, string keyResponsibilities, string requiredQualifications, int count, string experience = "mid", string[] questionTypes = null)
         {
             try
             {
                 if (DEV_STUB_MCP)
                 {
-                    // Generate stub questions based on job description keywords
-                    var stubQuestions = new List<GeneratedQuestion>();
-                    var templates = new[]
-                    {
-                        new { Text = "Describe your experience with {0}.", Type = "Text", Category = "experience" },
-                        new { Text = "How would you handle a situation involving {0}?", Type = "Text", Category = "situational" },
-                        new { Text = "Rate your proficiency in {0} (1-5).", Type = "Rating", Category = "skill" },
-                        new { Text = "Which of the following {0} approaches do you prefer?", Type = "Choice", Category = "preference" },
-                        new { Text = "What steps would you take to {0}?", Type = "Text", Category = "process" },
-                        new { Text = "Give an example of when you {0}.", Type = "Text", Category = "behavioral" },
-                        new { Text = "How do you prioritize {0}?", Type = "Text", Category = "organizational" },
-                        new { Text = "What is your approach to {0}?", Type = "Text", Category = "methodology" },
-                        new { Text = "Select your experience level with {0}.", Type = "Choice", Category = "experience" },
-                        new { Text = "Describe a time you dealt with {0}.", Type = "Text", Category = "behavioral" }
-                    };
-                    
-                    // Extract relevant topics from job description
-                    var topics = ExtractJobTopics(jobDescription, jobTitle);
-                    var rand = new Random();
-                    
-                    for (int i = 0; i < count && i < 20; i++)
-                    {
-                        var tpl = templates[rand.Next(templates.Length)];
-                        var topic = topics[rand.Next(topics.Count)];
-                        var questionText = string.Format(tpl.Text, topic);
-                        
-                        var options = new List<MCPQuestionOption>();
-                        if (tpl.Type == "Choice")
-                        {
-                            var choices = new[] { "Beginner", "Intermediate", "Advanced", "Expert" };
-                            if (topic.Contains("communication") || topic.Contains("customer"))
-                            {
-                                choices = new[] { "Poor", "Fair", "Good", "Excellent" };
-                            }
-                            else if (topic.Contains("organization") || topic.Contains("planning"))
-                            {
-                                choices = new[] { "Needs Improvement", "Satisfactory", "Good", "Outstanding" };
-                            }
-                            else if (topic.Contains("experience") || topic.Contains("skill"))
-                            {
-                                choices = new[] { "None", "Some", "Proficient", "Expert" };
-                            }
-                            for (int c = 0; c < choices.Length; c++)
-                            {
-                                options.Add(new MCPQuestionOption { text = choices[c], points = (choices.Length - c) * 2 });
-                            }
-                        }
-                        else if (tpl.Type == "Rating")
-                        {
-                            for (int r = 1; r <= 5; r++)
-                            {
-                                options.Add(new MCPQuestionOption { text = r.ToString(), points = r * 2 });
-                            }
-                        }
-                        
-                        stubQuestions.Add(new GeneratedQuestion
-                        {
-                            text = questionText,
-                            type = tpl.Type,
-                            category = tpl.Category,
-                            suggestedOptions = options
-                        });
-                    }
+                    // Generate intelligent questions using AI analysis
+                    var jobAnalysis = await AnalyzeJobRequirements(jobTitle, jobDescription, experience);
+                    var contextualQuestions = await GenerateContextualQuestions(jobAnalysis, count, questionTypes);
                     
                     var stub = new GeneratedQuestionsResponse
                     {
                         success = true,
-                        metadata = new Metadata { jobTitle = jobTitle, experience = experience, keywords = topics.Take(3).ToList(), generatedAt = DateTime.UtcNow.ToString("o") },
-                        questions = stubQuestions
+                        metadata = new Metadata { 
+                            jobTitle = jobTitle, 
+                            experience = experience, 
+                            keywords = jobAnalysis.KeyRequirements.Take(5).ToList(), 
+                            generatedAt = DateTime.UtcNow.ToString("o"),
+                            analysis = jobAnalysis
+                        },
+                        questions = contextualQuestions
                     };
                     return Json(new { success = true, questions = stub.questions, metadata = stub.metadata }, JsonRequestBehavior.AllowGet);
                 }
@@ -133,6 +86,8 @@ namespace HR.Web.Controllers
                 {
                     jobTitle,
                     jobDescription,
+                    keyResponsibilities,
+                    requiredQualifications,
                     experience,
                     questionTypes,
                     count
@@ -181,13 +136,13 @@ namespace HR.Web.Controllers
                     var topics = ExtractJobTopics(jobDescription, jobTitle);
                     var rand = new Random();
                     
-                    for (int i = 0; i < count && i < 20; i++)
+                    for (int i = 0; i < count; i++)
                     {
                         var tpl = templates[rand.Next(templates.Length)];
                         var topic = topics[rand.Next(topics.Count)];
                         var questionText = string.Format(tpl.Text, topic);
                         
-                        var options = new List<MCPQuestionOption>();
+                        var options = new List<HR.Web.Services.MCPQuestionOption>();
                         if (tpl.Type == "Choice")
                         {
                             var choices = topic.Contains("tools") || topic.Contains("ORM") || topic.Contains("framework")
@@ -826,7 +781,7 @@ namespace HR.Web.Controllers
                             type = questionData.type,
                             existingQuestionId = existingQuestion.Id,
                             existingQuestionText = existingQuestion.Text,
-                            similarity = "Exact match"
+                            similarity = 1.0m
                         });
                     }
                     else
@@ -930,39 +885,225 @@ namespace HR.Web.Controllers
         }
 
         /// <summary>
-        /// Extract relevant topics from job description and title
+        /// Analyze job requirements using AI to extract key information
         /// </summary>
+        private async Task<JobAnalysis> AnalyzeJobRequirements(string jobTitle, string jobDescription, string experience)
+        {
+            try
+            {
+                var parameters = new
+                {
+                    jobTitle,
+                    jobDescription,
+                    experience,
+                    analysisTypes = new[]
+                    {
+                        "technical_skills",
+                        "soft_skills", 
+                        "responsibilities",
+                        "seniority_requirements",
+                        "industry_context",
+                        "key_requirements",
+                        "company_values"
+                    }
+                };
+
+                var response = await _mcpService.CallToolAsync("analyze-job-requirements", parameters);
+                
+                if (response.Success)
+                {
+                    var content = response.Result.contents[0];
+                    return JsonConvert.DeserializeObject<JobAnalysis>(content.text);
+                }
+            }
+            catch
+            {
+                // Fallback to basic analysis
+            }
+
+            // Fallback analysis
+            return new JobAnalysis
+            {
+                JobTitle = jobTitle,
+                SeniorityLevel = experience,
+                KeyRequirements = ExtractKeyRequirements(jobDescription),
+                TechnicalSkills = ExtractTechnicalSkills(jobDescription),
+                SoftSkills = ExtractSoftSkills(jobDescription),
+                Responsibilities = ExtractResponsibilities(jobDescription),
+                Department = "General",
+                Industry = ExtractIndustry(jobTitle, jobDescription),
+                CompanyValues = new List<string> { "Professional", "Collaborative", "Results-oriented" },
+                SkillWeights = GetDefaultSkillWeights(experience)
+            };
+        }
+
+        /// <summary>
+        /// Generate contextual questions based on job analysis
+        /// </summary>
+        private async Task<List<GeneratedQuestion>> GenerateContextualQuestions(JobAnalysis analysis, int count, string[] questionTypes)
+        {
+            var questions = new List<GeneratedQuestion>();
+            var availableTypes = questionTypes ?? new[] { "Text", "Choice", "Number", "Rating" };
+            
+            // Generate question mix based on role requirements
+            var questionDistribution = CalculateQuestionDistribution(analysis, count);
+            
+            foreach (var distribution in questionDistribution)
+            {
+                for (int i = 0; i < distribution.Count; i++)
+                {
+                    var question = await GenerateQuestionForCategory(distribution.Category, analysis, availableTypes);
+                    if (question != null)
+                    {
+                        questions.Add(question);
+                    }
+                }
+            }
+
+            // Ensure compliance and legal review
+            var compliantQuestions = await EnsureLegalCompliance(questions, analysis);
+            
+            return compliantQuestions.Take(count).ToList();
+        }
+
+        /// <summary>
+        /// Generate specific question for a category based on job analysis
+        /// </summary>
+        private async Task<GeneratedQuestion> GenerateQuestionForCategory(string category, JobAnalysis analysis, string[] availableTypes)
+        {
+            var questionType = availableTypes[new Random().Next(availableTypes.Length)];
+            
+            var parameters = new
+            {
+                category,
+                jobAnalysis = analysis,
+                questionType,
+                complianceRequirements = new[]
+                {
+                    "non_discriminatory",
+                    "job_relevant",
+                    "legally_defensible",
+                    "culturally_neutral"
+                }
+            };
+
+            try
+            {
+                var response = await _mcpService.CallToolAsync("generate-contextual-question", parameters);
+                
+                if (response.Success)
+                {
+                    var content = response.Result.contents[0];
+                    var contextualQuestion = JsonConvert.DeserializeObject<ContextualQuestion>(content.text);
+                    
+                    return new GeneratedQuestion
+                    {
+                        text = contextualQuestion.Text,
+                        type = contextualQuestion.Type,
+                        category = contextualQuestion.Category,
+                        suggestedOptions = contextualQuestion.Options ?? GenerateOptionsForType(questionType, analysis)
+                    };
+                }
+            }
+            catch
+            {
+                // Fallback to template-based generation
+            }
+
+            return GenerateFallbackQuestion(category, analysis, questionType);
+        }
+
+        /// <summary>
+        /// Ensure questions meet legal compliance standards
+        /// </summary>
+        private async Task<List<GeneratedQuestion>> EnsureLegalCompliance(List<GeneratedQuestion> questions, JobAnalysis analysis)
+        {
+            var compliantQuestions = new List<GeneratedQuestion>();
+            
+            foreach (var question in questions)
+            {
+                try
+                {
+                    var parameters = new
+                    {
+                        questionText = question.text,
+                        jobContext = analysis,
+                        complianceChecks = new[]
+                        {
+                            "age_discrimination",
+                            "gender_bias",
+                            "racial_bias",
+                            "disability_discrimination",
+                            "religious_bias",
+                            "national_origin_bias"
+                        }
+                    };
+
+                    var response = await _mcpService.CallToolAsync("check-legal-compliance", parameters);
+                    
+                    if (response.Success)
+                    {
+                        var content = response.Result.contents[0];
+                        var complianceResult = JsonConvert.DeserializeObject<ComplianceResult>(content.text);
+                        
+                        if (complianceResult.IsCompliant)
+                        {
+                            compliantQuestions.Add(question);
+                        }
+                        else
+                        {
+                            // Generate compliant alternative
+                            var alternative = await GenerateCompliantAlternative(question, complianceResult.Issues);
+                            if (alternative != null)
+                            {
+                                compliantQuestions.Add(alternative);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // If compliance check fails, use basic filter
+                        if (IsBasicCompliant(question.text))
+                        {
+                            compliantQuestions.Add(question);
+                        }
+                    }
+                }
+                catch
+                {
+                    // If compliance check fails, use basic filter
+                    if (IsBasicCompliant(question.text))
+                    {
+                        compliantQuestions.Add(question);
+                    }
+                }
+            }
+
+            return compliantQuestions;
+        }
+
+        // Helper method to extract job topics
         private List<string> ExtractJobTopics(string jobDescription, string jobTitle)
         {
             var topics = new List<string>();
-            var text = (jobTitle + " " + jobDescription).ToLower();
+            var text = (jobDescription + " " + jobTitle).ToLower();
             
-            System.Diagnostics.Debug.WriteLine($"Extracting topics from: {text}");
-            
-            // Common office/admin keywords
-            var officeKeywords = new[] { 
-                "scheduling", "calendar management", "correspondence", "filing", "documentation", 
-                "phone calls", "meetings", "coordination", "organization", "time management",
-                "communication", "customer service", "data entry", "bookkeeping", "reception",
-                "office supplies", "travel arrangements", "event planning", "reports", "presentations"
+            // Add common technology keywords
+            var techKeywords = new[]
+            {
+                "javascript", "python", "java", "c#", "sql", "react", "angular", "node.js",
+                "aws", "azure", "docker", "git", "api", "database", "web", "mobile",
+                "cloud", "devops", "testing", "agile", "scrum", "microservices", "tools", "orm", "framework"
             };
             
-            // Common technical keywords (for technical roles)
-            var technicalKeywords = new[] { 
-                "programming", "coding", "software development", "web development", "database",
-                "c#", "java", "javascript", "python", "sql", "api", "framework", "testing",
-                "debugging", "version control", "agile", "scrum", "devops", "cloud"
+            // Add business process keywords
+            var processKeywords = new[]
+            {
+                "communication", "customer", "organization", "planning", "experience", "skill",
+                "management", "leadership", "teamwork", "project", "analysis", "strategy"
             };
             
-            // Common management keywords
-            var managementKeywords = new[] { 
-                "team leadership", "project management", "budget", "planning", "strategy",
-                "performance reviews", "hiring", "training", "mentoring", "delegation",
-                "conflict resolution", "decision making", "resource allocation"
-            };
-            
-            // Add relevant keywords based on job content
-            var allKeywords = officeKeywords.Concat(technicalKeywords).Concat(managementKeywords);
+            var allKeywords = techKeywords.Concat(processKeywords).ToArray();
             
             foreach (var keyword in allKeywords)
             {
@@ -972,16 +1113,450 @@ namespace HR.Web.Controllers
                 }
             }
             
-            // If no specific keywords found, use generic topics
-            if (!topics.Any())
+            // If no specific topics found, add generic ones
+            if (topics.Count == 0)
             {
-                topics.AddRange(new[] { "administrative tasks", "communication", "organization", "customer support" });
+                topics.Add("relevant skills");
+                topics.Add("experience");
+                topics.Add("qualifications");
             }
             
-            System.Diagnostics.Debug.WriteLine($"Extracted topics: [{string.Join(", ", topics)}]");
-            
-            return topics.Any() ? topics : new List<string> { "general duties", "office work", "team collaboration" };
+            return topics.Distinct().ToList();
         }
+
+        // Helper methods for fallback analysis
+        private List<string> ExtractKeyRequirements(string jobDescription)
+        {
+            var requirements = new List<string>();
+            var text = jobDescription.ToLower();
+            
+            var requirementKeywords = new[]
+            {
+                "required", "must have", "essential", "necessary", "key qualification",
+                "experience", "degree", "certification", "skill", "knowledge"
+            };
+            
+            var sentences = text.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var sentence in sentences)
+            {
+                if (requirementKeywords.Any(keyword => sentence.Contains(keyword)))
+                {
+                    requirements.Add(sentence.Trim());
+                }
+            }
+            
+            return requirements.Distinct().ToList();
+        }
+
+        private List<string> ExtractTechnicalSkills(string jobDescription)
+        {
+            var techSkills = new List<string>();
+            var text = jobDescription.ToLower();
+            
+            var techKeywords = new[]
+            {
+                "javascript", "python", "java", "c#", "sql", "react", "angular", "node.js",
+                "aws", "azure", "docker", "git", "api", "database", "web", "mobile",
+                "cloud", "devops", "testing", "agile", "scrum", "microservices"
+            };
+            
+            foreach (var skill in techKeywords)
+            {
+                if (text.Contains(skill))
+                {
+                    techSkills.Add(skill);
+                }
+            }
+            
+            return techSkills.Distinct().ToList();
+        }
+
+        private List<string> ExtractSoftSkills(string jobDescription)
+        {
+            var softSkills = new List<string>();
+            var text = jobDescription.ToLower();
+            
+            var softSkillKeywords = new[]
+            {
+                "communication", "leadership", "teamwork", "problem solving", "analytical",
+                "creativity", "adaptability", "time management", "project management",
+                "collaboration", "interpersonal", "organizational", "detail oriented"
+            };
+            
+            foreach (var skill in softSkillKeywords)
+            {
+                if (text.Contains(skill))
+                {
+                    softSkills.Add(skill);
+                }
+            }
+            
+            return softSkills.Distinct().ToList();
+        }
+
+        private List<string> ExtractResponsibilities(string jobDescription)
+        {
+            var responsibilities = new List<string>();
+            var text = jobDescription.ToLower();
+            
+            var responsibilityIndicators = new[]
+            {
+                "responsible for", "will manage", "oversee", "develop", "implement",
+                "coordinate", "lead", "design", "create", "maintain", "support"
+            };
+            
+            var sentences = text.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var sentence in sentences)
+            {
+                if (responsibilityIndicators.Any(indicator => sentence.Contains(indicator)))
+                {
+                    responsibilities.Add(sentence.Trim());
+                }
+            }
+            
+            return responsibilities.Distinct().ToList();
+        }
+
+        private string ExtractIndustry(string jobTitle, string jobDescription)
+        {
+            var text = (jobTitle + " " + jobDescription).ToLower();
+            
+            var industries = new[]
+            {
+                "technology", "healthcare", "finance", "retail", "manufacturing",
+                "education", "government", "nonprofit", "consulting", "media"
+            };
+            
+            foreach (var industry in industries)
+            {
+                if (text.Contains(industry))
+                {
+                    return industry;
+                }
+            }
+            
+            return "general";
+        }
+
+        private Dictionary<string, decimal> GetDefaultSkillWeights(string experience)
+        {
+            switch (experience.ToLower())
+            {
+                case "junior":
+                    return new Dictionary<string, decimal>
+                    {
+                        { "technical", 0.3m },
+                        { "behavioral", 0.4m },
+                        { "experience", 0.3m }
+                    };
+                case "senior":
+                    return new Dictionary<string, decimal>
+                    {
+                        { "technical", 0.5m },
+                        { "behavioral", 0.3m },
+                        { "experience", 0.2m }
+                    };
+                case "lead":
+                    return new Dictionary<string, decimal>
+                    {
+                        { "technical", 0.4m },
+                        { "behavioral", 0.3m },
+                        { "experience", 0.2m },
+                        { "leadership", 0.1m }
+                    };
+                default:
+                    return new Dictionary<string, decimal>
+                    {
+                        { "technical", 0.4m },
+                        { "behavioral", 0.3m },
+                        { "experience", 0.3m }
+                    };
+            }
+        }
+
+        private List<CategoryDistribution> CalculateQuestionDistribution(JobAnalysis analysis, int totalQuestions)
+        {
+            var distribution = new List<CategoryDistribution>();
+            
+            // Distribute questions based on job requirements
+            var technicalCount = (int)Math.Round(totalQuestions * 0.4m); // 40% technical
+            var behavioralCount = (int)Math.Round(totalQuestions * 0.3m); // 30% behavioral
+            var experienceCount = (int)Math.Round(totalQuestions * 0.2m); // 20% experience
+            var situationalCount = totalQuestions - technicalCount - behavioralCount - experienceCount; // Remaining
+            
+            distribution.Add(new CategoryDistribution { Category = "technical", Count = technicalCount });
+            distribution.Add(new CategoryDistribution { Category = "behavioral", Count = behavioralCount });
+            distribution.Add(new CategoryDistribution { Category = "experience", Count = experienceCount });
+            distribution.Add(new CategoryDistribution { Category = "situational", Count = situationalCount });
+            
+            return distribution;
+        }
+
+        private List<HR.Web.Services.MCPQuestionOption> GenerateOptionsForType(string questionType, JobAnalysis analysis)
+        {
+            switch (questionType.ToLower())
+            {
+                case "choice":
+                    return GenerateChoiceOptions(analysis);
+                case "rating":
+                    return GenerateRatingOptions();
+                case "number":
+                    return GenerateNumberOptions(analysis);
+                default:
+                    return new List<HR.Web.Services.MCPQuestionOption>();
+            }
+        }
+
+        private List<HR.Web.Services.MCPQuestionOption> GenerateChoiceOptions(JobAnalysis analysis)
+        {
+            var options = new List<HR.Web.Services.MCPQuestionOption>();
+            string[] choices;
+            switch (analysis.SeniorityLevel.ToLower())
+            {
+                case "senior":
+                    choices = new[] { "Expert", "Advanced", "Intermediate", "Basic" };
+                    break;
+                case "junior":
+                    choices = new[] { "Proficient", "Some Experience", "Basic Knowledge", "No Experience" };
+                    break;
+                default:
+                    choices = new[] { "Excellent", "Good", "Average", "Needs Improvement" };
+                    break;
+            }
+            
+            for (int i = 0; i < choices.Length; i++)
+            {
+                options.Add(new HR.Web.Services.MCPQuestionOption 
+                { 
+                    text = choices[i], 
+                    points = (choices.Length - i) * 2.5m 
+                });
+            }
+            
+            return options;
+        }
+
+        private List<HR.Web.Services.MCPQuestionOption> GenerateRatingOptions()
+        {
+            var options = new List<HR.Web.Services.MCPQuestionOption>();
+            for (int i = 1; i <= 5; i++)
+            {
+                options.Add(new HR.Web.Services.MCPQuestionOption { text = i.ToString(), points = i * 2m });
+            }
+            return options;
+        }
+
+        private List<HR.Web.Services.MCPQuestionOption> GenerateNumberOptions(JobAnalysis analysis)
+        {
+            var options = new List<HR.Web.Services.MCPQuestionOption>();
+            string[] ranges;
+            switch (analysis.SeniorityLevel.ToLower())
+            {
+                case "senior":
+                    ranges = new[] { "10+ years", "7-9 years", "4-6 years", "1-3 years", "Less than 1 year" };
+                    break;
+                case "junior":
+                    ranges = new[] { "3-5 years", "1-2 years", "6 months-1 year", "Less than 6 months" };
+                    break;
+                default:
+                    ranges = new[] { "7+ years", "4-6 years", "2-3 years", "1-2 years", "Less than 1 year" };
+                    break;
+            }
+            
+            for (int i = 0; i < ranges.Length; i++)
+            {
+                options.Add(new HR.Web.Services.MCPQuestionOption 
+                { 
+                    text = ranges[i], 
+                    points = (ranges.Length - i) * 2m 
+                });
+            }
+            
+            return options;
+        }
+
+        private GeneratedQuestion GenerateFallbackQuestion(string category, JobAnalysis analysis, string questionType)
+        {
+            var templates = GetFallbackTemplates(category, analysis.SeniorityLevel);
+            var template = templates[new Random().Next(templates.Count)];
+            var skill = analysis.KeyRequirements.Any() ? 
+                analysis.KeyRequirements[new Random().Next(analysis.KeyRequirements.Count)] : 
+                "relevant skills";
+            
+            var questionText = string.Format(template, skill);
+            
+            return new GeneratedQuestion
+            {
+                text = questionText,
+                type = questionType,
+                category = category,
+                suggestedOptions = GenerateOptionsForType(questionType, analysis)
+            };
+        }
+
+        private List<string> GetFallbackTemplates(string category, string seniority)
+        {
+            switch (category.ToLower())
+            {
+                case "technical":
+                    return new List<string>
+                    {
+                        "Describe a project where you used {0} to solve a complex problem. What was your specific role and what were the results?",
+                        "How do you stay current with {0} developments? What resources do you use and how do you apply new knowledge?",
+                        "What's the most challenging {0} problem you've faced? Walk through your technical approach and solution."
+                    };
+                case "behavioral":
+                    return new List<string>
+                    {
+                        "Describe a situation where you had to use {0} to resolve a conflict. What was the outcome?",
+                        "Give an example of how you've demonstrated {0} in a team environment. What was the impact?",
+                        "Tell me about a time when your {0} skills helped achieve a specific goal."
+                    };
+                case "experience":
+                    return new List<string>
+                    {
+                        "What specific experience do you have with {0}? Include project details, your role, and measurable outcomes.",
+                        "How many years of experience do you have with {0}? Describe the progression of your skills in this area.",
+                        "What's the most significant achievement you've had using {0}? What made it significant?"
+                    };
+                default:
+                    return new List<string>
+                    {
+                        "How would you describe your proficiency with {0}? Provide specific examples that demonstrate your skill level.",
+                        "In what ways have you applied {0} in your previous roles? What were the business impacts?"
+                    };
+            }
+        }
+
+        private bool IsBasicCompliant(string questionText)
+        {
+            var text = questionText.ToLower();
+            
+            // Basic compliance checks
+            var prohibitedTerms = new[]
+            {
+                "age", "young", "old", "recent graduate",
+                "gender", "male", "female", "he", "she", "mom", "dad",
+                "race", "ethnic", "national origin", "citizenship",
+                "religion", "religious", "faith",
+                "disability", "handicap", "medical condition",
+                "marital status", "married", "single", "children", "family"
+            };
+            
+            return !prohibitedTerms.Any(term => text.Contains(term));
+        }
+
+        private async Task<GeneratedQuestion> GenerateCompliantAlternative(GeneratedQuestion original, List<string> issues)
+        {
+            try
+            {
+                var parameters = new
+                {
+                    originalQuestion = original.text,
+                    complianceIssues = issues,
+                    category = original.category,
+                    questionType = original.type
+                };
+
+                var response = await _mcpService.CallToolAsync("generate-compliant-alternative", parameters);
+                
+                if (response.Success)
+                {
+                    var content = response.Result.contents[0];
+                    var alternative = JsonConvert.DeserializeObject<ContextualQuestion>(content.text);
+                    
+                    return new GeneratedQuestion
+                    {
+                        text = alternative.Text,
+                        type = alternative.Type,
+                        category = alternative.Category,
+                        suggestedOptions = alternative.Options
+                    };
+                }
+            }
+            catch
+            {
+                // Fallback to neutral template
+            }
+            
+            return null;
+        }
+    }
+
+    // Supporting classes for question generation
+    public class PositionQuestionAssignment
+    {
+        public int PositionId { get; set; }
+        public int QuestionId { get; set; }
+        public int Order { get; set; }
+        public bool IsRequired { get; set; }
+    }
+
+    public class ContextualQuestion
+    {
+        public string Text { get; set; }
+        public string Type { get; set; }
+        public string Category { get; set; }
+        public List<HR.Web.Services.MCPQuestionOption> Options { get; set; }
+    }
+
+    public class QuestionData
+    {
+        public string QuestionText { get; set; }
+        public string QuestionType { get; set; }
+        public string Category { get; set; }
+        public int id { get; set; }
+        public string text { get; set; }
+        public string type { get; set; }
+        public bool? isActive { get; set; }
+    }
+
+    public class QuestionProcessResult
+    {
+        public bool IsDuplicate { get; set; }
+        public string Action { get; set; }
+        public string Reason { get; set; }
+        public string status { get; set; }
+        public QuestionData questionData { get; set; }
+        public DuplicateQuestionInfo DuplicateInfo { get; set; }
+    }
+
+    public class DuplicateQuestionInfo
+    {
+        public int id { get; set; }
+        public string text { get; set; }
+        public string type { get; set; }
+        public int ExistingQuestionId { get; set; }
+        public string ExistingQuestionText { get; set; }
+        public decimal SimilarityScore { get; set; }
+        public decimal similarity { get; set; }
+        public string SuggestedAction { get; set; }
+        public int existingQuestionId { get; set; }
+        public string existingQuestionText { get; set; }
+    }
+
+    public class DuplicateDecision
+    {
+        public bool UseExisting { get; set; }
+        public int ExistingQuestionId { get; set; }
+        public bool CreateNew { get; set; }
+        public string Reason { get; set; }
+        public string action { get; set; }
+        public string newText { get; set; }
+        public string type { get; set; }
+    }
+
+    public class CategoryDistribution
+    {
+        public string Category { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class ComplianceResult
+    {
+        public bool IsCompliant { get; set; }
+        public List<string> Issues { get; set; }
+        public List<string> Suggestions { get; set; }
     }
 
     // Response models for candidate evaluation
@@ -1008,59 +1583,26 @@ namespace HR.Web.Controllers
 
     public class AnswerAnalysis
     {
+        public int questionId { get; set; }
         public string questionText { get; set; }
         public string answerText { get; set; }
         public decimal score { get; set; }
-        public List<string> issues { get; set; } // plagiarism, spelling, grammar, etc.
-        public string quality { get; set; } // excellent, good, fair, poor
+        public string quality { get; set; }
+        public List<string> strengths { get; set; }
+        public List<string> weaknesses { get; set; }
+        public List<string> issues { get; set; }
+        public string reasoning { get; set; }
+        public decimal confidence { get; set; }
+        public bool isPlagiarized { get; set; }
     }
 
     public class EvaluationSummary
     {
         public int totalCandidates { get; set; }
         public int evaluatedCandidates { get; set; }
-        public int recommendedCandidates { get; set; }
-        public string evaluationMethod { get; set; }
-        public List<string> keyFindings { get; set; }
-        public string note { get; set; }
-    }
-
-    public class PositionQuestionAssignment
-    {
-        public int QuestionId { get; set; }
-        public int Order { get; set; }
-    }
-
-    public class QuestionData
-    {
-        public int id { get; set; }
-        public string text { get; set; }
-        public string type { get; set; }
-        public bool? isActive { get; set; }
-    }
-
-    public class QuestionProcessResult
-    {
-        public QuestionData questionData { get; set; }
-        public string status { get; set; } // "new" or "duplicate"
-    }
-
-    public class DuplicateQuestionInfo
-    {
-        public int id { get; set; }
-        public string text { get; set; }
-        public string type { get; set; }
-        public int existingQuestionId { get; set; }
-        public string existingQuestionText { get; set; }
-        public string similarity { get; set; }
-    }
-
-    public class DuplicateDecision
-    {
-        public int id { get; set; }
-        public string newText { get; set; }
-        public string type { get; set; }
-        public string action { get; set; } // "keep" or "skip"
-        public int existingQuestionId { get; set; }
+        public decimal averageScore { get; set; }
+        public List<string> topStrengths { get; set; }
+        public List<string> commonWeaknesses { get; set; }
+        public List<string> recommendations { get; set; }
     }
 }
