@@ -126,10 +126,24 @@ namespace HR.Web.Controllers
 
             ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", position.DepartmentId);
             
-            // Load all questions (include inactive ones too so admin can see everything)
-            var allQuestions = _uow.Questions.GetAll().ToList();
+            // Load all questions (include inactive ones too so admin can see everything) with their options
+            var allQuestions = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
             ViewBag.QuestionList = allQuestions;
             Debug.WriteLine($"[PositionsController.Edit] Loaded {allQuestions.Count} questions from database.");
+            
+            // Debug: Check each question and its options
+            foreach (var q in allQuestions)
+            {
+                Debug.WriteLine($"Question: {q.Text} (Type: {q.Type})");
+                Debug.WriteLine($"Options count: {q.QuestionOptions?.Count() ?? 0}");
+                if (q.QuestionOptions != null)
+                {
+                    foreach (var opt in q.QuestionOptions)
+                    {
+                        Debug.WriteLine($"  - Option: {opt.Text} (Points: {opt.Points})");
+                    }
+                }
+            }
             
             // Get currently selected question IDs for pre-checking
             var selectedQuestionIds = position.PositionQuestions?.Select(pq => pq.QuestionId).ToList() ?? new System.Collections.Generic.List<int>();

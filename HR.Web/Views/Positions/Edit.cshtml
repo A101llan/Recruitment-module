@@ -230,14 +230,40 @@
                     </small>
                     @if (questions != null && questions.Any())
                     {
-                        foreach (var q in questions)
-                        {
-                            bool isChecked = selectedQuestionIds.Contains(q.Id);
-                            <div class="form-check text-left" style="max-width: 350px; margin: 0 auto;">
-                                <input class="form-check-input" type="checkbox" name="selectedQuestions" value="@q.Id" id="q_@q.Id" @(isChecked ? "checked" : "") />
-                                <label class="form-check-label" for="q_@q.Id">@q.Text</label>
-                            </div>
-                        }
+                        <div class="question-list">
+                            @foreach (var q in questions)
+                            {
+                                bool isChecked = selectedQuestionIds.Contains(q.Id);
+                                <div class="question-item mb-3 p-3 border rounded">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="selectedQuestions" value="@q.Id" id="q_@q.Id" @(isChecked ? "checked" : "") />
+                                        <label class="form-check-label" for="q_@q.Id">
+                                            <strong>Question:</strong> @q.Text
+                                            <span class="badge bg-secondary ms-2">@q.Type</span>
+                                        </label>
+                                    </div>
+                                    
+                                    @if (q.QuestionOptions != null && q.QuestionOptions.Any())
+                                    {
+                                        <div class="ms-4">
+                                            <strong>Options:</strong>
+                                            <ul class="mb-0">
+                                                @foreach (var option in q.QuestionOptions)
+                                                {
+                                                    <li>@option.Text (@option.Points points)</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                    else if (q.Type == "Choice")
+                                    {
+                                        <div class="ms-4 text-warning">
+                                            <em><i class="fas fa-exclamation-triangle"></i> No options available - This choice question needs options</em>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
                     }
                     else
                     {

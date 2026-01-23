@@ -23,10 +23,26 @@ public class ApplicationsController : Controller
     [Authorize]
     public ActionResult Questionnaire(int positionId)
     {
-        var position = _uow.Positions.GetAll(p => p.PositionQuestions.Select(pq => pq.Question))
+        var position = _uow.Positions.GetAll(p => p.PositionQuestions.Select(pq => pq.Question).Select(q => q.QuestionOptions))
             .FirstOrDefault(p => p.Id == positionId);
         if (position == null)
             return HttpNotFound();
+        
+        // Debug: Log questions and their options
+        System.Diagnostics.Debug.WriteLine($"=== Position {position.Title} Questions ===");
+        foreach (var pq in position.PositionQuestions)
+        {
+            System.Diagnostics.Debug.WriteLine($"Question: {pq.Question.Text} (Type: {pq.Question.Type})");
+            System.Diagnostics.Debug.WriteLine($"Options count: {pq.Question.QuestionOptions?.Count() ?? 0}");
+            if (pq.Question.QuestionOptions != null)
+            {
+                foreach (var option in pq.Question.QuestionOptions)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  - Option: {option.Text} (Points: {option.Points})");
+                }
+            }
+        }
+        System.Diagnostics.Debug.WriteLine($"=== End Questions ===");
         
         // Check if user has already applied for this position
         if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
@@ -87,6 +103,7 @@ public class ApplicationsController : Controller
         var positionQuestions = _uow.Context.Set<PositionQuestion>()
             .Where(pq => pq.PositionId == positionId)
             .Include(pq => pq.Question)
+            .Include(pq => pq.Question.QuestionOptions)
             .OrderBy(pq => pq.Order)
             .ToList();
 

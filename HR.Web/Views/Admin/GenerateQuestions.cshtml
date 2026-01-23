@@ -24,11 +24,6 @@
         <div class="alert alert-danger">@TempData["Error"]</div>
     }
 
-    <!-- MCP Status -->
-    <div id="mcpStatus" class="alert alert-info">
-        <strong>Checking MCP Connection...</strong>
-    </div>
-
     <div class="card">
         <div class="card-header">
             <h5>AI Question Generation</h5>
@@ -135,7 +130,23 @@
                         <label>Position Description</label>
                         <textarea id="newPositionDescription" class="form-control" rows="3" placeholder="Brief description for the position listing"></textarea>
                     </div>
-                    <small class="form-text text-muted">Position title and description are used to tailor generated questions.</small>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Key Responsibilities</label>
+                                <textarea id="newPositionKeyResponsibilities" class="form-control" rows="3" placeholder="e.g., Develop and implement social media strategies, Create engaging content, Analyze performance metrics..."></textarea>
+                                <small class="form-text text-muted">Specific duties and responsibilities for this role</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Required Qualifications</label>
+                                <textarea id="newPositionRequiredQualifications" class="form-control" rows="3" placeholder="e.g., 3+ years social media experience, Proficiency in analytics tools, Strong communication skills..."></textarea>
+                                <small class="form-text text-muted">Required skills, experience, and qualifications</small>
+                            </div>
+                        </div>
+                    </div>
+                    <small class="form-text text-muted">All fields are autofilled from your job analysis but can be edited as needed.</small>
                 </div>
 
                 <button type="button" id="executeBatchGenerate" class="btn btn-primary">
@@ -147,11 +158,26 @@
 
     <!-- Results Panel for Generated Questions -->
     <div id="batchGenerationResults" style="display:none; margin-top:20px;">
-        <div class="card">
-            <div class="card-header">
-                <h5>Generated Questions</h5>
+        <div class="card shadow-sm border-primary mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-magic"></i> Generate Interview Questions
+                </h4>
             </div>
             <div class="card-body">
+                <!-- Selection Controls -->
+                <div class="mb-3" id="selectionControls" style="display:none;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllQuestions">
+                        <label class="form-check-label" for="selectAllQuestions">
+                            <strong>Select All Questions</strong>
+                        </label>
+                    </div>
+                    <small class="text-muted">
+                        <span id="selectedCount">0</span> of <span id="totalCount">0</span> questions selected
+                    </small>
+                </div>
+                
                 <div id="batchQuestionsList"></div>
                 <div class="mt-3" id="generatedQuestionsActions" style="display:none;">
                     <!-- Add to Sample Questions -->
@@ -171,16 +197,18 @@
                             <i class="fas fa-plus"></i> Add to Question Bank
                         </button>
                     </div>
-                    
-                    <!-- Only show Create Position when checkbox is checked -->
-                    <div id="createPositionSection" style="display:none;">
-                        <button type="button" class="btn btn-primary" onclick="createPositionAndAddQuestions()">
-                            <i class="fas fa-briefcase"></i> Create Position & Add Questions
-                        </button>
-                        <small class="form-text text-muted d-block mt-1">
-                            Create a new position with these questions assigned
-                        </small>
-                    </div>
+                </div>
+                
+                <!-- Create Position Section (Independent of question selection) -->
+                <div class="mt-3" id="createPositionSection" style="display:none;">
+                    <hr />
+                    <h6>Create New Position</h6>
+                    <button type="button" class="btn btn-warning" onclick="createPositionAndAddQuestions()">
+                        <i class="fas fa-briefcase"></i> Create Position & Assign Selected Questions
+                    </button>
+                    <small class="form-text text-muted d-block mt-1">
+                        Create a new position with the selected questions assigned to it
+                    </small>
                 </div>
             </div>
         </div>
@@ -193,9 +221,76 @@
 var generatedQuestions = [];
 
 // Define functions globally so they can be accessed by onclick handlers
+function updateSelectedCount() {
+    var total = $('.question-checkbox').length;
+    var selected = $('.question-checkbox:checked').length;
+    $('#selectedCount').text(selected);
+    $('#totalCount').text(total);
+    
+    // Update button states
+    if (selected > 0) {
+        $('#generatedQuestionsActions').show();
+    } else {
+        $('#generatedQuestionsActions').hide();
+    }
+}
+
+function updateSelectAllCheckbox() {
+    var total = $('.question-checkbox').length;
+    var selected = $('.question-checkbox:checked').length;
+    
+    if (selected === 0) {
+        $('#selectAllQuestions').prop('checked', false).prop('indeterminate', false);
+    } else if (selected === total) {
+        $('#selectAllQuestions').prop('checked', true).prop('indeterminate', false);
+    } else {
+        $('#selectAllQuestions').prop('indeterminate', true);
+    }
+}
+
+function getSelectedQuestions() {
+    var selectedIndices = [];
+    $('.question-checkbox:checked').each(function() {
+        selectedIndices.push(parseInt($(this).val()));
+    });
+    
+    return selectedIndices.map(function(index) {
+        return generatedQuestions[index];
+    });
+}
+
+function loadDepartments() {
+    $.ajax({
+        url: '@Url.Action("GetDepartments", "Admin")',
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                var select = $('#newPositionDepartment');
+                select.empty().append('<option value="">-- Select Department --</option>');
+                response.departments.forEach(function(dept) {
+                    select.append('<option value="' + dept + '">' + dept + '</option>');
+                });
+            }
+        },
+        error: function() {
+            console.error('Failed to load departments');
+        }
+    });
+}
+
+function autofillNewPositionFields() {
+    $('#newPositionTitle').val($('#batchJobTitle').val());
+    $('#newPositionDescription').val($('#batchJobDescription').val());
+    $('#newPositionKeyResponsibilities').val($('#batchKeyResponsibilities').val());
+    $('#newPositionRequiredQualifications').val($('#batchRequiredQualifications').val());
+}
+
+// Define functions globally so they can be accessed by onclick handlers
 function addGeneratedQuestionsToBank() {
-    if (!generatedQuestions.length) {
-        alert('No questions to add. Please generate questions first.');
+    var selectedQuestions = getSelectedQuestions();
+    
+    if (!selectedQuestions.length) {
+        alert('No questions selected. Please select at least one question to add.');
         return;
     }
     
@@ -203,7 +298,7 @@ function addGeneratedQuestionsToBank() {
         url: '@Url.Action("AddGeneratedQuestionsToBank", "Admin")',
         type: 'POST',
         data: {
-            questionsJson: JSON.stringify(generatedQuestions)
+            questionsJson: JSON.stringify(selectedQuestions)
         },
         success: function(response) {
             if (response.success) {
@@ -224,43 +319,54 @@ function addGeneratedQuestionsToBank() {
 }
 
 function addGeneratedQuestionsToSample() {
-    if (!generatedQuestions.length) {
-        alert('No questions to add. Please generate questions first.');
+    var selectedQuestions = getSelectedQuestions();
+    
+    if (!selectedQuestions.length) {
+        alert('No questions selected. Please select at least one question to add.');
         return;
     }
 
-    // Convert generated questions to the format expected by the backend
-    var questionsToAdd = generatedQuestions.map(function(q, index) {
-        return {
-            id: index, // Use index as temporary ID
-            text: q.text || q.question || '',
-            type: q.type || 'Text',
-            isActive: true
-        };
-    });
-
-    // Call backend to check for duplicates
+    // Call backend to check for duplicates with original question format
     $.ajax({
-        url: '@Url.Action("AddToSampleQuestions", "Admin")',
+        url: '@Url.Action("CheckDuplicateQuestions", "Admin")',
         type: 'POST',
         data: {
-            questionsJson: JSON.stringify(questionsToAdd)
+            questionsJson: JSON.stringify(selectedQuestions)
         },
         success: function(response) {
             if (response.success) {
-                if (response.requiresDecision) {
+                if (response.duplicates && response.duplicates.length > 0) {
                     // Show duplicate decision modal
                     showDuplicateDecisionModal(response.duplicates, response.newQuestions);
                 } else {
-                    // No duplicates, show success
-                    alert(response.message);
-                    // Clear the generated questions
-                    generatedQuestions = [];
-                    $('#batchGenerationResults').hide();
-                    $('#generatedQuestionsActions').hide();
-                    $('#batchQuestionsList').empty();
-                    setTimeout(() => location.reload(), 1000);
+                    // No duplicates, add all questions directly
+                    addQuestionsToSample(selectedQuestions);
                 }
+            } else {
+                alert('Error checking for duplicates: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error checking for duplicates');
+        }
+    });
+}
+
+function addQuestionsToSample(questions) {
+    $.ajax({
+        url: '@Url.Action("AddQuestionsToSample", "Admin")',
+        type: 'POST',
+        data: {
+            questionsJson: JSON.stringify(questions)
+        },
+        success: function(response) {
+            if (response.success) {
+                alert(response.message);
+                // Clear the generated questions
+                generatedQuestions = [];
+                $('#batchGenerationResults').hide();
+                $('#generatedQuestionsActions').hide();
+                $('#batchQuestionsList').empty();
             } else {
                 alert('Error: ' + response.message);
             }
@@ -275,19 +381,70 @@ function createPositionAndAddQuestions() {
     var positionTitle = $('#newPositionTitle').val();
     var positionDescription = $('#newPositionDescription').val();
     var positionDepartment = $('#newPositionDepartment').val();
+    var positionKeyResponsibilities = $('#newPositionKeyResponsibilities').val();
+    var positionRequiredQualifications = $('#newPositionRequiredQualifications').val();
     
     if (!positionTitle || !positionDescription) {
-        alert('Please fill in the new position details.');
+        alert('Please fill in the position title and description.');
         return;
     }
     
-    if (!generatedQuestions.length) {
-        alert('No questions to add. Please generate questions first.');
+    var selectedQuestions = getSelectedQuestions();
+    if (!selectedQuestions.length) {
+        alert('No questions selected. Please select at least one question to add to the position.');
         return;
     }
     
-    // TODO: Implement server endpoint to create position and assign questions
-    alert('Feature coming soon: New position will be created and questions assigned.');
+    // Debug: Log what we're sending
+    console.log('=== Creating Position with Questions Debug ===');
+    console.log('Selected questions count:', selectedQuestions.length);
+    selectedQuestions.forEach(function(q, i) {
+        console.log(`Question ${i + 1}:`, {
+            id: q.id,
+            text: q.text,
+            type: q.type,
+            optionsCount: q.suggestedOptions ? q.suggestedOptions.length : 0,
+            options: q.suggestedOptions
+        });
+    });
+    console.log('Questions JSON:', JSON.stringify(selectedQuestions, null, 2));
+    
+    // Call backend to create position with questions
+    $.ajax({
+        url: '@Url.Action("CreatePositionWithQuestions", "Admin")',
+        type: 'POST',
+        data: {
+            positionTitle: positionTitle,
+            positionDescription: positionDescription,
+            positionDepartment: positionDepartment,
+            positionKeyResponsibilities: positionKeyResponsibilities,
+            positionRequiredQualifications: positionRequiredQualifications,
+            questionsJson: JSON.stringify(selectedQuestions)
+        },
+        success: function(response) {
+            if (response.success) {
+                alert(response.message);
+                // Clear the form and generated questions
+                generatedQuestions = [];
+                $('#batchGenerationResults').hide();
+                $('#generatedQuestionsActions').hide();
+                $('#createPositionSection').hide();
+                $('#batchQuestionsList').empty();
+                $('#createNewPosition').prop('checked', false);
+                $('#newPositionFields').hide();
+                
+                // Optionally redirect to positions page
+                if (confirm('Would you like to view the newly created position?')) {
+                    window.location.href = '/Positions';
+                }
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error creating position. Please try again.');
+        }
+    });
 }
 
 function showDuplicateDecisionModal(duplicates, newQuestions) {
@@ -378,10 +535,12 @@ function selectDuplicateAction(duplicateId, action) {
 
 function processDuplicateDecisions(newCount, duplicateCount) {
     var decisions = [];
+    var newQuestionsToAdd = [];
     
-    // Add all new questions (they're checked by default)
+    // Add all new questions (they're automatically approved)
     for (let i = 0; i < newCount; i++) {
-        // These will be processed automatically
+        // These will be processed automatically as they don't have duplicates
+        // We'll add them directly after processing duplicates
     }
     
     // Process duplicate decisions
@@ -398,11 +557,6 @@ function processDuplicateDecisions(newCount, duplicateCount) {
             existingQuestionId: duplicateData.existingQuestionId
         });
     });
-
-    if (decisions.length === 0) {
-        alert('Please make decisions for duplicate questions.');
-        return;
-    }
 
     // Send decisions to backend
     $.ajax({
@@ -432,9 +586,6 @@ function processDuplicateDecisions(newCount, duplicateCount) {
 }
 
 $(document).ready(function() {
-    // Check MCP connection
-    checkMCPConnection();
-
     // Pre-load departments for new position dropdown
     loadDepartments();
 
@@ -448,62 +599,54 @@ $(document).ready(function() {
     $('#createNewPosition').change(function() {
         if ($(this).is(':checked')) {
             $('#newPositionFields').show();
-            // Auto-populate position title from job title
-            $('#newPositionTitle').val($('#batchJobTitle').val());
+            $('#createPositionSection').show();
+            // Auto-populate all fields from job analysis
+            autofillNewPositionFields();
         } else {
             $('#newPositionFields').hide();
+            $('#createPositionSection').hide();
         }
     });
 
-    // Auto-sync position title with job title when typing
+    // Auto-sync position fields with job analysis when typing
     $('#batchJobTitle').on('input', function() {
         if ($('#createNewPosition').is(':checked')) {
             $('#newPositionTitle').val($(this).val());
         }
     });
 
+    $('#batchJobDescription').on('input', function() {
+        if ($('#createNewPosition').is(':checked')) {
+            $('#newPositionDescription').val($(this).val());
+        }
+    });
+
+    $('#batchKeyResponsibilities').on('input', function() {
+        if ($('#createNewPosition').is(':checked')) {
+            $('#newPositionKeyResponsibilities').val($(this).val());
+        }
+    });
+
+    $('#batchRequiredQualifications').on('input', function() {
+        if ($('#createNewPosition').is(':checked')) {
+            $('#newPositionRequiredQualifications').val($(this).val());
+        }
+    });
+
     // Generate questions
     $('#executeBatchGenerate').click(executeBatchGeneration);
 
-    // Functions
-    function checkMCPConnection() {
-        $.ajax({
-            url: '@Url.Action("TestMCPConnection", "Admin")',
-            type: 'GET',
-            success: function(response) {
-                if (response.success && response.connected) {
-                    $('#mcpStatus').removeClass('alert-warning').addClass('alert-success')
-                        .html('<strong>MCP Connected:</strong> AI features available');
-                } else {
-                    $('#mcpStatus').removeClass('alert-info').addClass('alert-warning')
-                        .html('<strong>MCP Not Available:</strong> Some AI features may be limited');
-                }
-            },
-            error: function() {
-                $('#mcpStatus').removeClass('alert-info').addClass('alert-danger')
-                    .html('<strong>MCP Error:</strong> Unable to connect to MCP server');
-            }
-        });
-    }
+    // Selection functionality
+    $(document).on('change', '#selectAllQuestions', function() {
+        var isChecked = $(this).prop('checked');
+        $('.question-checkbox').prop('checked', isChecked);
+        updateSelectedCount();
+    });
 
-    function loadDepartments() {
-        $.ajax({
-            url: '@Url.Action("GetDepartments", "Admin")',
-            type: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    var select = $('#newPositionDepartment');
-                    select.empty().append('<option value="">-- Select Department --</option>');
-                    response.departments.forEach(function(dept) {
-                        select.append('<option value="' + dept + '">' + dept + '</option>');
-                    });
-                }
-            },
-            error: function() {
-                console.error('Failed to load departments');
-            }
-        });
-    }
+    $(document).on('change', '.question-checkbox', function() {
+        updateSelectedCount();
+        updateSelectAllCheckbox();
+    });
 
     function executeBatchGeneration() {
         var jobTitle = $('#batchJobTitle').val();
@@ -552,32 +695,93 @@ $(document).ready(function() {
             },
             success: function(response) {
                 console.log('Received response:', response);
-                console.log('Number of questions:', response.questions ? response.questions.length : 0);
+                console.log('Response success:', response.success);
+                console.log('Response message:', response.message);
+                console.log('Full response object:', JSON.stringify(response, null, 2));
                 
-                if (response.success && response.questions && response.questions.length > 0) {
-                    // Store generated questions globally
-                    generatedQuestions = response.questions;
-                    
-                    // Render questions in results panel with action buttons
-                    var html = '<ol>';
-                    response.questions.forEach(function(q, i) {
-                        html += '<li style="margin-bottom:10px;"><strong>' + (q.text || q.question || '') + '</strong>';
-                        if (q.options && q.options.length > 0) {
-                            html += '<ul>';
-                            q.options.forEach(function(opt) {
-                                html += '<li>' + (opt.text || opt) + '</li>';
-                            });
-                            html += '</ul>';
-                        }
-                        html += '</li>';
-                    });
-                    html += '</ol>';
-                    
-                    $('#batchQuestionsList').html(html);
-                    $('#batchGenerationResults').show();
-                    $('#generatedQuestionsActions').show();
+                if (response.success) {
+                    if (response.loading) {
+                        // Show loading state
+                        $('#batchQuestionsList').html(`
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm mr-3" role="status">
+                                        <span class="sr-only">Loading...</span>
+                                    </div>
+                                    <div>
+                                        <strong>AI is analyzing your job requirements...</strong><br>
+                                        <small class="text-muted">${response.message}</small><br>
+                                        <div class="mt-2">
+                                            <div class="progress">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                     role="progressbar" 
+                                                     style="width: 100%">
+                                                    Processing...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                        $('#batchGenerationResults').show();
+                        $('#generatedQuestionsActions').hide();
+                        
+                        // Start polling for results (simulate real-time updates)
+                        pollForResults();
+                    } else if (response.questions && response.questions.length > 0) {
+                        // Store generated questions globally
+                        generatedQuestions = response.questions;
+                        
+                        // Show selection controls
+                        $('#selectionControls').show();
+                        $('#totalCount').text(response.questions.length);
+                        
+                        // Render questions in results panel with checkboxes
+                        var html = '<div class="question-list">';
+                        response.questions.forEach(function(q, i) {
+                            html += '<div class="question-item mb-3 p-3 border rounded" data-question-index="' + i + '">';
+                            html += '<div class="form-check mb-2">';
+                            html += '<input class="form-check-input question-checkbox" type="checkbox" value="' + i + '" id="question_' + i + '">';
+                            html += '<label class="form-check-label" for="question_' + i + '">';
+                            html += '<strong>Question ' + (i + 1) + ':</strong> ' + (q.text || q.question || '');
+                            html += '</label>';
+                            html += '</div>';
+                            
+                            if (q.suggestedOptions && q.suggestedOptions.length > 0) {
+                                html += '<div class="ms-4">';
+                                html += '<strong>Options:</strong>';
+                                html += '<ul class="mb-0">';
+                                q.suggestedOptions.forEach(function(opt) {
+                                    html += '<li>' + (opt.text || opt) + ' (' + opt.points + ' points)</li>';
+                                });
+                                html += '</ul>';
+                                html += '</div>';
+                            }
+                            
+                            html += '</div>';
+                        });
+                        html += '</div>';
+                        
+                        $('#batchQuestionsList').html(html);
+                        $('#batchGenerationResults').show();
+                        $('#generatedQuestionsActions').show();
+                        updateSelectedCount();
+                    } else {
+                        $('#batchQuestionsList').html('<div class="alert alert-warning">No questions generated. Try again or check your input.</div>');
+                        $('#batchGenerationResults').show();
+                        $('#generatedQuestionsActions').hide();
+                    }
                 } else {
-                    $('#batchQuestionsList').html('<div class="alert alert-warning">No questions generated. Try again or check your input.</div>');
+                    console.log('Error response received:', response);
+                    var errorMsg = response.message || 'Unknown error occurred';
+                    var fullResponse = JSON.stringify(response, null, 2);
+                    $('#batchQuestionsList').html(`
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${errorMsg}
+                            <br><small>Full Response: ${fullResponse}</small>
+                        </div>
+                    `);
                     $('#batchGenerationResults').show();
                     $('#generatedQuestionsActions').hide();
                 }
@@ -586,6 +790,121 @@ $(document).ready(function() {
                 alert('Error generating questions');
             }
         });
+    }
+
+    function pollForResults() {
+        let pollCount = 0;
+        const maxPolls = 30; // Poll for up to 30 seconds
+        
+        // Store the original parameters for polling
+        const jobTitle = $('#batchJobTitle').val();
+        const jobDescription = $('#batchJobDescription').val();
+        const keyResponsibilities = $('#batchKeyResponsibilities').val();
+        const requiredQualifications = $('#batchRequiredQualifications').val();
+        const count = parseInt($('#batchCount').val()) || 10;
+        const questionTypes = [];
+        
+        $('input[type="checkbox"]:checked').each(function() {
+            questionTypes.push($(this).val());
+        });
+        
+        const pollInterval = setInterval(function() {
+            pollCount++;
+            
+            // Update progress bar
+            const progress = Math.min((pollCount / maxPolls) * 100, 100);
+            $('.progress-bar').css('width', progress + '%').text(`Analyzing job requirements... ${Math.round(progress)}%`);
+            
+            // After 3 seconds, start checking for actual results
+            if (pollCount >= 3) {
+                clearInterval(pollInterval);
+                
+                // Call the status check endpoint
+                $.ajax({
+                    url: '@Url.Action("CheckQuestionStatus", "Admin")?_=' + new Date().getTime(),
+                    type: 'POST',
+                    traditional: true,
+                    data: {
+                        jobTitle: jobTitle,
+                        jobDescription: jobDescription,
+                        keyResponsibilities: keyResponsibilities,
+                        requiredQualifications: requiredQualifications,
+                        experience: 'mid',
+                        questionTypes: questionTypes,
+                        count: count
+                    },
+                    success: function(response) {
+                        console.log('Status check response:', response);
+                        
+                        if (response.success && !response.loading && response.questions && response.questions.length > 0) {
+                            // Store generated questions globally
+                            generatedQuestions = response.questions;
+                            
+                            // Show selection controls
+                            $('#selectionControls').show();
+                            $('#totalCount').text(response.questions.length);
+                            
+                            // Render questions in results panel with checkboxes
+                            var html = '<div class="question-list">';
+                            response.questions.forEach(function(q, i) {
+                                html += '<div class="question-item mb-3 p-3 border rounded" data-question-index="' + i + '">';
+                                html += '<div class="form-check mb-2">';
+                                html += '<input class="form-check-input question-checkbox" type="checkbox" value="' + i + '" id="question_' + i + '">';
+                                html += '<label class="form-check-label" for="question_' + i + '">';
+                                html += '<strong>Question ' + (i + 1) + ':</strong> ' + (q.text || q.question || '');
+                                html += '</label>';
+                                html += '</div>';
+                                
+                                if (q.suggestedOptions && q.suggestedOptions.length > 0) {
+                                    html += '<div class="ms-4">';
+                                    html += '<strong>Options:</strong>';
+                                    html += '<ul class="mb-0">';
+                                    q.suggestedOptions.forEach(function(opt) {
+                                        html += '<li>' + (opt.text || opt) + ' (' + opt.points + ' points)</li>';
+                                    });
+                                    html += '</ul>';
+                                    html += '</div>';
+                                }
+                                
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                            
+                            $('#batchQuestionsList').html(html);
+                            $('#batchGenerationResults').show();
+                            $('#generatedQuestionsActions').show();
+                            updateSelectedCount();
+                        } else if (response.success && response.loading) {
+                            // Still loading, continue polling
+                            $('#batchQuestionsList').html(`
+                                <div class="alert alert-info">
+                                    <div class="d-flex align-items-center">
+                                        <div class="spinner-border spinner-border-sm mr-3" role="status">
+                                            <span class="sr-only">Loading...</span>
+                                        </div>
+                                        <div>
+                                            <strong>AI is still working...</strong><br>
+                                            <small class="text-muted">This is taking longer than expected for complex job requirements.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                            // Continue polling
+                            setTimeout(() => pollForResults(), 2000);
+                        } else {
+                            $('#batchQuestionsList').html('<div class="alert alert-danger">Error: ' + (response.message || 'Failed to generate questions') + '</div>');
+                            $('#batchGenerationResults').show();
+                            $('#generatedQuestionsActions').hide();
+                        }
+                    },
+                    error: function() {
+                        $('#batchQuestionsList').html('<div class="alert alert-danger">Error checking question status</div>');
+                        $('#batchGenerationResults').show();
+                        $('#generatedQuestionsActions').hide();
+                    }
+                });
+            }
+        }, 1000); // Poll every second
     }
 });
 </script>
