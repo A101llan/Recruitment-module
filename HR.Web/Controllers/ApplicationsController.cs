@@ -19,6 +19,71 @@ public class ApplicationsController : Controller
     private readonly IEmailService _email = new EmailService();
     private readonly ICandidateEvaluationService _evaluationService = new CandidateEvaluationService();
 
+    [Authorize]
+    public ActionResult TestQuestionnaire()
+    {
+        var positionId = 4; // Software Developer
+        var position = _uow.Positions.GetAll(p => p.PositionQuestions.Select(pq => pq.Question).Select(q => q.QuestionOptions))
+            .FirstOrDefault(p => p.Id == positionId);
+        
+        if (position == null)
+            return HttpNotFound();
+        
+        // Get position questions
+        var positionQuestions = _uow.Context.Set<PositionQuestion>()
+            .Where(pq => pq.PositionId == positionId)
+            .Include(pq => pq.Question)
+            .Include(pq => pq.Question.QuestionOptions)
+            .OrderBy(pq => pq.Order)
+            .ToList();
+
+        ViewBag.Position = position;
+        ViewBag.PositionQuestions = positionQuestions;
+        ViewBag.Applicant = null; // Will be set in POST
+        
+        return View();
+    }
+    
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public ActionResult TestQuestionnaire(int positionId, FormCollection form)
+    {
+        // Get position questions
+        var positionQuestions = _uow.Context.Set<PositionQuestion>()
+            .Where(pq => pq.PositionId == positionId)
+            .Include(pq => pq.Question)
+            .Include(pq => pq.Question.QuestionOptions)
+            .OrderBy(pq => pq.Order)
+            .ToList();
+
+        var answers = new List<QuestionAnswerViewModel>();
+        
+        // Process dynamic question answers
+        foreach (var pq in positionQuestions)
+        {
+            var questionFieldName = "question_" + pq.Question.Id;
+            var answer = form[questionFieldName];
+            
+            answers.Add(new QuestionAnswerViewModel
+            {
+                QuestionId = pq.Question.Id,
+                QuestionText = pq.Question.Text,
+                QuestionType = pq.Question.Type,
+                Answer = answer ?? ""
+            });
+        }
+        
+        // Store in session
+        Session["TestAnswers"] = answers;
+        
+        ViewBag.Position = _uow.Positions.Get(positionId);
+        ViewBag.PositionQuestions = positionQuestions;
+        ViewBag.Answers = answers;
+        
+        return View();
+    }
+
     // Questionnaire for position application
     [Authorize]
     public ActionResult Questionnaire(int positionId)
@@ -151,6 +216,15 @@ public class ApplicationsController : Controller
 
         // Handle resume upload
         string resumePath = null;
+        System.Diagnostics.Debug.WriteLine($"=== DEBUG: Resume Upload ===");
+        System.Diagnostics.Debug.WriteLine($"Resume is null: {resume == null}");
+        if (resume != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"Resume ContentLength: {resume.ContentLength}");
+            System.Diagnostics.Debug.WriteLine($"Resume FileName: {resume.FileName}");
+        }
+        System.Diagnostics.Debug.WriteLine($"=== END DEBUG ===");
+        
         if (resume != null && resume.ContentLength > 0)
         {
             // Validate file size (5MB max)
@@ -172,6 +246,7 @@ public class ApplicationsController : Controller
             try
             {
                 resumePath = _storage.SaveResume(resume);
+                System.Diagnostics.Debug.WriteLine($"Resume saved to: {resumePath}");
             }
             catch (Exception ex)
             {
@@ -200,7 +275,7 @@ public class ApplicationsController : Controller
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public ActionResult FinishQuestionnaire(ApplicationReviewViewModel model)
+    public ActionResult FinishQuestionnaire(ApplicationReviewViewModel model, FormCollection form)
     {
         if (model == null || model.PositionId <= 0)
         {
@@ -256,9 +331,36 @@ public class ApplicationsController : Controller
             _uow.Applications.Add(application);
             _uow.Complete();
 
-            // Store dynamic answers from session
+            // Process dynamic answers from session OR form
             var applicationAnswers = new List<ApplicationAnswer>();
             var questionAnswers = Session["QuestionnaireAnswers"] as List<QuestionAnswerViewModel>;
+            
+            // If session is empty, try to get from form directly
+            if (questionAnswers == null)
+            {
+                // Get position questions to process form
+                var positionQuestions = _uow.Context.Set<PositionQuestion>()
+                    .Where(pq => pq.PositionId == model.PositionId)
+                    .Include(pq => pq.Question)
+                    .OrderBy(pq => pq.Order)
+                    .ToList();
+
+                questionAnswers = new List<QuestionAnswerViewModel>();
+                foreach (var pq in positionQuestions)
+                {
+                    var questionFieldName = "question_" + pq.Question.Id;
+                    var answer = form[questionFieldName];
+                    
+                    questionAnswers.Add(new QuestionAnswerViewModel
+                    {
+                        QuestionId = pq.Question.Id,
+                        QuestionText = pq.Question.Text,
+                        QuestionType = pq.Question.Type,
+                        Answer = answer ?? ""
+                    });
+                }
+            }
+            
             if (questionAnswers != null)
             {
                 foreach (var qa in questionAnswers)

@@ -1,0 +1,86 @@
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Test Questionnaire";
+    var position = ViewBag.Position as HR.Web.Models.Position;
+    var positionQuestions = ViewBag.PositionQuestions as IEnumerable<HR.Web.Models.PositionQuestion>;
+    var answers = ViewBag.Answers as IEnumerable<HR.Web.Models.QuestionAnswerViewModel>;
+}
+
+<h3>Test Questionnaire Debug</h3>
+
+@if (position != null)
+{
+    <div class="alert alert-info">Position: <strong>@position.Title</strong></div>
+}
+
+@if (answers != null)
+{
+    <div class="alert alert-success">
+        <h4>Received Answers:</h4>
+        @foreach (var answer in answers)
+        {
+            <div><strong>Q@(answer.QuestionId) (@answer.QuestionType):</strong> "@answer.Answer"</div>
+        }
+    </div>
+}
+
+@using (Html.BeginForm()) {
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="positionId" value="@(position?.Id ?? 4)" />
+    
+    if (positionQuestions != null && positionQuestions.Any())
+    {
+        int questionIndex = 1;
+        foreach (var pq in positionQuestions.OrderBy(pq => pq.Order))
+        {
+            var question = pq.Question;
+            <div class="form-group mb-4">
+                <label class="font-weight-bold">
+                    @(questionIndex). @question.Text
+                    <span class="text-muted">(@question.Type)</span>
+                </label>
+                
+                @if (question.Type == "Text")
+                {
+                    <textarea class="form-control" name="question_@question.Id" rows="3" placeholder="Enter your answer..."></textarea>
+                }
+                else if (question.Type == "Choice")
+                {
+                    var options = question.QuestionOptions != null ? question.QuestionOptions.ToList() : new List<HR.Web.Models.QuestionOption>();
+                    if (options.Any())
+                    {
+                        <div class="form-check">
+                            @foreach (var option in options)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" 
+                                        name="question_@question.Id" value="@option.Text" id="option_@option.Id">
+                                    <label class="form-check-label" for="option_@option.Id">
+                                        @option.Text
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else if (question.Type == "Rating")
+                {
+                    <div class="form-check">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            <div class="form-check-inline">
+                                <input class="form-check-input" type="radio" 
+                                    name="question_@question.Id" value="@i" id="rating_@(question.Id)_@i">
+                                <label class="form-check-label" for="rating_@(question.Id)_@i">@i</label>
+                            </div>
+                        }
+                        <small class="form-text text-muted">(1 = Poor, 5 = Excellent)</small>
+                    </div>
+                }
+            </div>
+            questionIndex++;
+        }
+    }
+    
+    <button type="submit" class="btn btn-primary">Submit Test</button>
+}

@@ -27,7 +27,7 @@
         {
             <div class="alert alert-secondary mb-3">Applicant: <strong>@applicant.FullName</strong> (<span>@applicant.Email</span>)</div>
         }
-        @using (Html.BeginForm()) {
+        @using (Html.BeginForm(null, null, FormMethod.Post, new { enctype = "multipart/form-data" })) {
             @Html.AntiForgeryToken()
             
             if (positionQuestions != null && positionQuestions.Any())

@@ -24,8 +24,8 @@ namespace HR.Web
             ViewEngines.Engines.Clear();
             ViewEngines.Engines.Add(new RazorViewEngine());
 
-            // Ensure EF migrations are applied to the configured database (SQL Server by default)
-            System.Data.Entity.Database.SetInitializer(new System.Data.Entity.MigrateDatabaseToLatestVersion<HR.Web.Data.HrContext, HR.Web.Migrations.Configuration>());
+            // Disable automatic migrations to prevent schema conflicts
+            System.Data.Entity.Database.SetInitializer<HR.Web.Data.HrContext>(null);
 
             // Simple seed for demo users, departments, and sample hiring data
             using (var uow = new UnitOfWork())

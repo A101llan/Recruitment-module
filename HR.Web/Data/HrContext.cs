@@ -76,7 +76,7 @@ namespace HR.Web.Data
             // Prevent multiple cascade path issues around questionnaire options
             modelBuilder.Entity<QuestionOption>()
                 .HasRequired(qo => qo.Question)
-                .WithMany() // keep inverse null to avoid mismatched nav; no cascade
+                .WithMany(q => q.QuestionOptions) // Fix: Use the navigation property
                 .HasForeignKey(qo => qo.QuestionId)
                 .WillCascadeOnDelete(false);
 

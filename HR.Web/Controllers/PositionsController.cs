@@ -34,8 +34,8 @@ namespace HR.Web.Controllers
         public ActionResult Create()
         {
             ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name");
-            // Load all questions (not just active ones) so admin can see all available questions
-            ViewBag.QuestionList = _uow.Questions.GetAll().ToList();
+            // Load all questions (not just active ones) with their options so admin can see all available questions
+            ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
             return View(new Position
             {
                 IsOpen = true,
@@ -68,7 +68,7 @@ namespace HR.Web.Controllers
                     }
                 }
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
-                ViewBag.QuestionList = _uow.Questions.GetAll().Where(q => q.IsActive).ToList();
+                ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
                 Debug.WriteLine("[PositionsController.Create][POST] Returning view due to invalid ModelState.");
                 return View(model);
             }
@@ -87,7 +87,7 @@ namespace HR.Web.Controllers
                 var msg = ex.GetBaseException()?.Message ?? ex.Message;
                 ModelState.AddModelError("", "Unable to save position: " + msg);
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
-                ViewBag.QuestionList = _uow.Questions.GetAll().Where(q => q.IsActive).ToList();
+                ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
                 Debug.WriteLine("[PositionsController.Create][POST] Returning view due to exception.");
                 return View(model);
             }
@@ -145,6 +145,14 @@ namespace HR.Web.Controllers
                 }
             }
             
+            // Also check if there are any QuestionOptions in the database at all
+            var allOptions = _uow.Context.Set<QuestionOption>().ToList();
+            Debug.WriteLine($"[PositionsController.Edit] Total QuestionOptions in database: {allOptions.Count}");
+            foreach (var opt in allOptions.Take(5))
+            {
+                Debug.WriteLine($"  - Option ID {opt.Id}: {opt.Text} (QuestionId: {opt.QuestionId})");
+            }
+            
             // Get currently selected question IDs for pre-checking
             var selectedQuestionIds = position.PositionQuestions?.Select(pq => pq.QuestionId).ToList() ?? new System.Collections.Generic.List<int>();
             ViewBag.SelectedQuestionIds = selectedQuestionIds;
@@ -164,7 +172,7 @@ namespace HR.Web.Controllers
             if (!ModelState.IsValid)
             {
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
-                ViewBag.QuestionList = _uow.Questions.GetAll().Where(q => q.IsActive).ToList();
+                ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
                 var selectedQuestionIds = selectedQuestions != null ? selectedQuestions.ToList() : new System.Collections.Generic.List<int>();
                 ViewBag.SelectedQuestionIds = selectedQuestionIds;
                 Debug.WriteLine("[PositionsController.Edit][POST] Returning view due to invalid ModelState.");
@@ -176,7 +184,7 @@ namespace HR.Web.Controllers
             {
                 ModelState.AddModelError("DepartmentId", "Please select a department.");
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
-                ViewBag.QuestionList = _uow.Questions.GetAll().Where(q => q.IsActive).ToList();
+                ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
                 var selectedQuestionIds = selectedQuestions != null ? selectedQuestions.ToList() : new System.Collections.Generic.List<int>();
                 ViewBag.SelectedQuestionIds = selectedQuestionIds;
                 return View(model);
@@ -261,7 +269,7 @@ namespace HR.Web.Controllers
                 var msg = ex.GetBaseException()?.Message ?? ex.Message;
                 ModelState.AddModelError("", "Unable to save position: " + msg);
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
-                ViewBag.QuestionList = _uow.Questions.GetAll().Where(q => q.IsActive).ToList();
+                ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
                 var selectedQuestionIds = selectedQuestions != null ? selectedQuestions.ToList() : new System.Collections.Generic.List<int>();
                 ViewBag.SelectedQuestionIds = selectedQuestionIds;
                 Debug.WriteLine("[PositionsController.Edit][POST] Returning view due to exception.");
@@ -269,6 +277,115 @@ namespace HR.Web.Controllers
             }
 
             return RedirectToAction("Index");
+        }
+
+        [Authorize(Roles = "Admin")]
+        public ActionResult DatabaseTest()
+        {
+            return View();
+        }
+
+        [Authorize(Roles = "Admin")]
+        public ActionResult CreateTestData()
+        {
+            try
+            {
+                // Create a test choice question with options
+                var testQuestion = new Question
+                {
+                    Text = "What is your preferred work environment?",
+                    Type = "Choice",
+                    IsActive = true
+                };
+                _uow.Questions.Add(testQuestion);
+                _uow.Complete();
+                
+                // Add options for the question
+                var options = new[]
+                {
+                    new QuestionOption { QuestionId = testQuestion.Id, Text = "Remote", Points = 5 },
+                    new QuestionOption { QuestionId = testQuestion.Id, Text = "Office", Points = 3 },
+                    new QuestionOption { QuestionId = testQuestion.Id, Text = "Hybrid", Points = 4 }
+                };
+                
+                foreach (var option in options)
+                {
+                    _uow.Context.Set<QuestionOption>().Add(option);
+                }
+                _uow.Complete();
+                
+                return Json(new { success = true, message = "Test data created successfully", questionId = testQuestion.Id, optionsCount = options.Length });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        public ActionResult TestEagerLoading()
+        {
+            try
+            {
+                // Test eager loading - get questions with options
+                var questionsWithOptions = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
+                
+                var testResult = new
+                {
+                    Success = true,
+                    TotalQuestions = questionsWithOptions.Count,
+                    QuestionsWithOptions = questionsWithOptions.Count(q => q.QuestionOptions != null && q.QuestionOptions.Any()),
+                    Questions = questionsWithOptions.Select(q => new
+                    {
+                        q.Id,
+                        q.Text,
+                        q.Type,
+                        HasOptions = q.QuestionOptions != null,
+                        OptionsCount = q.QuestionOptions?.Count() ?? 0,
+                        Options = q.QuestionOptions?.Select(o => new
+                        {
+                            o.Id,
+                            o.Text,
+                            o.Points
+                        }).ToList()
+                    }).ToList()
+                };
+                
+                return Json(testResult, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception ex)
+            {
+                return Json(new { Success = false, Error = ex.Message }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        public ActionResult TestQuestionOptions()
+        {
+            var allOptions = _uow.Context.Set<QuestionOption>().ToList();
+            var allQuestions = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
+            
+            var result = new
+            {
+                TotalQuestions = allQuestions.Count,
+                TotalOptions = allOptions.Count,
+                Questions = allQuestions.Select(q => new
+                {
+                    q.Id,
+                    q.Text,
+                    q.Type,
+                    OptionsCount = q.QuestionOptions?.Count() ?? 0
+                }).ToList(),
+                Options = allOptions.Select(o => new
+                {
+                    o.Id,
+                    o.Text,
+                    o.Points,
+                    o.QuestionId
+                }).ToList()
+            };
+            
+            return Json(result, JsonRequestBehavior.AllowGet);
         }
 
         [Authorize(Roles = "Admin")]

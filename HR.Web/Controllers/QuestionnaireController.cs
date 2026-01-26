@@ -141,7 +141,7 @@ namespace HR.Web.Controllers
             var position = _uow.Positions.Get(positionId);
             if (position == null) return HttpNotFound();
 
-            var allQuestions = _uow.Questions.GetAll().Where(q => q.IsActive).ToList();
+            var allQuestions = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
             var assignedQuestions = _uow.Context.Set<PositionQuestion>()
                 .Where(pq => pq.PositionId == positionId)
                 .Include(pq => pq.Question)
@@ -251,7 +251,7 @@ namespace HR.Web.Controllers
         {
             try
             {
-                var questions = _uow.Questions.GetAll()
+                var questions = _uow.Questions.GetAll(q => q.QuestionOptions)
                     .Where(q => questionIds.Contains(q.Id))
                     .ToList();
 

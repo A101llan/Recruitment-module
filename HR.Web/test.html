@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Question Options</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Test Question Options</h1>
+    <button onclick="testOptions()">Test Question Options</button>
+    <div id="results"></div>
+    
+    <script>
+        function testOptions() {
+            $.ajax({
+                url: '/Positions/TestQuestionOptions',
+                type: 'GET',
+                success: function(data) {
+                    $('#results').html('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
+                },
+                error: function(xhr, status, error) {
+                    $('#results').html('<p>Error: ' + error + '</p><p>Status: ' + status + '</p>');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

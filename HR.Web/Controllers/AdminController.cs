@@ -212,8 +212,8 @@ namespace HR.Web.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult Questions()
         {
-            var questions = _uow.Questions.GetAll().ToList();
-            var options = _uow.Context.Set<QuestionOption>().ToList();
+            // Use eager loading to get questions with their options in one query
+            var questions = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
             var list = questions
                 .Select(q => new QuestionAdminViewModel
                 {
@@ -221,13 +221,12 @@ namespace HR.Web.Controllers
                     Text = q.Text,
                     Type = q.Type,
                     IsActive = q.IsActive,
-                    Options = options.Where(o => o.QuestionId == q.Id)
-                        .Select(o => new QuestionOptionVM
-                        {
-                            Id = o.Id,
-                            Text = o.Text,
-                            Points = o.Points
-                        }).ToList()
+                    Options = q.QuestionOptions.Select(o => new QuestionOptionVM
+                    {
+                        Id = o.Id,
+                        Text = o.Text,
+                        Points = o.Points
+                    }).ToList()
                 }).ToList();
             // Ensure positions are available for consolidated AI generation modal
             ViewBag.Positions = _uow.Positions.GetAll().ToList();
@@ -242,17 +241,16 @@ namespace HR.Web.Controllers
             {
                 return View(new QuestionAdminViewModel { IsActive = true });
             }
-            var q = _uow.Questions.GetAll().FirstOrDefault(x => x.Id == id.Value);
-            if (q == null)
+            var question = _uow.Questions.GetAll(q => q.QuestionOptions).FirstOrDefault(x => x.Id == id.Value);
+            if (question == null)
                 return HttpNotFound();
-            var options = _uow.Context.Set<QuestionOption>().Where(o => o.QuestionId == q.Id).ToList();
             var vm = new QuestionAdminViewModel
             {
-                Id = q.Id,
-                Text = q.Text,
-                Type = q.Type,
-                IsActive = q.IsActive,
-                Options = options.Select(o => new QuestionOptionVM
+                Id = question.Id,
+                Text = question.Text,
+                Type = question.Type,
+                IsActive = question.IsActive,
+                Options = question.QuestionOptions.Select(o => new QuestionOptionVM
                 {
                     Id = o.Id,
                     Text = o.Text,
