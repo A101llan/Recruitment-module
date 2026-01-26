@@ -65,7 +65,13 @@
                     <input class="form-check-input" type="checkbox" id="selectAllQuestions">
                     <label class="form-check-label" for="selectAllQuestions">Select All</label>
                 </div>
-                <button id="batchDeleteBtn" class="btn btn-danger btn-sm ml-3" disabled>
+                <button id="addToSampleBtn" class="btn btn-primary btn-sm ml-2" disabled>
+                    Add to Sample (<span id="selectedCount">0</span>)
+                </button>
+                <button id="createPositionBtn" class="btn btn-success btn-sm ml-2" disabled>
+                    Create Position (<span id="selectedCount">0</span>)
+                </button>
+                <button id="batchDeleteBtn" class="btn btn-danger btn-sm ml-2" disabled>
                     Delete Selected (<span id="selectedCount">0</span>)
                 </button>
                 <button id="testBtn" class="btn btn-info btn-sm ml-2">
@@ -218,27 +224,28 @@ $(document).ready(function() {
         console.log('Header checkbox found:', headerEl.length);
         console.log('Question checkboxes found:', questionCheckboxes.length);
         
-        if (selectAllEl.length === 0) {
-            console.error('Select All checkbox not found!');
-            return;
+        // Unified select all function
+        function selectAllQuestions(checked) {
+            console.log('Select all called with checked:', checked);
+            questionCheckboxes.prop('checked', checked);
+            selectAllEl.prop('checked', checked);
+            headerEl.prop('checked', checked);
+            updateSelectedCount();
+            console.log('After select all, checked count:', $('.question-checkbox:checked').length);
         }
         
-        if (headerEl.length === 0) {
-            console.error('Header checkbox not found!');
-            return;
-        }
-        
-        if (questionCheckboxes.length === 0) {
-            console.warn('No question checkboxes found - might be no questions in table');
-        }
-        
-        // Header checkbox select all/deselect all
+        // Header checkbox event
         headerEl.change(function() {
             var isChecked = $(this).prop('checked');
             console.log('Header checkbox clicked, checked:', isChecked);
-            questionCheckboxes.prop('checked', isChecked);
-            selectAllEl.prop('checked', isChecked);
-            updateSelectedCount();
+            selectAllQuestions(isChecked);
+        });
+        
+        // Select all checkbox event  
+        selectAllEl.change(function() {
+            var isChecked = $(this).prop('checked');
+            console.log('Select All clicked, checked:', isChecked);
+            selectAllQuestions(isChecked);
         });
         
         // Individual checkbox change
@@ -246,17 +253,6 @@ $(document).ready(function() {
             console.log('Individual checkbox changed');
             updateSelectedCount();
             updateHeaderCheckbox();
-        });
-        
-        // Select all checkbox
-        selectAllEl.change(function() {
-            var isChecked = $(this).prop('checked');
-            console.log('Select All clicked, checked:', isChecked);
-            console.log('Found checkboxes:', questionCheckboxes.length);
-            questionCheckboxes.prop('checked', isChecked);
-            headerEl.prop('checked', isChecked);
-            updateSelectedCount();
-            console.log('After select all, checked count:', $('.question-checkbox:checked').length);
         });
         
         console.log('Batch delete initialization completed successfully');
@@ -268,6 +264,15 @@ $(document).ready(function() {
     $('#testBtn').click(function() {
         console.log('Test button clicked!');
         alert('JavaScript is working! Found ' + $('.question-checkbox').length + ' question checkboxes.');
+    });
+    
+    // Event delegation for select all functionality (more reliable)
+    $(document).on('change', '#selectAllQuestions, #headerCheckbox', function() {
+        var isChecked = $(this).prop('checked');
+        console.log('Select all checkbox changed:', isChecked, 'Element:', this.id);
+        $('.question-checkbox').prop('checked', isChecked);
+        $('#selectAllQuestions, #headerCheckbox').prop('checked', isChecked);
+        updateSelectedCount();
     });
     
     // Batch delete button
@@ -285,6 +290,33 @@ $(document).ready(function() {
         if (confirm('Are you sure you want to delete ' + selectedIds.length + ' question(s)? This action cannot be undone.')) {
             batchDeleteQuestions(selectedIds);
         }
+    });
+
+    // Add to Sample button
+    $('#addToSampleBtn').click(function() {
+        var selectedQuestions = getSelectedQuestionsData();
+        
+        if (selectedQuestions.length === 0) {
+            alert('Please select at least one question to add to sample.');
+            return;
+        }
+        
+        if (confirm('Are you sure you want to add ' + selectedQuestions.length + ' question(s) to the sample questions collection?')) {
+            addQuestionsToSample(selectedQuestions);
+        }
+    });
+
+    // Create Position button
+    $('#createPositionBtn').click(function() {
+        var selectedQuestions = getSelectedQuestionsData();
+        
+        if (selectedQuestions.length === 0) {
+            alert('Please select at least one question to create a position.');
+            return;
+        }
+        
+        // Show position creation modal
+        showPositionCreationModal(selectedQuestions);
     });
 
     // Search functionality
@@ -822,6 +854,8 @@ $(document).ready(function() {
         var count = $('.question-checkbox:checked').length;
         $('#selectedCount').text(count);
         $('#batchDeleteBtn').prop('disabled', count === 0);
+        $('#addToSampleBtn').prop('disabled', count === 0);
+        $('#createPositionBtn').prop('disabled', count === 0);
     }
 
     function updateHeaderCheckbox() {
@@ -861,6 +895,201 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 alert('Error: Failed to delete questions. ' + error);
+            }
+        });
+    }
+
+    // Helper function to get selected questions data
+    function getSelectedQuestionsData() {
+        var selectedQuestions = [];
+        $('.question-checkbox:checked').each(function() {
+            var row = $(this).closest('tr');
+            selectedQuestions.push({
+                id: row.data('question-id'),
+                text: row.data('question-text'),
+                type: row.data('question-type'),
+                isActive: row.find('.badge-success').length > 0
+            });
+        });
+        return selectedQuestions;
+    }
+
+    // Function to add questions to sample collection
+    function addQuestionsToSample(questions) {
+        $.ajax({
+            url: '@Url.Action("AddToSampleQuestions", "Admin")',
+            type: 'POST',
+            data: {
+                questionsJson: JSON.stringify(questions)
+            },
+            success: function(response) {
+                if (response.success) {
+                    if (response.requiresDecision) {
+                        showDuplicateDecisionModal(response.duplicates, response.newQuestions);
+                    } else {
+                        alert(response.message);
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Error adding questions to sample collection');
+            }
+        });
+    }
+
+    // Function to show position creation modal
+    function showPositionCreationModal(selectedQuestions) {
+        var modalHtml = `
+            <div class="modal fade" id="positionCreationModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Create New Position</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="positionForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label>Position Title *</label>
+                                            <input type="text" id="modalPositionTitle" class="form-control" placeholder="e.g., Senior Software Engineer" required />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label>Department *</label>
+                                            <select id="modalPositionDepartment" class="form-control" required>
+                                                <option value="">-- Select Department --</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Position Description *</label>
+                                    <textarea id="modalPositionDescription" class="form-control" rows="3" placeholder="Brief description for the position listing" required></textarea>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label>Key Responsibilities</label>
+                                            <textarea id="modalPositionKeyResponsibilities" class="form-control" rows="3" placeholder="Specific duties and responsibilities for this role"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label>Required Qualifications</label>
+                                            <textarea id="modalPositionRequiredQualifications" class="form-control" rows="3" placeholder="Required skills, experience, and qualifications"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <strong>Selected Questions: ${selectedQuestions.length}</strong>
+                                    <ul class="mb-0">
+                                        ${selectedQuestions.map(q => `<li>[${q.type}] ${q.text.substring(0, 80)}${q.text.length > 80 ? '...' : ''}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-success" onclick="createPositionWithSelectedQuestions()">Create Position</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if any
+        $('#positionCreationModal').remove();
+        
+        // Add new modal to body
+        $('body').append(modalHtml);
+        
+        // Load departments
+        loadDepartmentsForModal();
+        
+        // Show modal
+        var modal = new bootstrap.Modal(document.getElementById('positionCreationModal'));
+        modal.show();
+
+        // Clean up on modal hide
+        $('#positionCreationModal').on('hidden.bs.modal', function () {
+            $(this).remove();
+        });
+    }
+
+    // Function to load departments for modal
+    function loadDepartmentsForModal() {
+        $.ajax({
+            url: '@Url.Action("GetDepartments", "Admin")',
+            type: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    var select = $('#modalPositionDepartment');
+                    select.empty().append('<option value="">-- Select Department --</option>');
+                    response.departments.forEach(function(dept) {
+                        select.append('<option value="' + dept + '">' + dept + '</option>');
+                    });
+                }
+            },
+            error: function() {
+                console.error('Failed to load departments');
+            }
+        });
+    }
+
+    // Function to create position with selected questions
+    function createPositionWithSelectedQuestions() {
+        var title = $('#modalPositionTitle').val();
+        var department = $('#modalPositionDepartment').val();
+        var description = $('#modalPositionDescription').val();
+        var keyResponsibilities = $('#modalPositionKeyResponsibilities').val();
+        var requiredQualifications = $('#modalPositionRequiredQualifications').val();
+        
+        if (!title || !department || !description) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+        
+        var selectedQuestions = getSelectedQuestionsData();
+        
+        // Convert questions to the format expected by CreatePositionWithQuestions
+        var questionsForCreation = selectedQuestions.map(function(q, index) {
+            return {
+                id: q.id,
+                text: q.text,
+                type: q.type,
+                Options: [] // We'll load options from the database
+            };
+        });
+        
+        $.ajax({
+            url: '@Url.Action("CreatePositionWithQuestions", "Admin")',
+            type: 'POST',
+            data: {
+                positionTitle: title,
+                positionDepartment: department,
+                positionDescription: description,
+                positionKeyResponsibilities: keyResponsibilities || '',
+                positionRequiredQualifications: requiredQualifications || '',
+                questionsJson: JSON.stringify(questionsForCreation)
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#positionCreationModal').modal('hide');
+                    alert('Position created successfully with ' + selectedQuestions.length + ' questions assigned!');
+                    // Redirect to positions page
+                    window.location.href = '@Url.Action("Index", "Positions")';
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Error creating position');
             }
         });
     }

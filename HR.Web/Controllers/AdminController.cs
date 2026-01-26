@@ -6,6 +6,7 @@ using System.Web.Mvc;
 using HR.Web.Data;
 using HR.Web.Models;
 using HR.Web.ViewModels;
+using Newtonsoft.Json;
 
 namespace HR.Web.Controllers
 {
@@ -421,6 +422,79 @@ namespace HR.Web.Controllers
                 return Json(new { success = false, message = "Error deleting questions: " + ex.Message });
             }
         }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public ActionResult AddToSampleQuestions(string questionsJson)
+        {
+            try
+            {
+                // This method is similar to AddGeneratedQuestionsToSample but works with existing questions
+                var questions = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(questionsJson);
+                
+                // Check for duplicates in the existing sample questions
+                var existingQuestions = _uow.Questions.GetAll().ToList();
+                var duplicates = new List<object>();
+                var newQuestions = new List<object>();
+
+                foreach (var question in questions)
+                {
+                    var questionText = question["text"].ToString();
+                    var questionType = question["type"].ToString();
+
+                    // Check for similar questions
+                    var similarQuestion = existingQuestions.FirstOrDefault(eq => 
+                        eq.Text.ToLower().Contains(questionText.ToLower().Substring(0, Math.Min(50, questionText.Length))) ||
+                        questionText.ToLower().Contains(eq.Text.ToLower().Substring(0, Math.Min(50, eq.Text.Length))));
+
+                    if (similarQuestion != null)
+                    {
+                        duplicates.Add(new
+                        {
+                            id = question["id"],
+                            text = questionText,
+                            type = questionType,
+                            existingQuestionId = similarQuestion.Id,
+                            existingQuestionText = similarQuestion.Text,
+                            existingQuestionType = similarQuestion.Type
+                        });
+                    }
+                    else
+                    {
+                        newQuestions.Add(new
+                        {
+                            questionData = question
+                        });
+                    }
+                }
+
+                if (duplicates.Any())
+                {
+                    return Json(new { 
+                        success = true, 
+                        requiresDecision = true,
+                        duplicates = duplicates, 
+                        newQuestions = newQuestions,
+                        message = $"Found {duplicates.Count} potential duplicates. Please review before adding."
+                    });
+                }
+                else
+                {
+                    // No duplicates, just add them to sample (they're already in the main question bank)
+                    return Json(new { 
+                        success = true, 
+                        requiresDecision = false,
+                        message = $"All {questions.Count} questions are already in the question bank."
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error adding questions to sample: " + ex.Message });
+            }
+        }
+
         public ActionResult TestQuestions()
         {
             // Return a simple response to verify routing works without a view dependency

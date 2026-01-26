@@ -173,6 +173,7 @@
     <Compile Include="Services\EmailService.cs" />
     <Compile Include="Services\StorageService.cs" />
     <Compile Include="Services\CandidateEvaluationService.cs" />
+    <Compile Include="Services\DynamicQuestionService.cs" />
     <Compile Include="Services\MCPService.cs" />
     <Compile Include="Services\ScoringService.cs" />
     <Compile Include="Controllers\AdminController.cs" />
