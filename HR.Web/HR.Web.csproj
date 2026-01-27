@@ -170,6 +170,7 @@
     <Compile Include="ViewModels\GenerateQuestionsViewModel.cs" />
     <Compile Include="ViewModels\PositionQuestionViewModel.cs" />
     <Compile Include="ViewModels\UserManagementViewModel.cs" />
+    <Compile Include="ViewModels\SecurityLogsViewModel.cs" />
     <Compile Include="Data\HrContext.cs" />
     <Compile Include="Data\Repository.cs" />
     <Compile Include="Data\UnitOfWork.cs" />

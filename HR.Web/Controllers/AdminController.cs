@@ -646,5 +646,106 @@ namespace HR.Web.Controllers
         }
 
         #endregion
+
+        #region Security Logs
+
+        /// <summary>
+        /// Display security logs (login attempts and audit logs)
+        /// Only Admin role can access this
+        /// </summary>
+        [Authorize(Roles = "Admin")]
+        public ActionResult SecurityLogs(LogFilter filter)
+        {
+            var viewModel = new SecurityLogsViewModel
+            {
+                Filter = filter ?? new LogFilter()
+            };
+
+            // Get login attempts
+            var loginAttemptsQuery = _uow.LoginAttempts.GetAll().AsQueryable();
+            
+            if (!string.IsNullOrEmpty(viewModel.Filter.Username))
+                loginAttemptsQuery = loginAttemptsQuery.Where(l => l.Username.Contains(viewModel.Filter.Username));
+            
+            if (!string.IsNullOrEmpty(viewModel.Filter.IPAddress))
+                loginAttemptsQuery = loginAttemptsQuery.Where(l => l.IPAddress.Contains(viewModel.Filter.IPAddress));
+            
+            if (viewModel.Filter.WasSuccessful.HasValue)
+                loginAttemptsQuery = loginAttemptsQuery.Where(l => l.WasSuccessful == viewModel.Filter.WasSuccessful.Value);
+            
+            if (viewModel.Filter.StartDate.HasValue)
+                loginAttemptsQuery = loginAttemptsQuery.Where(l => l.AttemptTime >= viewModel.Filter.StartDate.Value);
+            
+            if (viewModel.Filter.EndDate.HasValue)
+                loginAttemptsQuery = loginAttemptsQuery.Where(l => l.AttemptTime <= viewModel.Filter.EndDate.Value.AddDays(1));
+
+            var loginAttempts = loginAttemptsQuery
+                .OrderByDescending(l => l.AttemptTime)
+                .Take(1000) // Limit to prevent performance issues
+                .ToList();
+
+            viewModel.LoginAttempts = loginAttempts.Select(l => new LoginAttemptLog
+            {
+                Id = l.Id,
+                Username = l.Username,
+                IPAddress = l.IPAddress,
+                AttemptTime = l.AttemptTime,
+                WasSuccessful = l.WasSuccessful,
+                FailureReason = l.FailureReason
+            }).ToList();
+
+            // Get audit logs
+            var auditLogsQuery = _uow.AuditLogs.GetAll().AsQueryable();
+            
+            if (!string.IsNullOrEmpty(viewModel.Filter.Username))
+                auditLogsQuery = auditLogsQuery.Where(a => a.Username.Contains(viewModel.Filter.Username));
+            
+            if (!string.IsNullOrEmpty(viewModel.Filter.Action))
+                auditLogsQuery = auditLogsQuery.Where(a => a.Action.Contains(viewModel.Filter.Action));
+            
+            if (!string.IsNullOrEmpty(viewModel.Filter.Controller))
+                auditLogsQuery = auditLogsQuery.Where(a => a.Controller.Contains(viewModel.Filter.Controller));
+            
+            if (!string.IsNullOrEmpty(viewModel.Filter.IPAddress))
+                auditLogsQuery = auditLogsQuery.Where(a => a.IPAddress.Contains(viewModel.Filter.IPAddress));
+            
+            if (viewModel.Filter.WasSuccessful.HasValue)
+                auditLogsQuery = auditLogsQuery.Where(a => a.WasSuccessful == viewModel.Filter.WasSuccessful.Value);
+            
+            if (viewModel.Filter.StartDate.HasValue)
+                auditLogsQuery = auditLogsQuery.Where(a => a.Timestamp >= viewModel.Filter.StartDate.Value);
+            
+            if (viewModel.Filter.EndDate.HasValue)
+                auditLogsQuery = auditLogsQuery.Where(a => a.Timestamp <= viewModel.Filter.EndDate.Value.AddDays(1));
+
+            var auditLogs = auditLogsQuery
+                .OrderByDescending(a => a.Timestamp)
+                .Take(1000) // Limit to prevent performance issues
+                .ToList();
+
+            viewModel.AuditLogs = auditLogs.Select(a => new AuditLogEntry
+            {
+                Id = a.Id,
+                Username = a.Username,
+                Action = a.Action,
+                Controller = a.Controller,
+                EntityId = a.EntityId,
+                IPAddress = a.IPAddress,
+                Timestamp = a.Timestamp,
+                UserAgent = a.UserAgent,
+                WasSuccessful = a.WasSuccessful,
+                ErrorMessage = a.ErrorMessage
+            }).ToList();
+
+            // Calculate statistics
+            viewModel.TotalLoginAttempts = _uow.LoginAttempts.GetAll().Count();
+            viewModel.TotalAuditLogs = _uow.AuditLogs.GetAll().Count();
+            viewModel.FailedLoginAttempts = _uow.LoginAttempts.GetAll().Count(l => !l.WasSuccessful);
+            viewModel.SuccessfulLogins = _uow.LoginAttempts.GetAll().Count(l => l.WasSuccessful);
+
+            return View(viewModel);
+        }
+
+        #endregion
     }
 }
