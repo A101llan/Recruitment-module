@@ -330,25 +330,7 @@ namespace HR.Web.Services
 
         private string GenerateScoreReason(decimal totalScore, Dictionary<string, decimal> categoryScores)
         {
-            var sb = new StringBuilder();
-            
-            if (totalScore >= 80)
-                sb.Append("Excellent candidate - ");
-            else if (totalScore >= 65)
-                sb.Append("Strong candidate - ");
-            else if (totalScore >= 50)
-                sb.Append("Good candidate - ");
-            else if (totalScore >= 35)
-                sb.Append("Average candidate - ");
-            else
-                sb.Append("Below average candidate - ");
-
-            // Highlight top strengths
-            var topCategories = categoryScores.OrderByDescending(kv => kv.Value).Take(2);
-            sb.Append("Strongest in: ");
-            sb.Append(string.Join(" and ", topCategories.Select(kv => kv.Key)));
-
-            return sb.ToString();
+            return string.Empty;
         }
     }
 }

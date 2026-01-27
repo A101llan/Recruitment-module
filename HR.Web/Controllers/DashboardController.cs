@@ -12,7 +12,7 @@ namespace HR.Web.Controllers
         public ActionResult Index()
         {
             var openPositions = _uow.Positions.GetAll().Count(p => p.IsOpen);
-            var pendingApplications = _uow.Applications.GetAll().Count(a => a.Status == "Submitted");
+            var pendingApplications = _uow.Applications.GetAll().Count(a => a.Status == "Interviewing");
             var scheduledInterviews = _uow.Interviews.GetAll().Count();
 
             ViewBag.OpenPositions = openPositions;

@@ -10,10 +10,12 @@ namespace HR.Web.Models
         [Required, EmailAddress, StringLength(100)]
         public string Email { get; set; }
 
-        [Required, StringLength(50)]
-        public string Role { get; set; }
+        [StringLength(50)]
+        public string Role { get; set; } // Admin or Client
 
-        [Required, DataType(DataType.Password)]
+        [Required, DataType(DataType.Password), StringLength(100, MinimumLength = 8)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$", 
+            ErrorMessage = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.")]
         public string Password { get; set; }
 
         [StringLength(20)]

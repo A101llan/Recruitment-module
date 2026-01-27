@@ -81,7 +81,7 @@ public class JobApplicationTests : IDisposable
 
         var statusInput = _driver.FindElement(By.Name("Status"));
         statusInput.Clear();
-        statusInput.SendKeys("Submitted via UI test");
+        statusInput.SendKeys("Interviewing via UI test");
 
         // Submit the form
         _driver.FindElement(By.CssSelector("button[type=submit]")).Click();

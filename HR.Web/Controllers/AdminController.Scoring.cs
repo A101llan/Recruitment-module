@@ -91,6 +91,45 @@ namespace HR.Web.Controllers
         }
 
         /// <summary>
+        /// Test endpoint for scoring - no authentication required
+        /// </summary>
+        [AllowAnonymous]
+        // [Authorize(Roles = "Admin,HR")] // Temporarily commented out for testing
+        public ActionResult TestScoring()
+        {
+            try
+            {
+                var applications = _uow.Applications.GetAll()
+                    .Where(a => a.PositionId == 6 || a.PositionId == 1 || a.PositionId == 2) // Multiple positions
+                    .ToList();
+
+                var updatedCount = 0;
+                var results = new List<string>();
+
+                foreach (var application in applications)
+                {
+                    var newScore = _scoringService.CalculateApplicationScore(application);
+                    results.Add($"Application {application.Id} (Applicant: {application.Applicant?.FullName}): Score = {newScore}");
+                    
+                    if (application.Score != newScore)
+                    {
+                        application.Score = newScore;
+                        _uow.Applications.Update(application);
+                        updatedCount++;
+                    }
+                }
+
+                _uow.Complete();
+
+                return Content($"Scoring test completed. Updated {updatedCount} applications.\n\nResults:\n" + string.Join("\n", results));
+            }
+            catch (Exception ex)
+            {
+                return Content($"Error: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
         /// Recalculate all scores for a position
         /// </summary>
         [HttpPost]

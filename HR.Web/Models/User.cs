@@ -16,6 +16,9 @@ namespace HR.Web.Models
         [Required, StringLength(50)]
         public string Role { get; set; } // Admin, HR
 
+        [Required, StringLength(256)]
+        public string PasswordHash { get; set; }
+
         public virtual ICollection<Interview> Interviews { get; set; }
     }
 }

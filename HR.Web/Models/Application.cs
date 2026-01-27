@@ -16,7 +16,7 @@ namespace HR.Web.Models
         public int PositionId { get; set; }
 
         [Required, StringLength(30)]
-        public string Status { get; set; } // Submitted, Screening, Interviewing, Offer, Hired, Rejected
+        public string Status { get; set; } // Interviewing, Offer, Hired, Rejected
 
         public DateTime AppliedOn { get; set; }
 

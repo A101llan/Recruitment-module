@@ -1,0 +1,114 @@
+@model HR.Web.ViewModels.UserRoleUpdateViewModel
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Update User Role";
+}
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-user-edit"></i> Update User Role
+                    </h3>
+                </div>
+                <div class="card-body">
+                    @using (Html.BeginForm())
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.HiddenFor(m => m.UserId)
+                        @Html.HiddenFor(m => m.UserName)
+                        @Html.HiddenFor(m => m.Email)
+                        @Html.HiddenFor(m => m.CurrentRole)
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Warning:</strong> Changing user roles will affect their access permissions immediately.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="UserName">Username</label>
+                            @Html.TextBox("UserName", Model.UserName, new { @class = "form-control", @readonly = "readonly" })
+                        </div>
+
+                        <div class="form-group">
+                            <label for="Email">Email</label>
+                            @Html.TextBox("Email", Model.Email, new { @class = "form-control", @readonly = "readonly" })
+                        </div>
+
+                        <div class="form-group">
+                            <label for="CurrentRole">Current Role</label>
+                            <div>
+                                <span class="badge badge-@(Model.CurrentRole == "Admin" ? "danger" : Model.CurrentRole == "HR" ? "warning" : "primary")">
+                                    @Model.CurrentRole
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="NewRole">New Role</label>
+                            @Html.DropDownListFor(m => m.NewRole, 
+                                new SelectList(new[] { 
+                                    new { Value = "Client", Text = "Client - Basic Access" },
+                                    new { Value = "Admin", Text = "Admin - Full System Access" }
+                                }, "Value", "Text", Model.NewRole), 
+                                new { @class = "form-control" })
+                            @Html.ValidationMessageFor(m => m.NewRole, "", new { @class = "text-danger" })
+                        </div>
+
+                        <div class="form-group">
+                            <label for="Reason">Reason for Change (Optional)</label>
+                            @Html.TextAreaFor(m => m.Reason, new { @class = "form-control", rows = 3, placeholder = "Enter reason for role change..." })
+                        </div>
+
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="confirmChange" required>
+                                <label class="custom-control-label" for="confirmChange">
+                                    I confirm that I want to change this user's role
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group text-center">
+                            <a href="@Url.Action("UserManagement")" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Role
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Add confirmation before form submission
+            $('form').submit(function(e) {
+                var newRole = $('#NewRole').val();
+                var currentRole = $('#CurrentRole').val();
+                
+                if (newRole === currentRole) {
+                    alert('No change detected. The new role is the same as the current role.');
+                    e.preventDefault();
+                    return false;
+                }
+
+                if (newRole === 'Admin') {
+                    if (!confirm('Are you sure you want to grant Admin privileges? This will give the user full system access.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        });
+    </script>
+}

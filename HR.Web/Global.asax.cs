@@ -8,6 +8,7 @@ using System.Security.Principal;
 using System.Web;
 using HR.Web.Data;
 using HR.Web.Models;
+using HR.Web.Helpers;
 
 namespace HR.Web
 {
@@ -37,9 +38,39 @@ namespace HR.Web
                 }
                 if (!uow.Users.GetAll().Any())
                 {
-                    uow.Users.Add(new User { UserName = "admin", Email = "admin@test.com", Role = "Admin" });
-                    uow.Users.Add(new User { UserName = "hr", Email = "hr@test.com", Role = "HR" });
-                    uow.Users.Add(new User { UserName = "client", Email = "client@test.com", Role = "Client" });
+                    uow.Users.Add(new User { 
+                        UserName = "admin", 
+                        Email = "admin@test.com", 
+                        Role = "Admin",
+                        PasswordHash = PasswordHelper.HashPassword("admin123")
+                    });
+                    uow.Users.Add(new User { 
+                        UserName = "client", 
+                        Email = "client@test.com", 
+                        Role = "Client",
+                        PasswordHash = PasswordHelper.HashPassword("client123")
+                    });
+                }
+                else
+                {
+                    // Update existing users without password hashes
+                    var usersWithoutPassword = uow.Users.GetAll().Where(u => string.IsNullOrEmpty(u.PasswordHash)).ToList();
+                    foreach (var user in usersWithoutPassword)
+                    {
+                        switch (user.UserName.ToLower())
+                        {
+                            case "admin":
+                                user.PasswordHash = PasswordHelper.HashPassword("admin123");
+                                break;
+                            case "client":
+                                user.PasswordHash = PasswordHelper.HashPassword("client123");
+                                break;
+                            default:
+                                user.PasswordHash = PasswordHelper.HashPassword("password123");
+                                break;
+                        }
+                        uow.Users.Update(user);
+                    }
                 }
                 if (!uow.Positions.GetAll().Any())
                 {
@@ -91,7 +122,7 @@ namespace HR.Web
                     {
                         ApplicantId = applicant.Id,
                         PositionId = pos.Id,
-                        Status = "Screening",
+                        Status = "Interviewing",
                         AppliedOn = DateTime.UtcNow.AddDays(-2),
                         ResumePath = null
                     };

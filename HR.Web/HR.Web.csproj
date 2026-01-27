@@ -153,6 +153,8 @@
     <Compile Include="Models\Position.cs" />
     <Compile Include="Models\RegisterViewModel.cs" />
     <Compile Include="Models\Applicant.cs" />
+    <Compile Include="Models\LoginAttempt.cs" />
+    <Compile Include="Models\AuditLog.cs" />
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\Application.cs" />
     <Compile Include="Models\Interview.cs" />
@@ -167,6 +169,7 @@
     <Compile Include="ViewModels\CandidateRankingsViewModel.cs" />
     <Compile Include="ViewModels\GenerateQuestionsViewModel.cs" />
     <Compile Include="ViewModels\PositionQuestionViewModel.cs" />
+    <Compile Include="ViewModels\UserManagementViewModel.cs" />
     <Compile Include="Data\HrContext.cs" />
     <Compile Include="Data\Repository.cs" />
     <Compile Include="Data\UnitOfWork.cs" />
@@ -176,6 +179,9 @@
     <Compile Include="Services\DynamicQuestionService.cs" />
     <Compile Include="Services\MCPService.cs" />
     <Compile Include="Services\ScoringService.cs" />
+    <Compile Include="Services\SecurityService.cs" />
+    <Compile Include="Services\AuditService.cs" />
+    <Compile Include="Helpers\PasswordHelper.cs" />
     <Compile Include="Controllers\AdminController.cs" />
     <Compile Include="Controllers\AdminController.MCP.cs" />
     <Compile Include="Controllers\AdminController.Scoring.cs" />

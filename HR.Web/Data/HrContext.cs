@@ -23,6 +23,8 @@ namespace HR.Web.Data
         public DbSet<QuestionOption> QuestionOptions { get; set; }
         public DbSet<PositionQuestion> PositionQuestions { get; set; }
         public DbSet<ApplicationAnswer> ApplicationAnswers { get; set; }
+        public DbSet<LoginAttempt> LoginAttempts { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {

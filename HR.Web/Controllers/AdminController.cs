@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Data.Entity;
 using System.Linq;
 using System.Web.Mvc;
 using HR.Web.Data;
 using HR.Web.Models;
+using HR.Web.Services;
 using HR.Web.ViewModels;
 using Newtonsoft.Json;
 
@@ -14,10 +14,12 @@ namespace HR.Web.Controllers
     /// Admin controller for managing candidates, applications, and rankings
     /// Allows admins to view candidates ranked by position, filter, and manage applications
     /// </summary>
-    [Authorize(Roles = "Admin,HR")]
+    [Authorize(Roles = "Admin")]
     public partial class AdminController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
+        private readonly SecurityService _securityService = new SecurityService();
+        private readonly AuditService _auditService = new AuditService();
 
         /// <summary>
         /// Display candidates ranked by position with filtering capability
@@ -213,7 +215,9 @@ namespace HR.Web.Controllers
         public ActionResult Questions()
         {
             // Use eager loading to get questions with their options in one query
-            var questions = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
+            var questions = _uow.Questions.GetAll(q => q.QuestionOptions)
+                .OrderByDescending(q => q.Id) // Order by descending ID (newest first)
+                .ToList();
             var list = questions
                 .Select(q => new QuestionAdminViewModel
                 {
@@ -498,5 +502,149 @@ namespace HR.Web.Controllers
             // Return a simple response to verify routing works without a view dependency
             return Content("Test Works");
         }
+
+        #region User Management
+
+        /// <summary>
+        /// Display all registered users with their account status and role management options
+        /// Only Admin role can access this
+        /// </summary>
+        [Authorize(Roles = "Admin")]
+        public ActionResult UserManagement()
+        {
+            var users = _uow.Users.GetAll().ToList();
+            var userViewModels = new List<UserManagementViewModel>();
+
+            foreach (var user in users)
+            {
+                var isLocked = _securityService.IsAccountLocked(user.UserName);
+                var lockoutEndTime = _securityService.GetLockoutEndTime(user.UserName);
+                var failedAttempts = _securityService.GetRemainingAttempts(user.UserName);
+                var actualFailedAttempts = 5 - failedAttempts; // Calculate actual failed attempts
+
+                // Get last login info from audit logs
+                var lastLogin = _uow.AuditLogs.GetAll()
+                    .Where(a => a.Username == user.UserName && a.Action == "LOGIN_SUCCESS")
+                    .OrderByDescending(a => a.Timestamp)
+                    .FirstOrDefault();
+
+                userViewModels.Add(new UserManagementViewModel
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    Role = user.Role,
+                    Phone = _uow.Applicants.GetAll()
+                        .Where(a => a.Email == user.Email)
+                        .Select(a => a.Phone)
+                        .FirstOrDefault(),
+                    LastLoginDate = lastLogin?.Timestamp,
+                    LastLoginIP = lastLogin?.IPAddress,
+                    IsLocked = isLocked,
+                    LockoutEndTime = lockoutEndTime,
+                    FailedLoginAttempts = actualFailedAttempts,
+                    CreatedDate = user.Id > 0 ? DateTime.Now.AddDays(-30) : DateTime.Now // Placeholder since we don't have created date
+                });
+            }
+
+            return View(userViewModels);
+        }
+
+        /// <summary>
+        /// Display form to update user role
+        /// Only Admin role can access this
+        /// </summary>
+        [Authorize(Roles = "Admin")]
+        public ActionResult UpdateUserRole(int id)
+        {
+            var user = _uow.Users.Get(id);
+            if (user == null)
+            {
+                return HttpNotFound();
+            }
+
+            var viewModel = new UserRoleUpdateViewModel
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                CurrentRole = user.Role,
+                NewRole = user.Role
+            };
+
+            return View(viewModel);
+        }
+
+        /// <summary>
+        /// Handle user role update
+        /// Only Admin role can access this
+        /// </summary>
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public ActionResult UpdateUserRole(UserRoleUpdateViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var user = _uow.Users.Get(model.UserId);
+            if (user == null)
+            {
+                return HttpNotFound();
+            }
+
+            var oldRole = user.Role;
+            user.Role = model.NewRole;
+            _uow.Users.Update(user);
+            _uow.Complete();
+
+            // Log the role change
+            _auditService.LogUpdate(
+                User.Identity.Name,
+                "Account",
+                user.Id.ToString(),
+                new { Role = oldRole },
+                new { Role = model.NewRole }
+            );
+
+            TempData["SuccessMessage"] = $"User {user.UserName} role updated from {oldRole} to {model.NewRole}";
+            return RedirectToAction("UserManagement");
+        }
+
+        /// <summary>
+        /// Unlock a locked user account
+        /// Only Admin role can access this
+        /// </summary>
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult UnlockUserAccount(int id)
+        {
+            var user = _uow.Users.Get(id);
+            if (user == null)
+            {
+                return HttpNotFound();
+            }
+
+            // Clear failed login attempts
+            _securityService.ClearFailedAttempts(user.UserName);
+
+            // Log the account unlock
+            _auditService.LogAction(
+                User.Identity.Name,
+                "ACCOUNT_UNLOCKED",
+                "Account",
+                user.Id.ToString(),
+                null,
+                new { UnlockedBy = User.Identity.Name, UnlockedAt = DateTime.Now }
+            );
+
+            TempData["SuccessMessage"] = $"User {user.UserName} account has been unlocked";
+            return RedirectToAction("UserManagement");
+        }
+
+        #endregion
     }
 }

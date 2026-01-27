@@ -14,9 +14,24 @@ namespace HR.Web.Controllers
 
         public ActionResult Index()
         {
-            var positions = _uow.Positions.GetAll(p => p.Department)
-                .OrderByDescending(p => p.PostedOn);
-            return View(positions);
+            var positions = _uow.Positions.GetAll(p => p.Department);
+            
+            // Filter positions based on user role
+            if (User == null || !User.IsInRole("Admin"))
+            {
+                // For non-admin users (clients), only show open positions
+                positions = positions.Where(p => p.IsOpen);
+            }
+            
+            var orderedPositions = positions.OrderByDescending(p => p.PostedOn);
+            
+            // Pass additional view data for filtering
+            ViewBag.IsAdmin = User != null && User.IsInRole("Admin");
+            ViewBag.AllPositions = ViewBag.IsAdmin ? 
+                _uow.Positions.GetAll(p => p.Department).OrderByDescending(p => p.PostedOn) : 
+                orderedPositions;
+            
+            return View(orderedPositions);
         }
 
         public ActionResult Details(int id)
@@ -27,6 +42,13 @@ namespace HR.Web.Controllers
             {
                 return HttpNotFound();
             }
+            
+            // Prevent non-admin users from accessing closed positions
+            if (position != null && !position.IsOpen && (User == null || !User.IsInRole("Admin")))
+            {
+                return new HttpStatusCodeResult(403, "This position is not available for application.");
+            }
+            
             return View(position);
         }
 

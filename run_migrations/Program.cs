@@ -219,7 +219,7 @@ class Program
                 var newApp = Activator.CreateInstance(applicationType);
                 applicationType.GetProperty("ApplicantId").SetValue(newApp, (int)applicantType.GetProperty("Id").GetValue(applicantObj));
                 applicationType.GetProperty("PositionId").SetValue(newApp, (int)positionType.GetProperty("Id").GetValue(posObj));
-                applicationType.GetProperty("Status").SetValue(newApp, "Screening");
+                applicationType.GetProperty("Status").SetValue(newApp, "Interviewing");
                 applicationType.GetProperty("AppliedOn").SetValue(newApp, DateTime.UtcNow.AddDays(-2));
                 applicationType.GetProperty("ResumePath").SetValue(newApp, null);
                 addEntity(appRepo, newApp);

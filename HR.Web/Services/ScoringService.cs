@@ -24,6 +24,7 @@ namespace HR.Web.Services
 
         /// <summary>
         /// Calculate total score for an application based on questionnaire responses
+        /// Returns percentage out of 100
         /// </summary>
         public decimal CalculateApplicationScore(int applicationId)
         {
@@ -34,11 +35,11 @@ namespace HR.Web.Services
         }
 
         /// <summary>
-        /// Calculate total score for an application
+        /// Calculate total score for an application as percentage out of 100
         /// </summary>
         public decimal CalculateApplicationScore(Application application)
         {
-            var score = 0m;
+            var rawScore = 0m;
 
             // Get position questions and their order
             var positionQuestions = _uow.Context.Set<PositionQuestion>()
@@ -57,11 +58,49 @@ namespace HR.Web.Services
                 var answer = answers.FirstOrDefault(a => a.QuestionId == positionQuestion.QuestionId);
                 if (answer != null)
                 {
-                    score += CalculateQuestionScore(positionQuestion.Question, answer.AnswerText, application.PositionId);
+                    rawScore += CalculateQuestionScore(positionQuestion.Question, answer.AnswerText, application.PositionId);
                 }
             }
 
-            return score;
+            // Calculate maximum possible score for this position
+            var maxPossibleScore = GetMaxPossibleScoreForPosition(positionQuestions);
+            
+            // Convert to percentage out of 100
+            var percentage = maxPossibleScore > 0 ? (rawScore / maxPossibleScore) * 100 : 0;
+            
+            return Math.Max(0, Math.Min(100, percentage)); // Cap at 100%
+        }
+
+        /// <summary>
+        /// Get maximum possible score for a position based on question types
+        /// </summary>
+        private decimal GetMaxPossibleScoreForPosition(List<PositionQuestion> positionQuestions)
+        {
+            var maxScore = 0m;
+            
+            foreach (var positionQuestion in positionQuestions)
+            {
+                switch (positionQuestion.Question.Type.ToLower())
+                {
+                    case "choice":
+                        maxScore += GetMaxChoiceScore(positionQuestion.Question, positionQuestion.PositionId);
+                        break;
+                    case "rating":
+                        maxScore += 10; // Rating questions max 10 points
+                        break;
+                    case "number":
+                        maxScore += 10; // Number questions max 10 points
+                        break;
+                    case "text":
+                        maxScore += 30; // Text questions can now score up to ~30 points with enhanced algorithm
+                        break;
+                    default:
+                        maxScore += 0;
+                        break;
+                }
+            }
+            
+            return maxScore;
         }
 
         /// <summary>
@@ -244,111 +283,514 @@ namespace HR.Web.Services
         }
 
         /// <summary>
-        /// Calculate score for text questions using AI analysis
+        /// Calculate score for text questions using enhanced basic scoring
         /// </summary>
         private decimal CalculateTextScore(Question question, string answerText)
         {
-            try
-            {
-                // Use AI to evaluate text answers for quality, relevance, and completeness
-                var parameters = new
-                {
-                    questionText = question.Text,
-                    answerText = answerText,
-                    questionType = "text",
-                    maxPoints = 10, // Standardize to 10 points like other question types
-                    evaluationCriteria = new[] { "relevance", "completeness", "quality", "fluency", "grammar" }
-                };
-
-                // Call AI service with timeout
-                var callTask = _mcpService.CallToolAsync("evaluate-answer", parameters);
-                var completed = Task.WhenAny(callTask, Task.Delay(3000)); // 3 second timeout
-                
-                if (completed.Result == callTask && callTask.Result.Success)
-                {
-                    var content = callTask.Result.Result.contents[0];
-                    var evaluation = JsonConvert.DeserializeObject<AnswerEvaluationResponse>(content.text);
-                    
-                    // Return AI-calculated score (0-10 scale)
-                    return Math.Max(0, Math.Min(10, evaluation.score));
-                }
-                else
-                {
-                    // Fallback to enhanced basic scoring if AI fails
-                    return CalculateBasicTextScore(question, answerText);
-                }
-            }
-            catch
-            {
-                // Fallback to basic scoring on any error
-                return CalculateBasicTextScore(question, answerText);
-            }
+            // Skip fake AI evaluation and go directly to enhanced basic scoring
+            return CalculateBasicTextScore(question, answerText);
         }
 
         /// <summary>
-        /// Enhanced basic text scoring as fallback
+        /// Enhanced basic text scoring with stronger keyword extraction and answer strength detection
         /// </summary>
         private decimal CalculateBasicTextScore(Question question, string answerText)
         {
+            if (string.IsNullOrEmpty(answerText)) return 0;
+
+            var score = 0m;
+            var lowerText = answerText.ToLower();
+
+            // DEBUG: Log basic info
+            System.Diagnostics.Debug.WriteLine($"=== ENHANCED TEXT SCORING DEBUG ===");
+            System.Diagnostics.Debug.WriteLine($"Answer: {answerText.Substring(0, Math.Min(100, answerText.Length))}...");
+            System.Diagnostics.Debug.WriteLine($"Length: {answerText.Length}");
+
+            // 1. Enhanced length scoring with context awareness
+            score += CalculateLengthScore(answerText);
+
+            // 2. Advanced keyword extraction and semantic analysis
+            score += ExtractAndScoreKeywords(question, answerText, lowerText);
+
+            // 3. Answer strength and specificity analysis
+            score += AnalyzeAnswerStrength(answerText, lowerText);
+
+            // 4. Professional communication and expertise indicators
+            score += AnalyzeProfessionalCommunication(lowerText);
+
+            // 5. Contextual relevance with semantic matching
+            score += AnalyzeContextualRelevance(question, answerText, lowerText);
+
+            // 6. Technical and domain-specific indicators
+            score += AnalyzeTechnicalIndicators(lowerText);
+
+            // 7. Structure and coherence analysis
+            score += AnalyzeStructureAndCoherence(answerText, lowerText);
+
+            // 8. Quality penalties and adjustments
+            score = ApplyQualityAdjustments(score, answerText, lowerText);
+
+            var finalScore = Math.Max(0, score); // Removed cap - unlimited points per question
+            System.Diagnostics.Debug.WriteLine($"Final enhanced score: {finalScore}");
+            System.Diagnostics.Debug.WriteLine($"=== END ENHANCED TEXT SCORING DEBUG ===");
+
+            return finalScore;
+        }
+
+        /// <summary>
+        /// Calculate length score with context awareness
+        /// </summary>
+        private decimal CalculateLengthScore(string answerText)
+        {
+            var score = 0m;
+            
+            // More nuanced length scoring
+            if (answerText.Length < 10) score += 0.3m; // Very short - minimal credit
+            else if (answerText.Length < 25) score += 0.8m;
+            else if (answerText.Length < 50) score += 1.8m;
+            else if (answerText.Length < 100) score += 3.2m;
+            else if (answerText.Length < 200) score += 4.8m;
+            else if (answerText.Length < 300) score += 6.2m;
+            else if (answerText.Length < 500) score += 7.5m;
+            else if (answerText.Length < 800) score += 8.5m;
+            else score += 9m; // Diminishing returns for very long answers
+
+            System.Diagnostics.Debug.WriteLine($"Enhanced length score: {score}");
+            return score;
+        }
+
+        /// <summary>
+        /// Advanced keyword extraction with semantic analysis
+        /// </summary>
+        private decimal ExtractAndScoreKeywords(Question question, string answerText, string lowerText)
+        {
+            var score = 0m;
+            
+            // Enhanced word tokenization
+            var words = TokenizeText(lowerText);
+            var uniqueWords = words.Distinct().ToList();
+            
+            // Vocabulary diversity scoring
+            if (uniqueWords.Count >= 60) score += 2.5m;
+            else if (uniqueWords.Count >= 40) score += 2m;
+            else if (uniqueWords.Count >= 25) score += 1.5m;
+            else if (uniqueWords.Count >= 15) score += 1m;
+            else if (uniqueWords.Count >= 8) score += 0.5m;
+
+            // Industry-specific keyword detection
+            var industryKeywords = GetIndustryKeywords(question.Text);
+            var industryMatches = words.Count(w => industryKeywords.Contains(w));
+            score += Math.Min(2m, industryMatches * 0.4m);
+
+            // Action verb detection (strong indicators of experience)
+            var actionVerbs = GetStrongActionVerbs();
+            var actionMatches = words.Count(w => actionVerbs.Contains(w));
+            score += Math.Min(1.5m, actionMatches * 0.3m);
+
+            // Skill and technology detection
+            var techKeywords = GetTechnologyKeywords();
+            var techMatches = words.Count(w => techKeywords.Contains(w));
+            score += Math.Min(2m, techMatches * 0.5m);
+
+            System.Diagnostics.Debug.WriteLine($"Keyword extraction score: {score} (Industry: {industryMatches}, Actions: {actionMatches}, Tech: {techMatches})");
+            return score;
+        }
+
+        /// <summary>
+        /// Analyze answer strength and specificity
+        /// </summary>
+        private decimal AnalyzeAnswerStrength(string answerText, string lowerText)
+        {
             var score = 0m;
 
-            // Length and completeness (improved scale)
-            if (string.IsNullOrEmpty(answerText))
-            {
-                return 0;
-            }
-            else if (answerText.Length < 20)
-            {
-                score += 1;
-            }
-            else if (answerText.Length < 50)
-            {
-                score += 2;
-            }
-            else if (answerText.Length < 100)
-            {
-                score += 4;
-            }
-            else if (answerText.Length < 200)
-            {
-                score += 6;
-            }
-            else if (answerText.Length < 300)
-            {
-                score += 8;
-            }
-            else
-            {
-                score += 9;
-            }
-
-            // Enhanced keyword analysis
-            var positiveKeywords = new[] { 
-                "experience", "developed", "implemented", "managed", "led", "created", 
-                "improved", "achieved", "successfully", "completed", "handled", "resolved",
-                "optimized", "designed", "coordinated", "trained", "supported"
+            // Quantifiable evidence detection
+            var quantifiablePatterns = new[] {
+                @"\d+\s*(years?|months?|weeks?|days?)\s+(of\s+)?experience",
+                @"\d+\s*(percent|%)\s+(increase|decrease|growth|reduction)",
+                @"\$\s*\d+[kmb]?\s*(budget|revenue|salary|cost|savings)",
+                @"\d+\s*(times?|fold)\s+(increase|improvement|growth)",
+                @"(managed|led|supervised)\s+\d+\s+(people|team members|employees)",
+                @"\d+\s+(projects|initiatives|campaigns|products)",
+                @"(first|last|only|best|worst|top|bottom)\s+\d+%?"
             };
-            var keywordCount = positiveKeywords.Count(keyword => 
-                answerText.ToLower().Contains(keyword));
 
-            score += Math.Min(3, keywordCount * 0.5m);
+            var quantifiableCount = quantifiablePatterns.Count(pattern => 
+                System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            score += Math.Min(3m, quantifiableCount * 0.8m);
 
-            // Check for specific examples (strong indicator)
-            if (answerText.ToLower().Contains("example") || 
-                answerText.ToLower().Contains("specific") ||
-                answerText.ToLower().Contains("for instance") ||
-                answerText.ToLower().Contains("such as"))
+            // Specific example indicators
+            var examplePatterns = new[] {
+                @"\b(for\s+example|for\s+instance|such\s+as|specifically|including)\b",
+                @"\b(demonstrated|proven|implemented|executed|delivered)\b",
+                @"\b(i\s+(have|was|am|did)\s+[\w\s]{5,30})\b",
+                @"\b(in\s+my\s+role|as\s+a\s+[\w\s]{3,20})\b",
+                @"\b(responsible\s+for|tasked\s+with|handled)\b"
+            };
+
+            var exampleCount = examplePatterns.Count(pattern => 
+                System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            score += Math.Min(2m, exampleCount * 0.5m);
+
+            // Result and outcome indicators
+            var resultPatterns = new[] {
+                @"\b(resulted\s+in|led\s+to|achieved|accomplished|succeeded)\b",
+                @"\b(improved|increased|decreased|reduced|optimized|enhanced)\b",
+                @"\b(saved|generated|created|developed|built)\b",
+                @"\b(on\s+time|within\s+budget|met\s+deadline)\b"
+            };
+
+            var resultCount = resultPatterns.Count(pattern => 
+                System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            score += Math.Min(1.5m, resultCount * 0.4m);
+
+            System.Diagnostics.Debug.WriteLine($"Answer strength score: {score} (Quantifiable: {quantifiableCount}, Examples: {exampleCount}, Results: {resultCount})");
+            return score;
+        }
+
+        /// <summary>
+        /// Analyze professional communication patterns
+        /// </summary>
+        private decimal AnalyzeProfessionalCommunication(string lowerText)
+        {
+            var score = 0m;
+
+            // Professional language patterns
+            var professionalPatterns = new[] {
+                @"\b(collaborated|partnered|coordinated|liaised)\b",
+                @"\b(strategic|initiative|methodology|framework)\b",
+                @"\b(stakeholder|client|customer|user)\b",
+                @"\b(process|procedure|workflow|methodology)\b",
+                @"\b(analysis|assessment|evaluation|review)\b"
+            };
+
+            var professionalCount = professionalPatterns.Count(pattern => 
+                System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            score += Math.Min(1.5m, professionalCount * 0.3m);
+
+            // Leadership and responsibility indicators
+            var leadershipPatterns = new[] {
+                @"\b(led|managed|supervised|mentored|trained)\b",
+                @"\b(responsible\s+for|accountable\s+for|owned)\b",
+                @"\b(my\s+team|our\s+team|team\s+lead)\b",
+                @"\b(decision|strategy|vision|direction)\b"
+            };
+
+            var leadershipCount = leadershipPatterns.Count(pattern => 
+                System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            score += Math.Min(1.5m, leadershipCount * 0.4m);
+
+            System.Diagnostics.Debug.WriteLine($"Professional communication score: {score} (Professional: {professionalCount}, Leadership: {leadershipCount})");
+            return score;
+        }
+
+        /// <summary>
+        /// Analyze contextual relevance with semantic matching
+        /// </summary>
+        private decimal AnalyzeContextualRelevance(Question question, string answerText, string lowerText)
+        {
+            var score = 0m;
+            
+            // Enhanced question keyword extraction
+            var questionKeywords = ExtractQuestionKeywords(question.Text);
+            var answerWords = TokenizeText(lowerText);
+            
+            // Direct keyword matching
+            var directMatches = answerWords.Count(w => questionKeywords.Contains(w));
+            score += Math.Min(2m, directMatches * 0.3m);
+            
+            // Semantic similarity (partial matches and related terms)
+            var semanticMatches = CalculateSemanticMatches(answerWords, questionKeywords);
+            score += Math.Min(1.5m, semanticMatches * 0.2m);
+            
+            // Question type specific relevance
+            score += CalculateQuestionTypeRelevance(question, answerText, lowerText);
+
+            System.Diagnostics.Debug.WriteLine($"Contextual relevance score: {score} (Direct: {directMatches}, Semantic: {semanticMatches})");
+            return score;
+        }
+
+        /// <summary>
+        /// Analyze technical and domain-specific indicators
+        /// </summary>
+        private decimal AnalyzeTechnicalIndicators(string lowerText)
+        {
+            var score = 0m;
+
+            // Technical terminology
+            var technicalTerms = new[] {
+                "api", "database", "framework", "algorithm", "architecture",
+                "scalability", "performance", "security", "testing", "deployment",
+                "version control", "agile", "scrum", "devops", "cloud", "microservices"
+            };
+
+            var technicalMatches = technicalTerms.Count(term => lowerText.Contains(term));
+            score += Math.Min(2m, technicalMatches * 0.3m);
+
+            // Programming languages and tools
+            var programmingTerms = new[] {
+                "javascript", "python", "java", "c#", "sql", "html", "css",
+                "react", "angular", "vue", "node", "dotnet", "aws", "azure",
+                "docker", "kubernetes", "git", "github", "gitlab"
+            };
+
+            var programmingMatches = programmingTerms.Count(term => lowerText.Contains(term));
+            score += Math.Min(1.5m, programmingMatches * 0.2m);
+
+            System.Diagnostics.Debug.WriteLine($"Technical indicators score: {score} (Technical: {technicalMatches}, Programming: {programmingMatches})");
+            return score;
+        }
+
+        /// <summary>
+        /// Analyze structure and coherence
+        /// </summary>
+        private decimal AnalyzeStructureAndCoherence(string answerText, string lowerText)
+        {
+            var score = 0m;
+
+            // Sentence structure analysis
+            var sentences = answerText.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+            var words = TokenizeText(lowerText);
+            var avgWordsPerSentence = sentences.Any() ? (double)words.Count / sentences.Length : 0;
+            
+            // Reward well-structured answers
+            if (avgWordsPerSentence >= 12 && avgWordsPerSentence <= 25) score += 1m; // Ideal complexity
+            else if (avgWordsPerSentence >= 8 && avgWordsPerSentence < 12) score += 0.7m;
+            else if (avgWordsPerSentence >= 6 && avgWordsPerSentence < 8) score += 0.5m;
+            else if (avgWordsPerSentence > 25) score -= 0.3m; // Too complex
+
+            // Paragraph structure
+            var paragraphs = answerText.Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+            if (paragraphs.Length >= 2 && paragraphs.Length <= 4) score += 0.5m; // Good paragraphing
+
+            // Transition words and logical flow
+            var transitionWords = new[] { "however", "therefore", "furthermore", "moreover", "consequently", "additionally" };
+            var transitionCount = transitionWords.Count(word => lowerText.Contains(word));
+            score += Math.Min(0.5m, transitionCount * 0.1m);
+
+            System.Diagnostics.Debug.WriteLine($"Structure coherence score: {score} (Avg words/sentence: {avgWordsPerSentence:F1}, Paragraphs: {paragraphs.Length})");
+            return score;
+        }
+
+        /// <summary>
+        /// Apply quality adjustments and penalties
+        /// </summary>
+        private decimal ApplyQualityAdjustments(decimal score, string answerText, string lowerText)
+        {
+            // Penalty for overly long answers
+            if (answerText.Length > 1000) score -= 0.5m;
+            if (answerText.Length > 2000) score -= 1m;
+
+            // Penalty for poor grammar indicators
+            if (answerText.Contains("  ")) score -= 0.2m; // Double spaces
+            if (!System.Text.RegularExpressions.Regex.IsMatch(answerText, @"^[A-Z]")) score -= 0.3m; // No capital start
+            if (lowerText.Count(char.IsLetter) < (double)answerText.Length * 0.6) score -= 0.8m; // Too many numbers/symbols
+
+            // Penalty for repetitive content
+            var words = TokenizeText(lowerText);
+            var repetitionRatio = (double)words.Count - words.Distinct().Count() / (double)words.Count;
+            if (repetitionRatio > 0.3) score -= 0.5m;
+
+            // Bonus for well-formatted answers
+            if (answerText.Contains("\n") && answerText.Split('\n').Length >= 2) score += 0.2m; // Uses line breaks
+
+            return Math.Max(0, score);
+        }
+
+        /// <summary>
+        /// Enhanced text tokenization
+        /// </summary>
+        private List<string> TokenizeText(string text)
+        {
+            return text.Split(new[] { ' ', '.', ',', ';', ':', '!', '?', '-', '_', '/', '\\', '(', ')', '[', ']', '{', '}', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                     .Where(word => word.Length > 1) // Filter out single characters
+                     .ToList();
+        }
+
+        /// <summary>
+        /// Get industry-specific keywords based on question context
+        /// </summary>
+        private List<string> GetIndustryKeywords(string questionText)
+        {
+            var lowerQuestion = questionText.ToLower();
+            
+            if (lowerQuestion.Contains("software") || lowerQuestion.Contains("developer") || lowerQuestion.Contains("programming"))
             {
-                score += 1;
+                return new List<string> { "coding", "programming", "development", "software", "application", "system", "algorithm", "database", "api", "framework" };
+            }
+            else if (lowerQuestion.Contains("management") || lowerQuestion.Contains("lead") || lowerQuestion.Contains("team"))
+            {
+                return new List<string> { "leadership", "management", "team", "project", "strategy", "planning", "coordination", "supervision", "mentoring" };
+            }
+            else if (lowerQuestion.Contains("sales") || lowerQuestion.Contains("marketing") || lowerQuestion.Contains("customer"))
+            {
+                return new List<string> { "sales", "marketing", "customer", "client", "revenue", "growth", "target", "negotiation", "relationship" };
+            }
+            else if (lowerQuestion.Contains("design") || lowerQuestion.Contains("creative") || lowerQuestion.Contains("ux"))
+            {
+                return new List<string> { "design", "creative", "user", "experience", "interface", "visual", "prototype", "wireframe", "branding" };
+            }
+            
+            // General business keywords
+            return new List<string> { "business", "process", "improvement", "efficiency", "quality", "performance", "analysis", "solution" };
+        }
+
+        /// <summary>
+        /// Get strong action verbs that indicate experience
+        /// </summary>
+        private List<string> GetStrongActionVerbs()
+        {
+            return new List<string> {
+                "developed", "created", "built", "designed", "implemented", "managed", "led", "coordinated",
+                "executed", "delivered", "achieved", "accomplished", "improved", "increased", "reduced",
+                "optimized", "enhanced", "launched", "established", "transformed", "revolutionized",
+                "pioneered", "innovated", "streamlined", "automated", "integrated", "migrated", "deployed"
+            };
+        }
+
+        /// <summary>
+        /// Get technology and skill keywords
+        /// </summary>
+        private List<string> GetTechnologyKeywords()
+        {
+            return new List<string> {
+                "javascript", "python", "java", "csharp", "c++", "ruby", "php", "swift", "kotlin",
+                "html", "css", "sql", "nosql", "mongodb", "postgresql", "mysql", "oracle",
+                "react", "angular", "vue", "node", "express", "django", "flask", "spring", "dotnet",
+                "aws", "azure", "gcp", "cloud", "docker", "kubernetes", "jenkins", "git", "github",
+                "agile", "scrum", "devops", "ci", "cd", "testing", "unit", "integration", "api",
+                "microservices", "architecture", "security", "performance", "scalability", "mobile"
+            };
+        }
+
+        /// <summary>
+        /// Extract keywords from question text
+        /// </summary>
+        private List<string> ExtractQuestionKeywords(string questionText)
+        {
+            var stopWords = new[] { "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "what", "how", "when", "where", "why", "describe", "explain", "tell", "your" };
+            
+            return TokenizeText(questionText.ToLower())
+                     .Where(word => !stopWords.Contains(word) && word.Length > 2)
+                     .Distinct()
+                     .ToList();
+        }
+
+        /// <summary>
+        /// Calculate semantic matches between answer and question keywords
+        /// </summary>
+        private int CalculateSemanticMatches(List<string> answerWords, List<string> questionKeywords)
+        {
+            var matches = 0;
+            
+            foreach (var answerWord in answerWords)
+            {
+                foreach (var questionKeyword in questionKeywords)
+                {
+                    // Direct match
+                    if (answerWord.Equals(questionKeyword, StringComparison.OrdinalIgnoreCase))
+                    {
+                        matches++;
+                        break;
+                    }
+                    
+                    // Partial match (word contains keyword or vice versa)
+                    if (answerWord.Length > 4 && questionKeyword.Length > 4)
+                    {
+                        if (answerWord.Contains(questionKeyword) || questionKeyword.Contains(answerWord))
+                        {
+                            matches++;
+                            break;
+                        }
+                    }
+                    
+                    // Levenshtein distance for fuzzy matching (simplified)
+                    if (CalculateLevenshteinDistance(answerWord, questionKeyword) <= 2)
+                    {
+                        matches++;
+                        break;
+                    }
+                }
+            }
+            
+            return matches;
+        }
+
+        /// <summary>
+        /// Simple Levenshtein distance calculation
+        /// </summary>
+        private int CalculateLevenshteinDistance(string s1, string s2)
+        {
+            if (string.IsNullOrEmpty(s1)) return string.IsNullOrEmpty(s2) ? 0 : s2.Length;
+            if (string.IsNullOrEmpty(s2)) return s1.Length;
+
+            var matrix = new int[s1.Length + 1, s2.Length + 1];
+
+            for (var i = 0; i <= s1.Length; i++)
+                matrix[i, 0] = i;
+            for (var j = 0; j <= s2.Length; j++)
+                matrix[0, j] = j;
+
+            for (var i = 1; i <= s1.Length; i++)
+            {
+                for (var j = 1; j <= s2.Length; j++)
+                {
+                    var cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
+                    matrix[i, j] = Math.Min(
+                        Math.Min(matrix[i - 1, j] + 1, matrix[i, j - 1] + 1),
+                        matrix[i - 1, j - 1] + cost);
+                }
             }
 
-            // Check for quantifiable results
-            if (System.Text.RegularExpressions.Regex.IsMatch(answerText.ToLower(), @"\d+%|\d+\s*(percent|percentage|increase|decrease|improvement|reduction)"))
-            {
-                score += 1;
-            }
+            return matrix[s1.Length, s2.Length];
+        }
 
-            return Math.Min(10, score);
+        /// <summary>
+        /// Calculate question type specific relevance
+        /// </summary>
+        private decimal CalculateQuestionTypeRelevance(Question question, string answerText, string lowerText)
+        {
+            var score = 0m;
+            var lowerQuestion = question.Text.ToLower();
+            
+            // Experience-related questions
+            if (lowerQuestion.Contains("experience") || lowerQuestion.Contains("background") || lowerQuestion.Contains("history"))
+            {
+                var experiencePatterns = new[] {
+                    @"\d+\s+(years?|months?)\s+(of\s+)?experience",
+                    @"worked\s+(as|with|for)",
+                    @"previous\s+(role|position|job)",
+                    @"background\s+in"
+                };
+                
+                var experienceCount = experiencePatterns.Count(pattern => 
+                    System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+                score += Math.Min(2m, experienceCount * 0.7m);
+            }
+            
+            // Skills-related questions
+            else if (lowerQuestion.Contains("skill") || lowerQuestion.Contains("ability") || lowerQuestion.Contains("knowledge"))
+            {
+                var skillIndicators = new[] { "proficient", "expert", "skilled", "knowledge", "familiar", "experienced", "certified" };
+                var skillCount = skillIndicators.Count(indicator => lowerText.Contains(indicator));
+                score += Math.Min(1.5m, skillCount * 0.3m);
+            }
+            
+            // Problem-solving questions
+            else if (lowerQuestion.Contains("challenge") || lowerQuestion.Contains("problem") || lowerQuestion.Contains("solve"))
+            {
+                var solutionPatterns = new[] {
+                    @"solved\s+(the|a|this)",
+                    @"approach\s+(was|included)",
+                    @"solution\s+(was|involved)",
+                    @"resolved\s+(the|this|issue)"
+                };
+                
+                var solutionCount = solutionPatterns.Count(pattern => 
+                    System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+                score += Math.Min(1.5m, solutionCount * 0.5m);
+            }
+            
+            return score;
         }
 
         /// <summary>
@@ -413,14 +855,7 @@ namespace HR.Web.Services
                 .Include(pq => pq.Question)
                 .ToList();
 
-            var maxScore = 0m;
-
-            foreach (var positionQuestion in positionQuestions)
-            {
-                maxScore += GetMaxScoreForQuestion(positionQuestion.Question, positionId);
-            }
-
-            return maxScore;
+            return GetMaxPossibleScoreForPosition(positionQuestions);
         }
 
         /// <summary>
@@ -526,12 +961,11 @@ namespace HR.Web.Services
                 a => a.Position
             ).Where(a => a.PositionId == positionId).ToList();
 
-            var maxScore = GetMaxScoreForPosition(positionId);
             var rankings = new List<CandidateRanking>();
 
             foreach (var application in applications)
             {
-                var score = CalculateApplicationScore(application);
+                var percentage = CalculateApplicationScore(application); // This now returns percentage
                 var breakdown = GetScoreBreakdown(application.Id);
 
                 rankings.Add(new CandidateRanking
@@ -539,9 +973,9 @@ namespace HR.Web.Services
                     ApplicationId = application.Id,
                     CandidateName = application.Applicant?.FullName ?? "Unknown",
                     CandidateEmail = application.Applicant?.Email ?? "",
-                    TotalScore = score,
-                    MaxScore = maxScore,
-                    Percentage = maxScore > 0 ? (score / maxScore) * 100 : 0,
+                    TotalScore = percentage, // This is now percentage out of 100
+                    MaxScore = 100, // Always 100 for percentage system
+                    Percentage = percentage, // Same as TotalScore now
                     AppliedDate = application.AppliedOn,
                     Status = application.Status ?? "Pending",
                     ScoreBreakdown = breakdown

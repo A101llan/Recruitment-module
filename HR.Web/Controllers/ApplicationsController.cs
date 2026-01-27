@@ -93,6 +93,13 @@ public class ApplicationsController : Controller
         if (position == null)
             return HttpNotFound();
         
+        // Prevent non-admin users from accessing closed positions
+        if (!position.IsOpen && (User == null || !User.IsInRole("Admin")))
+        {
+            TempData["ErrorMessage"] = "This position is no longer open for applications.";
+            return RedirectToAction("Index", "Positions");
+        }
+        
         // Debug: Log questions and their options
         System.Diagnostics.Debug.WriteLine($"=== Position {position.Title} Questions ===");
         foreach (var pq in position.PositionQuestions)
@@ -282,6 +289,21 @@ public class ApplicationsController : Controller
             return RedirectToAction("Index", "Positions");
         }
 
+        // Validate that position is still open
+        var position = _uow.Positions.Get(model.PositionId);
+        if (position == null)
+        {
+            TempData["ErrorMessage"] = "Position not found.";
+            return RedirectToAction("Index", "Positions");
+        }
+        
+        // Prevent non-admin users from applying to closed positions
+        if (!position.IsOpen && (User == null || !User.IsInRole("Admin")))
+        {
+            TempData["ErrorMessage"] = "This position is no longer open for applications.";
+            return RedirectToAction("Index", "Positions");
+        }
+
         // Find or create applicant from logged-in user
         Applicant applicant = null;
         if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
@@ -323,7 +345,7 @@ public class ApplicationsController : Controller
             {
                 ApplicantId = applicant.Id,
                 PositionId = model.PositionId,
-                Status = "Submitted",
+                Status = "Interviewing",
                 AppliedOn = DateTime.UtcNow,
                 WorkExperienceLevel = model.YearsInRole ?? "Not specified",
                 ResumePath = resumePath ?? model.ResumePath
@@ -470,12 +492,12 @@ public class ApplicationsController : Controller
             }
             if (positionId.HasValue)
             {
-                var model = new Application { Status = "Submitted", AppliedOn = DateTime.UtcNow, PositionId = positionId.Value };
+                var model = new Application { Status = "Interviewing", AppliedOn = DateTime.UtcNow, PositionId = positionId.Value };
                 LoadLookups(model);
                 return View(model);
             }
             LoadLookups();
-            return View(new Application { Status = "Submitted", AppliedOn = DateTime.UtcNow });
+            return View(new Application { Status = "Interviewing", AppliedOn = DateTime.UtcNow });
         }
 
         [HttpPost]
@@ -585,8 +607,8 @@ public class ApplicationsController : Controller
             {
                 return HttpNotFound();
             }
-            // Restore to a status the user can proceed from. Let's use 'Submitted'.
-            app.Status = "Submitted";
+            // Restore to a status the user can proceed from. Let's use 'Interviewing'.
+            app.Status = "Interviewing";
             _uow.Applications.Update(app);
             _uow.Complete();
             TempData["Message"] = "Applicant has been released from hold.";

@@ -2,8 +2,9 @@
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewBag.Title = "Positions";
-    var openPositions = Model ?? Enumerable.Empty<HR.Web.Models.Position>();
-    var isAdmin = User != null && User.Identity != null && User.IsInRole("Admin");
+    var isAdmin = ViewBag.IsAdmin != null ? (bool)ViewBag.IsAdmin : false;
+    var allPositions = ViewBag.AllPositions as IEnumerable<HR.Web.Models.Position> ?? Model;
+    var displayPositions = isAdmin ? allPositions : Model;
     
     // Helper function to safely get Responsibilities property
     Func<HR.Web.Models.Position, string> getResponsibilities = (p) => {
@@ -209,16 +210,41 @@
 @if (isAdmin)
 {
     <div class="mb-3">
-        <a class="btn btn-blue" href="@Url.Action("Create", "Positions")">
-            <i class="fas fa-plus"></i> New Position
-        </a>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <a class="btn btn-blue" href="@Url.Action("Create", "Positions")">
+                    <i class="fas fa-plus"></i> New Position
+                </a>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary active" id="filterAll">
+                    <i class="fas fa-list"></i> All Positions
+                </button>
+                <button type="button" class="btn btn-success" id="filterOpen">
+                    <i class="fas fa-unlock"></i> Open Only
+                </button>
+                <button type="button" class="btn btn-secondary" id="filterClosed">
+                    <i class="fas fa-lock"></i> Closed Only
+                </button>
+            </div>
+        </div>
     </div>
 }
 
-@if (!openPositions.Any())
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-warning alert-dismissible" role="alert">
+        <i class="fas fa-exclamation-triangle"></i> @TempData["ErrorMessage"]
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+}
+
+@if (!displayPositions.Any())
 {
     <div class="alert alert-info">
-        <i class="fas fa-info-circle"></i> No positions available at this time.
+        <i class="fas fa-info-circle"></i> @(isAdmin ? "No positions found." : "No positions available at this time.")
     </div>
 }
 else
@@ -226,7 +252,7 @@ else
     <div class="row">
         <div class="col-md-8">
             <div class="list-group">
-                @foreach (var p in openPositions)
+                @foreach (var p in displayPositions)
                 {
                     <a class="list-group-item list-group-item-action position-item"
                        href="#"
@@ -237,6 +263,7 @@ else
                        data-dept="@(p.Department != null ? p.Department.Name : "")"
                        data-posted="@p.PostedOn.ToShortDateString()"
                        data-range="@(p.SalaryMin.HasValue && p.SalaryMax.HasValue ? formatSalary(p, p.SalaryMin) + " - " + formatSalary(p, p.SalaryMax) : "Salary Varies")"
+                       data-is-open="@p.IsOpen.ToString().ToLower()"
                        data-url-edit="@Url.Action("Edit", "Positions", new { id = p.Id })"
                        data-url-apply="@Url.Action("Questionnaire", "Applications", new { positionId = p.Id })"
                        data-url-applications="@Url.Action("Index", "Applications", new { positionId = p.Id })#appsCards-@p.Id">
@@ -246,6 +273,10 @@ else
                                 <small class="text-muted d-block">@(p.Department != null ? p.Department.Name : "No Department")</small>
                             </div>
                             <div class="text-right ml-3">
+                                <span class="badge badge-@(p.IsOpen ? "success" : "secondary") mb-1">
+                                    @(p.IsOpen ? "Open" : "Closed")
+                                </span>
+                                <br/>
                                 <small class="text-muted d-block">@p.PostedOn.ToShortDateString()</small>
                                 @if (p.SalaryMin.HasValue)
                                 {
@@ -439,6 +470,68 @@ else
                         if (modal.length) {
                             modal.modal('show');
                         }
+                    });
+                }
+
+                // Admin filter functionality
+                var filterAll = document.getElementById('filterAll');
+                var filterOpen = document.getElementById('filterOpen');
+                var filterClosed = document.getElementById('filterClosed');
+                
+                if (filterAll && filterOpen && filterClosed) {
+                    function setActiveFilter(activeBtn) {
+                        [filterAll, filterOpen, filterClosed].forEach(function(btn) {
+                            btn.classList.remove('active');
+                        });
+                        activeBtn.classList.add('active');
+                    }
+                    
+                    function filterPositions(filterType) {
+                        var items = document.querySelectorAll('.position-item');
+                        items.forEach(function(item) {
+                            var isOpen = item.getAttribute('data-is-open') === 'true';
+                            var show = false;
+                            
+                            switch(filterType) {
+                                case 'all':
+                                    show = true;
+                                    break;
+                                case 'open':
+                                    show = isOpen;
+                                    break;
+                                case 'closed':
+                                    show = !isOpen;
+                                    break;
+                            }
+                            
+                            item.style.display = show ? '' : 'none';
+                        });
+                        
+                        // Update detail card visibility
+                        var detail = document.getElementById('positionDetail');
+                        if (detail) {
+                            var visibleItems = Array.from(items).filter(function(item) {
+                                return item.style.display !== 'none';
+                            });
+                            if (visibleItems.length === 0) {
+                                detail.style.display = 'none';
+                            }
+                        }
+                    }
+                    
+                    filterAll.addEventListener('click', function() {
+                        setActiveFilter(filterAll);
+                        filterPositions('all');
+                    });
+                    
+                    filterOpen.addEventListener('click', function() {
+                        setActiveFilter(filterOpen);
+                        filterPositions('open');
+                    });
+                    
+                    filterClosed.addEventListener('click', function() {
+                        setActiveFilter(filterClosed);
+                        filterPositions('closed');
                     });
                 }
             });
