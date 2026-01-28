@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Web.Mvc;
 
 namespace HR.Web.Controllers
@@ -12,6 +14,50 @@ namespace HR.Web.Controllers
         public ActionResult Index()
         {
             return RedirectToAction("Index", "Positions");
+        }
+
+        /// <summary>
+        /// Serve company logo image
+        /// </summary>
+        [AllowAnonymous]
+        public ActionResult CompanyLogo()
+        {
+            try
+            {
+                // Try the new transparent logo first
+                string logoPath = Server.MapPath("~/Content/images/nanosoft-logo-transparent.png");
+                if (System.IO.File.Exists(logoPath))
+                {
+                    byte[] fileBytes = System.IO.File.ReadAllBytes(logoPath);
+                    return File(fileBytes, "image/png");
+                }
+                
+                // Fallback to the JPG version
+                logoPath = Server.MapPath("~/Content/images/nanosoft-logo.jpg");
+                if (System.IO.File.Exists(logoPath))
+                {
+                    byte[] fileBytes = System.IO.File.ReadAllBytes(logoPath);
+                    return File(fileBytes, "image/jpeg");
+                }
+                
+                // Fallback to the original logo
+                logoPath = Server.MapPath("~/Content/images/company-logo.png");
+                if (System.IO.File.Exists(logoPath))
+                {
+                    byte[] fileBytes = System.IO.File.ReadAllBytes(logoPath);
+                    return File(fileBytes, "image/png");
+                }
+                else
+                {
+                    // Return a simple placeholder or 404
+                    return HttpNotFound("Logo file not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error if needed
+                return HttpNotFound("Error loading logo");
+            }
         }
     }
 }

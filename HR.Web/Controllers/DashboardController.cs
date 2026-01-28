@@ -14,10 +14,12 @@ namespace HR.Web.Controllers
             var openPositions = _uow.Positions.GetAll().Count(p => p.IsOpen);
             var pendingApplications = _uow.Applications.GetAll().Count(a => a.Status == "Interviewing");
             var scheduledInterviews = _uow.Interviews.GetAll().Count();
+            var totalUsers = _uow.Users.GetAll().Count();
 
             ViewBag.OpenPositions = openPositions;
             ViewBag.PendingApplications = pendingApplications;
             ViewBag.ScheduledInterviews = scheduledInterviews;
+            ViewBag.TotalUsers = totalUsers;
 
             return View();
         }

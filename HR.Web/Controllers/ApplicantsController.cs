@@ -2,6 +2,7 @@ using System.Linq;
 using System.Web.Mvc;
 using HR.Web.Data;
 using HR.Web.Models;
+using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
@@ -9,6 +10,7 @@ namespace HR.Web.Controllers
     public class ApplicantsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
+        private readonly AuditService _auditService = new AuditService();
 
         public ActionResult Index(string sortOrder)
         {
@@ -87,9 +89,29 @@ namespace HR.Web.Controllers
             {
                 return View(model);
             }
-            _uow.Applicants.Add(model);
-            _uow.Complete();
-            return RedirectToAction("Index");
+            
+            try
+            {
+                _uow.Applicants.Add(model);
+                _uow.Complete();
+                
+                // Log applicant creation
+                _auditService.LogCreate(User.Identity.Name, "Applicants", model.Id.ToString(), new { 
+                    FullName = model.FullName, 
+                    Email = model.Email, 
+                    Phone = model.Phone 
+                });
+                
+                return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                _auditService.LogAction(User.Identity.Name, "CREATE", "Applicants", "new", 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                ModelState.AddModelError("", "Error creating applicant: " + ex.Message);
+                return View(model);
+            }
         }
 
         public ActionResult Edit(int id)
@@ -110,9 +132,39 @@ namespace HR.Web.Controllers
             {
                 return View(model);
             }
-            _uow.Applicants.Update(model);
-            _uow.Complete();
-            return RedirectToAction("Index");
+            
+            try
+            {
+                // Get old values for audit
+                var oldApplicant = _uow.Applicants.Get(model.Id);
+                var oldValues = new { 
+                    FullName = oldApplicant?.FullName, 
+                    Email = oldApplicant?.Email, 
+                    Phone = oldApplicant?.Phone 
+                };
+                
+                _uow.Applicants.Update(model);
+                _uow.Complete();
+                
+                // Log applicant update
+                var newValues = new { 
+                    FullName = model.FullName, 
+                    Email = model.Email, 
+                    Phone = model.Phone 
+                };
+                
+                _auditService.LogUpdate(User.Identity.Name, "Applicants", model.Id.ToString(), oldValues, newValues);
+                
+                return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                _auditService.LogAction(User.Identity.Name, "UPDATE", "Applicants", model.Id.ToString(), 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                ModelState.AddModelError("", "Error updating applicant: " + ex.Message);
+                return View(model);
+            }
         }
 
         public ActionResult Delete(int id)
@@ -129,22 +181,50 @@ namespace HR.Web.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult DeleteConfirmed(int id)
         {
-            // Do not delete if applicant still has applications (FK constraint)
-            var hasApplications = _uow.Applications.GetAll().Any(a => a.ApplicantId == id);
-            if (hasApplications)
+            try
             {
-                TempData["DeleteError"] = "Cannot delete applicant because applications still exist. Delete or reassign those applications first.";
+                // Do not delete if applicant still has applications (FK constraint)
+                var hasApplications = _uow.Applications.GetAll().Any(a => a.ApplicantId == id);
+                if (hasApplications)
+                {
+                    TempData["DeleteError"] = "Cannot delete applicant because applications still exist. Delete or reassign those applications first.";
+                    
+                    // Log failed deletion attempt
+                    _auditService.LogAction(User.Identity.Name, "DELETE", "Applicants", id.ToString(), 
+                        wasSuccessful: false, errorMessage: "Applicant has existing applications");
+                    
+                    return RedirectToAction("Details", new { id });
+                }
+
+                var item = _uow.Applicants.Get(id);
+                if (item == null)
+                {
+                    return HttpNotFound();
+                }
+                
+                // Store old values for audit
+                var oldValues = new { 
+                    FullName = item.FullName, 
+                    Email = item.Email, 
+                    Phone = item.Phone 
+                };
+                
+                _uow.Applicants.Remove(item);
+                _uow.Complete();
+                
+                // Log successful deletion
+                _auditService.LogDelete(User.Identity.Name, "Applicants", id.ToString(), oldValues);
+                
+                return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                _auditService.LogAction(User.Identity.Name, "DELETE", "Applicants", id.ToString(), 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                TempData["DeleteError"] = "Error deleting applicant: " + ex.Message;
                 return RedirectToAction("Details", new { id });
             }
-
-            var item = _uow.Applicants.Get(id);
-            if (item == null)
-            {
-                return HttpNotFound();
-            }
-            _uow.Applicants.Remove(item);
-            _uow.Complete();
-            return RedirectToAction("Index");
         }
     }
 }

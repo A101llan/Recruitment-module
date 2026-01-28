@@ -327,6 +327,65 @@ namespace HR.Web.Controllers
         }
 
         /// <summary>
+        /// Add questions to sample questions collection (direct addition without duplicate checking)
+        /// </summary>
+        [HttpPost]
+        public ActionResult AddQuestionsToSample(string questionsJson)
+        {
+            try
+            {
+                // Fix: Handle suggestedOptions property name mismatch
+                var questionsJsonFixed = questionsJson.Replace("\"suggestedOptions\"", "\"Options\"");
+                var questions = JsonConvert.DeserializeObject<List<GeneratedQuestion>>(questionsJsonFixed);
+                int addedCount = 0;
+
+                foreach (var generatedQ in questions)
+                {
+                    // Create the main question with available properties only
+                    var question = new Question
+                    {
+                        Text = generatedQ.Text,
+                        Type = generatedQ.Type,
+                        IsActive = true
+                    };
+                    
+                    _uow.Questions.Add(question);
+                    _uow.Complete();
+                    
+                    // Create question options for choice/number/rating questions
+                    if (generatedQ.Options != null && generatedQ.Options.Any())
+                    {
+                        foreach (var option in generatedQ.Options)
+                        {
+                            var questionOption = new QuestionOption
+                            {
+                                QuestionId = question.Id,
+                                Text = option.Text,
+                                Points = option.Points
+                            };
+                            
+                            _uow.Context.Set<QuestionOption>().Add(questionOption);
+                        }
+                        
+                        _uow.Complete(); // Save options
+                    }
+
+                    addedCount++;
+                }
+
+                return Json(new { 
+                    success = true, 
+                    message = $"Successfully added {addedCount} questions to the sample questions collection.",
+                    count = addedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error adding questions to sample collection: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
         /// Process duplicate decisions and add approved questions
         /// </summary>
         [HttpPost]

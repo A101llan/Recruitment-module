@@ -84,12 +84,14 @@
                                     </div>
                                     <div class="col-md-2">
                                         <label>&nbsp;</label><br>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-search"></i> Filter
-                                        </button>
-                                        <a href="@Url.Action("SecurityLogs")" class="btn btn-secondary">
-                                            <i class="fas fa-times"></i> Clear
-                                        </a>
+                                        <div class="d-flex justify-content-center">
+                                            <button type="submit" class="btn btn-outline-primary me-4" title="Filter Logs">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                            <a href="@Url.Action("SecurityLogs")" class="btn btn-outline-secondary" title="Clear Filters">
+                                                <i class="fas fa-times"></i>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             }
@@ -235,9 +237,23 @@
                                $('#Filter_EndDate').val();
                 
                 if (!hasFilters) {
+                    // Reload the page to get fresh data
                     location.reload();
                 }
             }, 30000);
+            
+            // Add real-time refresh for audit logs when filter is applied
+            $('form').submit(function() {
+                // Show loading indicator
+                $('.tab-pane').addClass('opacity-50');
+            });
         });
     </script>
+    
+    <style>
+        .opacity-50 {
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+    </style>
 }

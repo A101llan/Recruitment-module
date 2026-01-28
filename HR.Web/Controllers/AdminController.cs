@@ -273,50 +273,90 @@ namespace HR.Web.Controllers
                 return View(model);
 
             Question q;
-            if (model.Id.HasValue)
+            var isUpdate = model.Id.HasValue;
+            var oldValues = new object();
+            
+            try
             {
-                q = _uow.Questions.Get(model.Id.Value);
-                if (q == null) return HttpNotFound();
-                q.Text = model.Text;
-                q.Type = model.Type;
-                q.IsActive = model.IsActive;
-                _uow.Questions.Update(q);
-                var oldOptions = _uow.Context.Set<QuestionOption>().Where(o => o.QuestionId == q.Id);
-                _uow.Context.Set<QuestionOption>().RemoveRange(oldOptions);
-            }
-            else
-            {
-                // create new
-                q = new Question
+                if (isUpdate)
                 {
-                    Text = model.Text,
-                    Type = model.Type,
-                    IsActive = model.IsActive
-                };
-                _uow.Questions.Add(q);
-                _uow.Complete();
-            }
-            _uow.Complete(); // Save question so it exists for option linking
-
-            // Add options (allowed for any question type)
-            if (model.Options != null)
-            {
-                foreach (var opt in model.Options)
+                    q = _uow.Questions.Get(model.Id.Value);
+                    if (q == null) return HttpNotFound();
+                    
+                    // Store old values for audit
+                    oldValues = new { Text = q.Text, Type = q.Type, IsActive = q.IsActive };
+                    
+                    q.Text = model.Text;
+                    q.Type = model.Type;
+                    q.IsActive = model.IsActive;
+                    _uow.Questions.Update(q);
+                    var oldOptions = _uow.Context.Set<QuestionOption>().Where(o => o.QuestionId == q.Id);
+                    _uow.Context.Set<QuestionOption>().RemoveRange(oldOptions);
+                }
+                else
                 {
-                    if (!string.IsNullOrWhiteSpace(opt.Text))
+                    // create new
+                    q = new Question
                     {
-                        var newOpt = new QuestionOption
+                        Text = model.Text,
+                        Type = model.Type,
+                        IsActive = model.IsActive
+                    };
+                    _uow.Questions.Add(q);
+                    _uow.Complete();
+                }
+                _uow.Complete(); // Save question so it exists for option linking
+
+                // Add options (allowed for any question type)
+                var options = new List<object>();
+                if (model.Options != null)
+                {
+                    foreach (var opt in model.Options)
+                    {
+                        if (!string.IsNullOrWhiteSpace(opt.Text))
                         {
-                            QuestionId = q.Id,
-                            Text = opt.Text,
-                            Points = opt.Points
-                        };
-                        _uow.Context.Set<QuestionOption>().Add(newOpt);
+                            var newOpt = new QuestionOption
+                            {
+                                QuestionId = q.Id,
+                                Text = opt.Text,
+                                Points = opt.Points
+                            };
+                            _uow.Context.Set<QuestionOption>().Add(newOpt);
+                            options.Add(new { Text = opt.Text, Points = opt.Points });
+                        }
                     }
                 }
+                _uow.Complete();
+                
+                // Log the action
+                var newValues = new { 
+                    Text = q.Text, 
+                    Type = q.Type, 
+                    IsActive = q.IsActive,
+                    Options = options 
+                };
+                
+                if (isUpdate)
+                {
+                    _auditService.LogUpdate(User.Identity.Name, "Admin", q.Id.ToString(), oldValues, newValues);
+                }
+                else
+                {
+                    _auditService.LogCreate(User.Identity.Name, "Admin", q.Id.ToString(), newValues);
+                }
+                
+                TempData["Message"] = "Question saved.";
             }
-            _uow.Complete();
-            TempData["Message"] = "Question saved.";
+            catch (Exception ex)
+            {
+                var action = isUpdate ? "UPDATE" : "CREATE";
+                _auditService.LogAction(User.Identity.Name, action, "Admin", 
+                    model.Id?.ToString() ?? "new", 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                TempData["Error"] = "Error saving question: " + ex.Message;
+            }
+            
             return RedirectToAction("Questions");
         }
 
@@ -330,6 +370,9 @@ namespace HR.Web.Controllers
             
             try
             {
+                // Store question details for audit log before deletion
+                var questionText = q.Text;
+                
                 // Delete related records in proper order due to foreign key constraints
                 
                 // 1. Delete ApplicationAnswer records that reference this question
@@ -356,10 +399,18 @@ namespace HR.Web.Controllers
                 _uow.Questions.Remove(q);
                 
                 _uow.Complete();
+                
+                // Create audit log entry using AuditService
+                _auditService.LogDelete(User.Identity.Name, "Admin", id.ToString(), new { QuestionText = questionText });
+                
                 TempData["Message"] = "Question deleted successfully.";
             }
             catch (Exception ex)
             {
+                // Create audit log entry for failed deletion using AuditService
+                _auditService.LogAction(User.Identity.Name, "DELETE", "Admin", id.ToString(), 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
                 TempData["Error"] = "Error deleting question: " + ex.Message;
                 // Log the full exception for debugging
                 System.Diagnostics.Debug.WriteLine("DeleteQuestion Error: " + ex.ToString());
@@ -381,11 +432,15 @@ namespace HR.Web.Controllers
             try
             {
                 int deletedCount = 0;
+                var deletedQuestions = new List<string>();
                 
                 foreach (var id in questionIds)
                 {
                     var q = _uow.Questions.Get(id);
                     if (q == null) continue;
+                    
+                    // Store question details for audit log before deletion
+                    deletedQuestions.Add($"ID: {id}, Text: {q.Text}");
                     
                     // Delete related records in proper order due to foreign key constraints
                     
@@ -416,11 +471,22 @@ namespace HR.Web.Controllers
                 }
                 
                 _uow.Complete();
+                
+                // Create audit log entry for batch deletion using AuditService
+                _auditService.LogAction(User.Identity.Name, "BATCH_DELETE", "Admin", 
+                    string.Join(",", questionIds), 
+                    new { DeletedCount = deletedCount, Questions = deletedQuestions });
+                
                 TempData["Message"] = $"Successfully deleted {deletedCount} question(s).";
                 return Json(new { success = true, message = $"Successfully deleted {deletedCount} question(s)." });
             }
             catch (Exception ex)
             {
+                // Create audit log entry for failed batch deletion using AuditService
+                _auditService.LogAction(User.Identity.Name, "BATCH_DELETE", "Admin", 
+                    string.Join(",", questionIds), 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
                 return Json(new { success = false, message = "Error deleting questions: " + ex.Message });
             }
         }

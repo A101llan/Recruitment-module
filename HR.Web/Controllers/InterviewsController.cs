@@ -12,6 +12,7 @@ namespace HR.Web.Controllers
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
         private readonly IEmailService _email = new EmailService();
+        private readonly AuditService _auditService = new AuditService();
 
         public ActionResult Index()
         {
@@ -42,23 +43,43 @@ namespace HR.Web.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult BookInterview(int applicationId, int interviewerId, DateTime scheduledAt, string mode)
         {
-            var interview = new Interview
+            try
             {
-                ApplicationId = applicationId,
-                InterviewerId = interviewerId,
-                ScheduledAt = scheduledAt,
-                Mode = mode
-            };
-            _uow.Interviews.Add(interview);
-            _uow.Complete();
-            
-            var interviewer = _uow.Users.Get(interviewerId);
-            if (interviewer != null)
-            {
-                _email.SendAsync(interviewer.Email, "Interview scheduled", "You have a new interview scheduled.");
+                var interview = new Interview
+                {
+                    ApplicationId = applicationId,
+                    InterviewerId = interviewerId,
+                    ScheduledAt = scheduledAt,
+                    Mode = mode
+                };
+                _uow.Interviews.Add(interview);
+                _uow.Complete();
+                
+                // Log interview booking
+                var newValues = new { 
+                    ApplicationId = applicationId,
+                    InterviewerId = interviewerId,
+                    ScheduledAt = scheduledAt,
+                    Mode = mode
+                };
+                _auditService.LogCreate(User.Identity.Name, "Interviews", interview.Id.ToString(), newValues);
+                
+                var interviewer = _uow.Users.Get(interviewerId);
+                if (interviewer != null)
+                {
+                    _email.SendAsync(interviewer.Email, "Interview scheduled", "You have a new interview scheduled.");
+                }
+                
+                return RedirectToAction("Index");
             }
-            
-            return RedirectToAction("Index");
+            catch (Exception ex)
+            {
+                _auditService.LogAction(User.Identity.Name, "CREATE", "Interviews", "new", 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                TempData["Error"] = "Error booking interview: " + ex.Message;
+                return RedirectToAction("Index");
+            }
         }
 
         public ActionResult Details(int id)

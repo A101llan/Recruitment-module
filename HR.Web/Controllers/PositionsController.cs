@@ -4,6 +4,7 @@ using System.Linq;
 using System.Web.Mvc;
 using HR.Web.Data;
 using HR.Web.Models;
+using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
@@ -11,6 +12,7 @@ namespace HR.Web.Controllers
     public class PositionsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
+        private readonly AuditService _auditService = new AuditService();
 
         public ActionResult Index()
         {
@@ -102,11 +104,27 @@ namespace HR.Web.Controllers
                 _uow.Positions.Add(model);
                 _uow.Complete();
                 Debug.WriteLine("[PositionsController.Create][POST] Save succeeded. New Id=" + model.Id);
+                
+                // Log position creation
+                var newValues = new { 
+                    Title = model.Title, 
+                    Description = model.Description, 
+                    DepartmentId = model.DepartmentId,
+                    Location = model.Location,
+                    IsOpen = model.IsOpen,
+                    PostedOn = model.PostedOn
+                };
+                _auditService.LogCreate(User.Identity.Name, "Positions", model.Id.ToString(), newValues);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("[PositionsController.Create][POST] Exception during save: " + ex);
                 var msg = ex.GetBaseException()?.Message ?? ex.Message;
+                
+                // Log failed creation
+                _auditService.LogAction(User.Identity.Name, "CREATE", "Positions", "new", 
+                    wasSuccessful: false, errorMessage: msg);
+                
                 ModelState.AddModelError("", "Unable to save position: " + msg);
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
                 ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
@@ -130,6 +148,10 @@ namespace HR.Web.Controllers
                 }
                 _uow.Complete();
                 Debug.WriteLine("[PositionsController.Create][POST] Linked " + selectedQuestions.Length + " questions.");
+                
+                // Log question linking
+                _auditService.LogAction(User.Identity.Name, "LINK_QUESTIONS", "Positions", model.Id.ToString(), 
+                    new { QuestionIds = selectedQuestions, QuestionCount = selectedQuestions.Length });
             }
 
             TempData["Message"] = "Position created successfully.";

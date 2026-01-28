@@ -265,6 +265,7 @@ else
                        data-range="@(p.SalaryMin.HasValue && p.SalaryMax.HasValue ? formatSalary(p, p.SalaryMin) + " - " + formatSalary(p, p.SalaryMax) : "Salary Varies")"
                        data-is-open="@p.IsOpen.ToString().ToLower()"
                        data-url-edit="@Url.Action("Edit", "Positions", new { id = p.Id })"
+                       data-url-delete="@Url.Action("Delete", "Positions", new { id = p.Id })"
                        data-url-apply="@Url.Action("Questionnaire", "Applications", new { positionId = p.Id })"
                        data-url-applications="@Url.Action("Index", "Applications", new { positionId = p.Id })#appsCards-@p.Id">
                         <div class="d-flex w-100 justify-content-between align-items-start mb-2">
@@ -304,6 +305,9 @@ else
     </a>
     <a id="posViewApplications" class="btn btn-sm btn-warning" href="#">
         <i class="fas fa-list-ul"></i> View Applications
+    </a>
+    <a id="posDelete" class="btn btn-sm btn-danger" href="#">
+        <i class="fas fa-trash"></i> Delete
     </a>
 }
 else
@@ -354,6 +358,9 @@ else
     <a id="modalViewApplications" class="btn btn-warning" href="#">
         <i class="fas fa-list-ul"></i> View Applications
     </a>
+    <a id="modalDelete" class="btn btn-danger" href="#">
+        <i class="fas fa-trash"></i> Delete
+    </a>
 }
 else
 {
@@ -384,6 +391,7 @@ else
                 var range = document.getElementById('posRange');
                 var detail = document.getElementById('positionDetail');
                 var linkEdit = document.getElementById('posEdit');
+                var linkDelete = document.getElementById('posDelete');
                 var linkApply = document.getElementById('posApply');
                 var linkViewApplications = document.getElementById('posViewApplications');
 
@@ -402,6 +410,7 @@ else
                     if (posted) posted.textContent = el.getAttribute('data-posted') || '';
                     if (range) range.textContent = el.getAttribute('data-range') || '';
                     if (linkEdit) { linkEdit.href = el.getAttribute('data-url-edit') || '#'; }
+                    if (linkDelete) { linkDelete.href = el.getAttribute('data-url-delete') || '#'; }
                     if (linkApply) { linkApply.href = el.getAttribute('data-url-apply') || '#'; }
                     if (linkViewApplications) { linkViewApplications.href = el.getAttribute('data-url-applications') || '#'; }
                     if (detail) detail.style.display = '';
@@ -422,6 +431,7 @@ else
                 var modalPosted = document.getElementById('modalPosPosted');
                 var modalRange = document.getElementById('modalPosRange');
                 var modalEdit = document.getElementById('modalEdit');
+                var modalDelete = document.getElementById('modalDelete');
                 var modalApply = document.getElementById('modalApply');
                 var modalViewApplications = document.getElementById('modalViewApplications');
 
@@ -455,6 +465,7 @@ else
                     if (modalPosted) modalPosted.textContent = src.getAttribute('data-posted') || '';
                     if (modalRange) modalRange.innerHTML = src.getAttribute('data-range') || '';
                     if (modalEdit) modalEdit.href = src.getAttribute('data-url-edit') || '#';
+                    if (modalDelete) modalDelete.href = src.getAttribute('data-url-delete') || '#';
                     if (modalApply) modalApply.href = src.getAttribute('data-url-apply') || '#';
                     if (modalViewApplications) modalViewApplications.href = src.getAttribute('data-url-applications') || '#';
                 }
