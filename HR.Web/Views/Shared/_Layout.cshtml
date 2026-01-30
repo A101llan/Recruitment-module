@@ -121,8 +121,8 @@
                     <li class="nav-item @(ViewContext.RouteData.Values["controller"].ToString() == "Admin" && ViewContext.RouteData.Values["action"].ToString() == "SecurityLogs" ? "active" : "")">
                         <a class="nav-link" href="@Url.Action("SecurityLogs","Admin")"><i class="fas fa-shield-alt"></i> Security Logs</a>
                     </li>
-                    <li class="nav-item @(ViewContext.RouteData.Values["controller"].ToString() == "Reports" ? "active" : "")">
-                        <a class="nav-link" href="@Url.Action("Index","Reports")"><i class="fas fa-chart-bar"></i> Reports</a>
+                    <li class="nav-item @(ViewContext.RouteData.Values["controller"].ToString() == "ReportGenerator" ? "active" : "")">
+                        <a class="nav-link" href="@Url.Action("Index","ReportGenerator")"><i class="fas fa-chart-bar"></i> Reports</a>
                     </li>
                     
                 }
