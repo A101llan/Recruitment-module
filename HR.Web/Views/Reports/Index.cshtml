@@ -1,0 +1,188 @@
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Reports";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-bar"></i> Generate Reports</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle"></i> Report Format Selection</h6>
+                                <div class="row align-items-center">
+                                    <div class="col-md-3">
+                                        <label for="reportFormat" class="form-label"><strong>Select Format:</strong></label>
+                                        <select id="reportFormat" class="form-control">
+                                            <option value="csv">CSV (Excel Compatible)</option>
+                                            <option value="pdf">PDF (Printable Report)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-9">
+                                        <small class="text-muted">
+                                            <strong>CSV:</strong> Best for data analysis in Excel<br>
+                                            <strong>PDF:</strong> Best for printing and sharing formatted reports
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Available Reports</h5>
+                            <div class="list-group">
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-users"></i> Candidates Report</h6>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="generateReport('candidate')">
+                                            Generate
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-file-alt"></i> Applications Report</h6>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="generateReport('application')">
+                                            Generate
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-calendar"></i> Interviews Report</h6>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="generateReport('interview')">
+                                            Generate
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-building"></i> Departments Report</h6>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="generateReport('department')">
+                                            Generate
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-briefcase"></i> Positions Report</h6>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="generateReport('position')">
+                                            Generate
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-shield-alt"></i> Security Report</h6>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="generateReport('security')">
+                                            Generate
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Recent Reports</h5>
+                            <div id="recentReports">
+                                <div class="text-muted">
+                                    <p>No reports generated yet. Select a report type from the left to get started.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="loadingModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Generating report...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function generateReport(reportType) {
+            $('#loadingModal').modal('show');
+            
+            var format = $('#reportFormat').val();
+            
+            $.ajax({
+                url: '@Url.Action("GenerateDirect", "ReportGenerator")',
+                type: 'POST',
+                data: { reportType: reportType, format: format },
+                success: function(response) {
+                    $('#loadingModal').modal('hide');
+                    
+                    if (response.success) {
+                        var alertHtml = '<div class="alert alert-success alert-dismissible fade show">' +
+                            response.message + '</div>';
+                        $('.card-body').prepend(alertHtml);
+                        
+                        addToRecentReports(response.fileName, reportType);
+                        
+                        setTimeout(function() {
+                            window.location.href = '@Url.Action("Download", "ReportGenerator")?fileName=' + response.fileName;
+                        }, 1000);
+                    } else {
+                        var alertHtml = '<div class="alert alert-danger alert-dismissible fade show">' +
+                            response.message + '</div>';
+                        $('.card-body').prepend(alertHtml);
+                    }
+                },
+                error: function() {
+                    $('#loadingModal').modal('hide');
+                    var alertHtml = '<div class="alert alert-danger alert-dismissible fade show">' +
+                        'Error generating report. Please try again.</div>';
+                    $('.card-body').prepend(alertHtml);
+                }
+            });
+        }
+        
+        function addToRecentReports(fileName, reportType) {
+            var reportHtml = '<div class="list-group-item">' +
+                '<div class="d-flex w-100 justify-content-between align-items-center">' +
+                '<div>' +
+                '<h6 class="mb-1">' + reportType.charAt(0).toUpperCase() + reportType.slice(1) + ' Report</h6>' +
+                '<small class="text-muted">' + fileName + '</small>' +
+                '</div>' +
+                '<a href="@Url.Action("Download", "ReportGenerator")?fileName=' + fileName + '" class="btn btn-outline-primary btn-sm">' +
+                '<i class="fas fa-download"></i> Download' +
+                '</a>' +
+                '</div>' +
+                '</div>';
+            
+            var recentReportsDiv = $('#recentReports');
+            if (recentReportsDiv.find('.text-muted').length > 0) {
+                recentReportsDiv.html(reportHtml);
+            } else {
+                recentReportsDiv.prepend(reportHtml);
+            }
+        }
+    </script>
+}

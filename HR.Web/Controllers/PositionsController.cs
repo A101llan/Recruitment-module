@@ -98,6 +98,12 @@ namespace HR.Web.Controllers
             }
 
             model.PostedOn = DateTime.UtcNow;
+            
+            // Set default currency to KES if not provided
+            if (string.IsNullOrEmpty(model.Currency))
+            {
+                model.Currency = "KES";
+            }
             try
             {
                 Debug.WriteLine("[PositionsController.Create][POST] Adding position to UoW and saving...");

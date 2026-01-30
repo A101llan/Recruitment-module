@@ -89,7 +89,8 @@ namespace HR.Web
                         SalaryMax = 110000,
                         DepartmentId = eng.Id,
                         IsOpen = true,
-                        PostedOn = DateTime.UtcNow.AddDays(-7)
+                        PostedOn = DateTime.UtcNow.AddDays(-7),
+                        Currency = "KES"
                     });
                     var hrDep = uow.Departments.GetAll().FirstOrDefault(d => d.Name == "HR");
                     if (hrDep != null)
@@ -102,7 +103,8 @@ namespace HR.Web
                             SalaryMax = 80000,
                             DepartmentId = hrDep.Id,
                             IsOpen = true,
-                            PostedOn = DateTime.UtcNow.AddDays(-3)
+                            PostedOn = DateTime.UtcNow.AddDays(-3),
+                            Currency = "KES"
                         });
                     }
                 }

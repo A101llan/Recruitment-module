@@ -431,7 +431,8 @@ namespace HR.Web.Controllers
         /// </summary>
         [HttpPost]
         public ActionResult CreatePositionWithQuestions(string positionTitle, string positionDescription, 
-            string positionDepartment, string positionKeyResponsibilities, string positionRequiredQualifications, 
+            string positionDepartment, string positionSalaryMin, string positionSalaryMax,
+            string positionKeyResponsibilities, string positionRequiredQualifications, 
             string questionsJson)
         {
             try
@@ -492,9 +493,9 @@ namespace HR.Web.Controllers
                     DepartmentId = department.Id,
                     PostedOn = DateTime.UtcNow,
                     IsOpen = true,
-                    Currency = "USD",
-                    SalaryMin = null,
-                    SalaryMax = null
+                    Currency = "KES",
+                    SalaryMin = string.IsNullOrEmpty(positionSalaryMin) ? (int?)null : int.Parse(positionSalaryMin),
+                    SalaryMax = string.IsNullOrEmpty(positionSalaryMax) ? (int?)null : int.Parse(positionSalaryMax)
                 };
                 
                 _uow.Context.Set<Position>().Add(position);

@@ -126,6 +126,22 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Salary Range Min</label>
+                                <input type="number" id="newPositionSalaryMin" class="form-control" placeholder="e.g., 60000" min="0" />
+                                <small class="form-text text-muted">Minimum salary for this position</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Salary Range Max</label>
+                                <input type="number" id="newPositionSalaryMax" class="form-control" placeholder="e.g., 90000" min="0" />
+                                <small class="form-text text-muted">Maximum salary for this position</small>
+                            </div>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label>Position Description</label>
                         <textarea id="newPositionDescription" class="form-control" rows="3" placeholder="Brief description for the position listing"></textarea>
@@ -381,6 +397,8 @@ function createPositionAndAddQuestions() {
     var positionTitle = $('#newPositionTitle').val();
     var positionDescription = $('#newPositionDescription').val();
     var positionDepartment = $('#newPositionDepartment').val();
+    var positionSalaryMin = $('#newPositionSalaryMin').val();
+    var positionSalaryMax = $('#newPositionSalaryMax').val();
     var positionKeyResponsibilities = $('#newPositionKeyResponsibilities').val();
     var positionRequiredQualifications = $('#newPositionRequiredQualifications').val();
     
@@ -417,6 +435,8 @@ function createPositionAndAddQuestions() {
             positionTitle: positionTitle,
             positionDescription: positionDescription,
             positionDepartment: positionDepartment,
+            positionSalaryMin: positionSalaryMin,
+            positionSalaryMax: positionSalaryMax,
             positionKeyResponsibilities: positionKeyResponsibilities,
             positionRequiredQualifications: positionRequiredQualifications,
             questionsJson: JSON.stringify(selectedQuestions)

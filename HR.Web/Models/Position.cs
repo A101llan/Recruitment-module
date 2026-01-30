@@ -39,6 +39,9 @@ namespace HR.Web.Models
         public int DepartmentId { get; set; }
         public virtual Department Department { get; set; }
 
+        [StringLength(200)]
+        public string Location { get; set; }
+
         public virtual ICollection<Application> Applications { get; set; }
         public virtual ICollection<PositionQuestion> PositionQuestions { get; set; }
     }

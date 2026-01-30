@@ -59,18 +59,18 @@
                     <div class="card mb-4">
                         <div class="card-header">
                             <h5 class="card-title mb-0">
-                                <i class="fas fa-filter"></i> Filter Logs
+                                <i class="fas fa-filter"></i> Filter <span id="filter-context">Login Attempts</span>
                             </h5>
                         </div>
                         <div class="card-body">
-                            @using (Html.BeginForm("SecurityLogs", "Admin", FormMethod.Get))
+                            @using (Html.BeginForm("SecurityLogs", "Admin", FormMethod.Get, new { id = "filterForm" }))
                             {
                                 <div class="row">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label for="Username">Username</label>
                                         @Html.TextBoxFor(m => m.Filter.Username, new { @class = "form-control", placeholder = "Filter by username..." })
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label for="IPAddress">IP Address</label>
                                         @Html.TextBoxFor(m => m.Filter.IPAddress, new { @class = "form-control", placeholder = "Filter by IP..." })
                                     </div>
@@ -81,6 +81,14 @@
                                     <div class="col-md-2">
                                         <label for="EndDate">End Date</label>
                                         @Html.TextBoxFor(m => m.Filter.EndDate, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date" })
+                                    </div>
+                                    <div class="col-md-2" id="actionFilterContainer">
+                                        <label for="Action">Action</label>
+                                        @Html.TextBoxFor(m => m.Filter.Action, new { @class = "form-control", placeholder = "Filter by action..." })
+                                    </div>
+                                    <div class="col-md-2" id="controllerFilterContainer" style="display:none;">
+                                        <label for="Controller">Controller</label>
+                                        @Html.TextBoxFor(m => m.Filter.Controller, new { @class = "form-control", placeholder = "Filter by controller..." })
                                     </div>
                                     <div class="col-md-2">
                                         <label>&nbsp;</label><br>
@@ -94,6 +102,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                <input type="hidden" id="activeTab" name="activeTab" value="login" />
                             }
                         </div>
                     </div>
@@ -103,11 +112,17 @@
                         <li class="nav-item">
                             <a class="nav-link active" id="login-tab" data-toggle="tab" href="#login-logs" role="tab">
                                 <i class="fas fa-sign-in-alt"></i> Login Attempts (@Model.LoginAttempts.Count)
+                                <span class="tab-indicator active-indicator">
+                                    <i class="fas fa-check-circle text-success"></i>
+                                </span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" id="audit-tab" data-toggle="tab" href="#audit-logs" role="tab">
                                 <i class="fas fa-history"></i> Audit Logs (@Model.AuditLogs.Count)
+                                <span class="tab-indicator inactive-indicator">
+                                    <i class="fas fa-circle text-muted"></i>
+                                </span>
                             </a>
                         </li>
                     </ul>
@@ -179,6 +194,10 @@
                                                 <td colspan="7" class="text-center text-muted py-4">
                                                     <i class="fas fa-history fa-3x mb-3"></i>
                                                     <p>No audit logs found.</p>
+                                                    <small class="text-muted">
+                                                        Audit logs are generated when users perform actions in the system.
+                                                        Try performing some actions (create/update/delete) to see logs here.
+                                                    </small>
                                                 </td>
                                             </tr>
                                         }
@@ -228,6 +247,29 @@
             // Initialize tooltips
             $('[title]').tooltip();
             
+            // Handle tab switching
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                var target = $(e.target).attr("href"); // activated tab
+                
+                // Update visual indicators
+                $('.tab-indicator').removeClass('active-indicator inactive-indicator');
+                $('.tab-indicator').empty();
+                
+                if (target === "#login-logs") {
+                    // Login Attempts tab is active
+                    $('#login-tab .tab-indicator').addClass('active-indicator')
+                        .html('<i class="fas fa-check-circle text-success"></i>');
+                    $('#audit-tab .tab-indicator').addClass('inactive-indicator')
+                        .html('<i class="fas fa-circle text-muted"></i>');
+                } else {
+                    // Audit Logs tab is active
+                    $('#audit-tab .tab-indicator').addClass('active-indicator')
+                        .html('<i class="fas fa-check-circle text-success"></i>');
+                    $('#login-tab .tab-indicator').addClass('inactive-indicator')
+                        .html('<i class="fas fa-circle text-muted"></i>');
+                }
+            });
+            
             // Auto-refresh logs every 30 seconds
             setInterval(function() {
                 // Only auto-refresh if no filters are applied
@@ -254,6 +296,32 @@
         .opacity-50 {
             opacity: 0.5;
             transition: opacity 0.3s ease;
+        }
+        .tab-indicator {
+            margin-left: 8px;
+            font-size: 12px;
+        }
+        .active-indicator {
+            animation: pulse 1s infinite;
+        }
+        @@keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .nav-tabs .nav-link {
+            position: relative;
+        }
+        .nav-tabs .nav-link.active {
+            font-weight: bold;
+            background-color: #f8f9fa;
+            border-bottom-color: transparent;
+        }
+        .nav-tabs .nav-link:not(.active) {
+            color: #6c757d;
+        }
+        .nav-tabs .nav-link:not(.active):hover {
+            color: #007bff;
         }
     </style>
 }

@@ -25,6 +25,7 @@ namespace HR.Web.Data
         public DbSet<ApplicationAnswer> ApplicationAnswers { get; set; }
         public DbSet<LoginAttempt> LoginAttempts { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Report> Reports { get; set; }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {

@@ -19,6 +19,7 @@ namespace HR.Web.Data
         public Repository<ApplicationAnswer> ApplicationAnswers { get { return new Repository<ApplicationAnswer>(_context); } }
         public Repository<LoginAttempt> LoginAttempts { get { return new Repository<LoginAttempt>(_context); } }
         public Repository<AuditLog> AuditLogs { get { return new Repository<AuditLog>(_context); } }
+        public Repository<Report> Reports { get { return new Repository<Report>(_context); } }
 
         // Expose the underlying context for advanced queries (e.g., Question options)
         public HrContext Context { get { return _context; } }

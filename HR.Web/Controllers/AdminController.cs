@@ -722,9 +722,21 @@ namespace HR.Web.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult SecurityLogs(LogFilter filter)
         {
+            // Initialize filter with empty values on initial load
+            if (filter == null || (string.IsNullOrEmpty(filter.Username) && 
+                string.IsNullOrEmpty(filter.Action) && 
+                string.IsNullOrEmpty(filter.Controller) && 
+                string.IsNullOrEmpty(filter.IPAddress) && 
+                !filter.StartDate.HasValue && 
+                !filter.EndDate.HasValue && 
+                !filter.WasSuccessful.HasValue))
+            {
+                filter = new LogFilter();
+            }
+
             var viewModel = new SecurityLogsViewModel
             {
-                Filter = filter ?? new LogFilter()
+                Filter = filter
             };
 
             // Get login attempts
@@ -766,7 +778,8 @@ namespace HR.Web.Controllers
             if (!string.IsNullOrEmpty(viewModel.Filter.Username))
                 auditLogsQuery = auditLogsQuery.Where(a => a.Username.Contains(viewModel.Filter.Username));
             
-            if (!string.IsNullOrEmpty(viewModel.Filter.Action))
+            // Ignore Action filter if it's "SecurityLogs" as this is not a valid audit log action
+            if (!string.IsNullOrEmpty(viewModel.Filter.Action) && viewModel.Filter.Action != "SecurityLogs")
                 auditLogsQuery = auditLogsQuery.Where(a => a.Action.Contains(viewModel.Filter.Action));
             
             if (!string.IsNullOrEmpty(viewModel.Filter.Controller))
