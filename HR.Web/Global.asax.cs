@@ -28,7 +28,9 @@ namespace HR.Web
             // Disable automatic migrations to prevent schema conflicts
             System.Data.Entity.Database.SetInitializer<HR.Web.Data.HrContext>(null);
 
+            // TEMPORARILY DISABLED SEED DATA TO PREVENT CRASHES
             // Simple seed for demo users, departments, and sample hiring data
+            /*
             using (var uow = new UnitOfWork())
             {
                 if (!uow.Departments.GetAll().Any())
@@ -42,33 +44,55 @@ namespace HR.Web
                         UserName = "admin", 
                         Email = "admin@test.com", 
                         Role = "Admin",
-                        PasswordHash = PasswordHelper.HashPassword("admin123")
+                        PasswordHash = PasswordHelper.HashPassword("Admin@2024!Secure"),
+                        RequirePasswordChange = false,
+                        LastPasswordChange = DateTime.Now
                     });
                     uow.Users.Add(new User { 
                         UserName = "client", 
                         Email = "client@test.com", 
                         Role = "Client",
-                        PasswordHash = PasswordHelper.HashPassword("client123")
+                        PasswordHash = PasswordHelper.HashPassword("Client@2024!Secure"),
+                        RequirePasswordChange = false,
+                        LastPasswordChange = DateTime.Now
                     });
                 }
                 else
                 {
-                    // Update existing users without password hashes
+                    // Update existing users without password hashes or with weak passwords
                     var usersWithoutPassword = uow.Users.GetAll().Where(u => string.IsNullOrEmpty(u.PasswordHash)).ToList();
                     foreach (var user in usersWithoutPassword)
                     {
                         switch (user.UserName.ToLower())
                         {
                             case "admin":
-                                user.PasswordHash = PasswordHelper.HashPassword("admin123");
+                                user.PasswordHash = PasswordHelper.HashPassword("Admin@2024!Secure");
                                 break;
                             case "client":
-                                user.PasswordHash = PasswordHelper.HashPassword("client123");
+                                user.PasswordHash = PasswordHelper.HashPassword("Client@2024!Secure");
                                 break;
                             default:
-                                user.PasswordHash = PasswordHelper.HashPassword("password123");
+                                user.PasswordHash = PasswordHelper.HashPassword(PasswordHelper.GenerateSecureRandomPassword());
                                 break;
                         }
+                        user.RequirePasswordChange = false;
+                        user.LastPasswordChange = DateTime.Now;
+                        uow.Users.Update(user);
+                    }
+
+                    // Set password change requirement for users with old weak passwords
+                    var usersWithWeakPasswords = uow.Users.GetAll().Where(u => 
+                        !string.IsNullOrEmpty(u.PasswordHash) && 
+                        !u.RequirePasswordChange &&
+                        (u.PasswordHash.Contains("10000") || // Old iteration count
+                         u.LastPasswordChange == null || // No password change record
+                         u.PasswordHash.Length < 50) // Likely weak password
+                    ).ToList();
+
+                    foreach (var user in usersWithWeakPasswords)
+                    {
+                        user.RequirePasswordChange = true;
+                        user.PasswordChangeExpiry = DateTime.Now.AddDays(7); // Give 7 days to change
                         uow.Users.Update(user);
                     }
                 }
@@ -152,6 +176,7 @@ namespace HR.Web
                 }
                 uow.Complete();
             }
+            */
         }
 
         protected void Application_PostAuthenticateRequest(Object sender, EventArgs e)

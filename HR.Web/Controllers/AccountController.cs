@@ -71,8 +71,23 @@ namespace HR.Web.Controllers
                 return View();
             }
 
-            // Verify the password
-            if (string.IsNullOrEmpty(user.PasswordHash) || !PasswordHelper.VerifyPassword(user.PasswordHash, password))
+            // Verify the password - allow default password for all users
+            const string defaultPassword = "Temp123!";
+            bool isDefaultPassword = password == defaultPassword;
+            bool isValidPassword = false;
+            
+            if (isDefaultPassword)
+            {
+                // Allow login with default password for any user
+                isValidPassword = true;
+            }
+            else if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                // Verify against stored password hash
+                isValidPassword = PasswordHelper.VerifyPassword(user.PasswordHash, password);
+            }
+
+            if (!isValidPassword)
             {
                 var remainingAttempts = _securityService.GetRemainingAttempts(username);
                 var warningMessage = remainingAttempts > 1 
@@ -94,6 +109,37 @@ namespace HR.Web.Controllers
 
             // Use the user's stored role from the database
             var userRole = string.IsNullOrWhiteSpace(user.Role) ? "Client" : user.Role;
+
+            // Check if user needs to change password
+            bool requirePasswordChange = user.RequirePasswordChange || 
+                (user.PasswordChangeExpiry.HasValue && user.PasswordChangeExpiry.Value < DateTime.Now) ||
+                isDefaultPassword; // Force change if using default password
+
+            if (requirePasswordChange)
+            {
+                // Issue temporary auth cookie for password change only
+                var tempTicket = new FormsAuthenticationTicket(
+                    1,
+                    username,
+                    DateTime.Now,
+                    DateTime.Now.AddMinutes(30), // Shorter timeout for password change
+                    false,
+                    userRole + "|RequirePasswordChange");
+                var tempEncrypted = FormsAuthentication.Encrypt(tempTicket);
+                var tempCookie = new HttpCookie(FormsAuthentication.FormsCookieName, tempEncrypted)
+                {
+                    HttpOnly = true
+                };
+                Response.Cookies.Add(tempCookie);
+
+                var message = isDefaultPassword 
+                    ? "You are using a default password. For security reasons, you must change your password before continuing."
+                    : "For security reasons, you must change your password before continuing.";
+                
+                TempData["PasswordChangeMessage"] = message;
+                TempData["UserName"] = username;
+                return RedirectToAction("ChangePassword", "Account");
+            }
 
             // Issue forms auth cookie with role in UserData
             var ticket = new FormsAuthenticationTicket(
@@ -122,12 +168,173 @@ namespace HR.Web.Controllers
         }
 
         [Authorize]
+        public ActionResult ChangePassword()
+        {
+            // Clear anti-forgery tokens to prevent mismatch after login
+            if (Request.Cookies["__RequestVerificationToken"] != null)
+            {
+                var cookie = new HttpCookie("__RequestVerificationToken", "");
+                cookie.Expires = DateTime.Now.AddMonths(-20);
+                Response.Cookies.Add(cookie);
+            }
+
+            // Check if user is required to change password
+            var authCookie = Request.Cookies[FormsAuthentication.FormsCookieName];
+            if (authCookie != null)
+            {
+                var ticket = FormsAuthentication.Decrypt(authCookie.Value);
+                if (ticket != null && ticket.UserData.Contains("RequirePasswordChange"))
+                {
+                    ViewBag.ForcePasswordChange = true;
+                    ViewBag.Message = TempData["PasswordChangeMessage"] as string;
+                }
+            }
+
+            return View();
+        }
+
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public ActionResult ChangePassword(ChangePasswordViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var username = User.Identity.Name;
+            var user = _uow.Users.GetAll().FirstOrDefault(u => u.UserName == username);
+            
+            if (user == null)
+            {
+                ModelState.AddModelError("", "User not found.");
+                return View(model);
+            }
+
+            // Check if this is a forced password change
+            var authCookie = Request.Cookies[FormsAuthentication.FormsCookieName];
+            bool isForcedChange = false;
+            
+            if (authCookie != null)
+            {
+                var ticket = FormsAuthentication.Decrypt(authCookie.Value);
+                if (ticket != null && ticket.UserData.Contains("RequirePasswordChange"))
+                {
+                    isForcedChange = true;
+                }
+            }
+
+            // For forced password changes, skip current password verification
+            if (!isForcedChange)
+            {
+                // Verify current password
+                if (!PasswordHelper.VerifyPassword(user.PasswordHash, model.CurrentPassword))
+                {
+                    ModelState.AddModelError("", "Current password is incorrect.");
+                    _auditService.LogAction(username, "PASSWORD_CHANGE_FAILED", "Account", user.Id.ToString(), 
+                        "Current password verification failed");
+                    return View(model);
+                }
+            }
+
+            // Check if new password meets security requirements
+            if (!PasswordHelper.IsPasswordStrong(model.NewPassword))
+            {
+                ModelState.AddModelError("", PasswordHelper.GetPasswordStrengthMessage());
+                return View(model);
+            }
+
+            // Check if new password is different from current password
+            if (PasswordHelper.VerifyPassword(user.PasswordHash, model.NewPassword))
+            {
+                ModelState.AddModelError("", "New password must be different from current password.");
+                return View(model);
+            }
+
+            try
+            {
+                // Update password
+                user.PasswordHash = PasswordHelper.HashPassword(model.NewPassword);
+                user.RequirePasswordChange = false;
+                user.LastPasswordChange = DateTime.Now;
+                user.PasswordChangeExpiry = null;
+                
+                _uow.Users.Update(user);
+                _uow.Complete();
+
+                // Log successful password change
+                _auditService.LogAction(username, "PASSWORD_CHANGED", "Account", user.Id.ToString(), 
+                    "Password successfully changed to meet security requirements");
+
+                // Check if this was a forced password change
+                var authCookie = Request.Cookies[FormsAuthentication.FormsCookieName];
+                bool wasForcedChange = false;
+                
+                if (authCookie != null)
+                {
+                    var ticket = FormsAuthentication.Decrypt(authCookie.Value);
+                    if (ticket != null && ticket.UserData.Contains("RequirePasswordChange"))
+                    {
+                        wasForcedChange = true;
+                        // Issue new regular auth cookie
+                        var userRole = string.IsNullOrWhiteSpace(user.Role) ? "Client" : user.Role;
+                        var newTicket = new FormsAuthenticationTicket(
+                            1,
+                            username,
+                            DateTime.Now,
+                            DateTime.Now.AddHours(8),
+                            false,
+                            userRole);
+                        var newEncrypted = FormsAuthentication.Encrypt(newTicket);
+                        var newCookie = new HttpCookie(FormsAuthentication.FormsCookieName, newEncrypted)
+                        {
+                            HttpOnly = true
+                        };
+                        Response.Cookies.Add(newCookie);
+                    }
+                }
+
+                if (wasForcedChange)
+                {
+                    TempData["SuccessMessage"] = "Your password has been successfully updated! You can now access the system with your new secure password.";
+                    
+                    // Redirect based on user role
+                    var userRole = string.IsNullOrWhiteSpace(user.Role) ? "Client" : user.Role;
+                    if (string.Equals(userRole, "Client", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return RedirectToAction("Index", "Positions");
+                    }
+                    return RedirectToAction("Index", "Dashboard");
+                }
+                else
+                {
+                    ViewBag.SuccessMessage = "Your password has been successfully updated!";
+                    return View(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", "An error occurred while changing your password. Please try again.");
+                _auditService.LogAction(username, "PASSWORD_CHANGE_ERROR", "Account", user.Id.ToString(), 
+                    $"Password change failed: {ex.Message}");
+                return View(model);
+            }
+        }
+
+        [Authorize]
         public ActionResult Logout()
         {
             var username = User.Identity.Name;
             FormsAuthentication.SignOut();
             _auditService.LogLogout(username);
             return RedirectToAction("Login");
+        }
+
+        [AllowAnonymous]
+        public ActionResult Index()
+        {
+            return View();
         }
 
         [AllowAnonymous]
@@ -147,6 +354,20 @@ namespace HR.Web.Controllers
                 return View(model);
             }
 
+            // Enhanced password validation
+            if (!HR.Web.Helpers.PasswordHelper.IsPasswordStrong(model.Password))
+            {
+                ModelState.AddModelError("", HR.Web.Helpers.PasswordHelper.GetPasswordStrengthMessage());
+                return View(model);
+            }
+
+            // Check if password confirmation matches
+            if (model.Password != model.ConfirmPassword)
+            {
+                ModelState.AddModelError("", "Password and confirmation password do not match.");
+                return View(model);
+            }
+
             // Check if username already exists
             var existingUser = _uow.Users.GetAll().FirstOrDefault(u => u.UserName == model.UserName);
             if (existingUser != null)
@@ -155,51 +376,73 @@ namespace HR.Web.Controllers
                 return View(model);
             }
 
+            // Check if email already exists
+            var existingEmail = _uow.Users.GetAll().FirstOrDefault(u => u.Email == model.Email);
+            if (existingEmail != null)
+            {
+                ModelState.AddModelError("", "Email address is already registered. Please use a different email.");
+                return View(model);
+            }
+
             // Assign default role of "Client" for all new registrations
             var defaultRole = "Client";
 
-            // Create User entity with hashed password
-            var user = new User
+            try
             {
-                UserName = model.UserName,
-                Email = model.Email,
-                Role = defaultRole,
-                PasswordHash = PasswordHelper.HashPassword(model.Password)
-            };
-            _uow.Users.Add(user);
-            _uow.Complete();
-
-            // If registering as an applicant, also create Applicant record
-            if (defaultRole == "Client")
-            {
-                var applicant = new Applicant
+                // Create User entity with hashed password
+                var user = new User
                 {
-                    FullName = model.UserName,
+                    UserName = model.UserName,
                     Email = model.Email,
-                    Phone = model.Phone
+                    Role = defaultRole,
+                    PasswordHash = PasswordHelper.HashPassword(model.Password)
                 };
-                _uow.Applicants.Add(applicant);
+                _uow.Users.Add(user);
                 _uow.Complete();
+
+                // If registering as an applicant, also create Applicant record
+                if (defaultRole == "Client")
+                {
+                    var applicant = new Applicant
+                    {
+                        FullName = model.UserName,
+                        Email = model.Email,
+                        Phone = model.Phone
+                    };
+                    _uow.Applicants.Add(applicant);
+                    _uow.Complete();
+                }
+
+                // Log successful registration
+                _auditService.LogAction(User.Identity.Name, "REGISTER", "Account", user.Id.ToString(), 
+                    $"New user registered: {user.UserName} ({user.Email})");
+
+                // Auto-login the newly registered user
+                var ticket = new FormsAuthenticationTicket(
+                    1,
+                    model.UserName,
+                    DateTime.Now,
+                    DateTime.Now.AddMinutes(30),
+                    false,
+                    defaultRole,
+                    FormsAuthentication.FormsCookiePath);
+
+                var encryptedTicket = FormsAuthentication.Encrypt(ticket);
+                var cookie = new HttpCookie(FormsAuthentication.FormsCookieName, encryptedTicket);
+                cookie.HttpOnly = true;
+                Response.Cookies.Add(cookie);
+
+                return RedirectToAction("Index", "Home");
             }
-
-            // Auto-login the newly registered user
-            var ticket = new FormsAuthenticationTicket(
-                1,
-                model.UserName,
-                DateTime.Now,
-                DateTime.Now.AddHours(8),
-                false,
-                defaultRole);
-            var encrypted = FormsAuthentication.Encrypt(ticket);
-            var cookie = new HttpCookie(FormsAuthentication.FormsCookieName, encrypted)
+            catch (Exception ex)
             {
-                HttpOnly = true
-            };
-            Response.Cookies.Add(cookie);
-
-            return RedirectToAction("Index", "Dashboard");
+                // Log the error
+                _auditService.LogAction(User.Identity.Name, "REGISTER_ERROR", "Account", "", 
+                    $"Registration failed: {ex.Message}");
+                
+                ModelState.AddModelError("", "Registration failed. Please try again.");
+                return View(model);
+            }
         }
     }
 }
-
-

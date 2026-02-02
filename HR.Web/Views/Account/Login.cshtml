@@ -3,30 +3,6 @@
     ViewBag.Title = "Login";
 }
 
-<style>
-    .password-toggle {
-        position: relative;
-    }
-    .password-toggle .toggle-password {
-        position: absolute;
-        right: 10px;
-        top: 50%;
-        transform: translateY(-50%);
-        cursor: pointer;
-        color: #6c757d;
-        z-index: 10;
-        background: transparent;
-        border: none;
-        padding: 5px;
-    }
-    .password-toggle .toggle-password:hover {
-        color: #007bff;
-    }
-    .password-toggle input {
-        padding-right: 40px;
-    }
-</style>
-
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card">
@@ -45,11 +21,13 @@
                     
                     <div class="form-group">
                         <label for="password">Password</label>
-                        <div class="password-toggle">
+                        <div class="input-group">
                             <input class="form-control" id="password" name="password" type="password" placeholder="Enter your password" required />
-                            <button type="button" class="toggle-password" onclick="togglePassword()">
-                                <i class="fas fa-eye" id="toggleIcon"></i>
-                            </button>
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleLoginPassword" style="border-color: #ced4da;">
+                                    <i class="fas fa-eye" id="toggleLoginIcon"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
@@ -71,24 +49,29 @@
     </div>
 </div>
 
-@section Scripts {
-    <script>
-        function togglePassword() {
-            var passwordInput = document.getElementById('password');
-            var toggleIcon = document.getElementById('toggleIcon');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            }
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Password visibility toggle for login
+        const toggleBtn = document.getElementById('toggleLoginPassword');
+        const passwordInput = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleLoginIcon');
+        
+        if (toggleBtn && passwordInput && toggleIcon) {
+            toggleBtn.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                if (type === 'text') {
+                    toggleIcon.classList.remove('fa-eye');
+                    toggleIcon.classList.add('fa-eye-slash');
+                } else {
+                    toggleIcon.classList.remove('fa-eye-slash');
+                    toggleIcon.classList.add('fa-eye');
+                }
+            });
         }
-    </script>
-}
+    });
+</script>
 
 
 

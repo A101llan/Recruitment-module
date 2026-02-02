@@ -5,39 +5,100 @@
 }
 
 <div class="row justify-content-center mt-4">
-    <div class="col-md-6">
+    <div class="col-md-8">
         <h3>Create an account</h3>
+        <div class="alert alert-info mb-4">
+            <h6><i class="fas fa-shield-alt"></i> Enhanced Password Security</h6>
+            <p class="mb-2"><strong>Password Requirements:</strong></p>
+            <ul class="mb-0">
+                <li>At least 8 characters long</li>
+                <li>Contains uppercase letters (A-Z)</li>
+                <li>Contains lowercase letters (a-z)</li>
+                <li>Contains numbers (0-9)</li>
+                <li>Contains special characters (!@#$%^&*)</li>
+                <li>Cannot contain common patterns (password, 123456, qwerty, etc.)</li>
+                <li>Cannot contain sequential characters (abc, 123, etc.)</li>
+            </ul>
+        </div>
+        
         @using (Html.BeginForm()) {
             @Html.AntiForgeryToken()
-            <div class="form-group">
-                @Html.LabelFor(m => m.UserName)
-                @Html.TextBoxFor(m => m.UserName, new { @class = "form-control" })
-                @Html.ValidationMessageFor(m => m.UserName)
-            </div>
-            <div class="form-group">
-                @Html.LabelFor(m => m.Email)
-                @Html.TextBoxFor(m => m.Email, new { @class = "form-control" })
-                @Html.ValidationMessageFor(m => m.Email)
-            </div>
-            <div class="form-group">
-                @Html.LabelFor(m => m.Phone)
-                @Html.TextBoxFor(m => m.Phone, new { @class = "form-control", placeholder = "Enter phone number" })
-                @Html.ValidationMessageFor(m => m.Phone)
-            </div>
-            <div class="form-group">
-                @Html.LabelFor(m => m.Password)
-                <div class="input-group">
-                    @Html.PasswordFor(m => m.Password, new { @class = "form-control", id = "passwordInput" })
-                    <div class="input-group-append">
-                        <button class="btn btn-outline-secondary" type="button" id="togglePassword" style="border-color: #ced4da;">
-                            <i class="fas fa-eye" id="toggleIcon"></i>
-                        </button>
+            @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.UserName)
+                        @Html.TextBoxFor(m => m.UserName, new { @class = "form-control" })
+                        @Html.ValidationMessageFor(m => m.UserName, "", new { @class = "text-danger" })
                     </div>
                 </div>
-                @Html.ValidationMessageFor(m => m.Password)
+                <div class="col-md-6">
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.Email)
+                        @Html.TextBoxFor(m => m.Email, new { @class = "form-control" })
+                        @Html.ValidationMessageFor(m => m.Email, "", new { @class = "text-danger" })
+                    </div>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Register</button>
-            <a class="btn btn-link" href="@Url.Action("Login")">Back to login</a>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.Phone)
+                        @Html.TextBoxFor(m => m.Phone, new { @class = "form-control", placeholder = "Enter phone number" })
+                        @Html.ValidationMessageFor(m => m.Phone, "", new { @class = "text-danger" })
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.Password)
+                        <div class="input-group">
+                            @Html.PasswordFor(m => m.Password, new { @class = "form-control", id = "passwordInput", placeholder = "Enter secure password" })
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword" style="border-color: #ced4da;">
+                                    <i class="fas fa-eye" id="toggleIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        @Html.ValidationMessageFor(m => m.Password, "", new { @class = "text-danger" })
+                        
+                        <!-- Password strength indicator -->
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div id="passwordStrength" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+                            </div>
+                            <small id="strengthText" class="form-text text-muted">Enter a password to check strength</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.ConfirmPassword)
+                        <div class="input-group">
+                            @Html.PasswordFor(m => m.ConfirmPassword, new { @class = "form-control", id = "confirmPasswordInput", placeholder = "Confirm password" })
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword" style="border-color: #ced4da;">
+                                    <i class="fas fa-eye" id="toggleConfirmIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        @Html.ValidationMessageFor(m => m.ConfirmPassword, "", new { @class = "text-danger" })
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-user-plus"></i> Register
+                </button>
+                <a class="btn btn-link" href="@Url.Action("Login")">
+                    <i class="fas fa-arrow-left"></i> Back to login
+                </a>
+            </div>
         }
     </div>
 </div>
@@ -49,18 +110,127 @@
         const togglePassword = document.getElementById('togglePassword');
         const passwordInput = document.getElementById('passwordInput');
         const toggleIcon = document.getElementById('toggleIcon');
+        const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+        const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+        const toggleConfirmIcon = document.getElementById('toggleConfirmIcon');
+        const passwordStrength = document.getElementById('passwordStrength');
+        const strengthText = document.getElementById('strengthText');
+        const submitBtn = document.getElementById('submitBtn');
 
-        togglePassword.addEventListener('click', function() {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            
-            if (type === 'text') {
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
+        // Toggle password visibility
+        function setupToggle(toggleBtn, inputField, icon) {
+            toggleBtn.addEventListener('click', function() {
+                const type = inputField.getAttribute('type') === 'password' ? 'text' : 'password';
+                inputField.setAttribute('type', type);
+                
+                if (type === 'text') {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            });
+        }
+
+        setupToggle(togglePassword, passwordInput, toggleIcon);
+        setupToggle(toggleConfirmPassword, confirmPasswordInput, toggleConfirmIcon);
+
+        // Password strength checker
+        function checkPasswordStrength(password) {
+            let strength = 0;
+            let feedback = [];
+
+            // Length check
+            if (password.length >= 8) strength += 20;
+            else feedback.push('At least 8 characters');
+
+            // Uppercase check
+            if (/[A-Z]/.test(password)) strength += 20;
+            else feedback.push('Uppercase letter');
+
+            // Lowercase check
+            if (/[a-z]/.test(password)) strength += 20;
+            else feedback.push('Lowercase letter');
+
+            // Number check
+            if (/\d/.test(password)) strength += 20;
+            else feedback.push('Number');
+
+            // Special character check
+            if (/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) strength += 20;
+            else feedback.push('Special character');
+
+            // Common patterns check (deduct points if found)
+            const commonPatterns = ['password', '123456', 'qwerty', 'admin', 'letmein'];
+            if (commonPatterns.some(pattern => password.toLowerCase().includes(pattern))) {
+                strength = Math.max(0, strength - 30);
+                feedback.push('Avoid common patterns');
             }
+
+            // Sequential characters check (deduct points if found)
+            if (hasSequentialChars(password)) {
+                strength = Math.max(0, strength - 20);
+                feedback.push('Avoid sequential characters');
+            }
+
+            return { strength, feedback };
+        }
+
+        function hasSequentialChars(password) {
+            const lower = password.toLowerCase();
+            for (let i = 0; i < lower.length - 2; i++) {
+                if (lower.charCodeAt(i) + 1 === lower.charCodeAt(i + 1) && 
+                    lower.charCodeAt(i + 1) + 1 === lower.charCodeAt(i + 2)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Update password strength indicator
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            const { strength, feedback } = checkPasswordStrength(password);
+
+            // Update progress bar
+            passwordStrength.style.width = strength + '%';
+            
+            // Update color based on strength
+            passwordStrength.className = 'progress-bar';
+            if (strength < 40) {
+                passwordStrength.classList.add('bg-danger');
+                strengthText.textContent = 'Weak password: ' + feedback.join(', ');
+                strengthText.className = 'form-text text-danger';
+            } else if (strength < 70) {
+                passwordStrength.classList.add('bg-warning');
+                strengthText.textContent = 'Medium strength: ' + feedback.join(', ');
+                strengthText.className = 'form-text text-warning';
+            } else {
+                passwordStrength.classList.add('bg-success');
+                strengthText.textContent = 'Strong password!';
+                strengthText.className = 'form-text text-success';
+            }
+
+            // Check if passwords match
+            checkPasswordMatch();
         });
+
+        // Check if passwords match
+        function checkPasswordMatch() {
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            
+            if (confirmPassword && password !== confirmPassword) {
+                confirmPasswordInput.classList.add('is-invalid');
+            } else if (confirmPassword && password === confirmPassword) {
+                confirmPasswordInput.classList.remove('is-invalid');
+                confirmPasswordInput.classList.add('is-valid');
+            } else {
+                confirmPasswordInput.classList.remove('is-invalid', 'is-valid');
+            }
+        }
+
+        confirmPasswordInput.addEventListener('input', checkPasswordMatch);
     });
 </script>

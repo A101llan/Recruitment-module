@@ -116,26 +116,6 @@ public class ApplicationsController : Controller
         }
         System.Diagnostics.Debug.WriteLine($"=== End Questions ===");
         
-        // Check if user has already applied for this position
-        if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
-        {
-            var user = _uow.Users.GetAll().FirstOrDefault(u => u.UserName == User.Identity.Name);
-            if (user != null)
-            {
-                var applicant = _uow.Applicants.GetAll().FirstOrDefault(a => a.Email == user.Email);
-                if (applicant != null)
-                {
-                    var existingApplication = _uow.Applications.GetAll()
-                        .FirstOrDefault(a => a.ApplicantId == applicant.Id && a.PositionId == positionId);
-                    if (existingApplication != null)
-                    {
-                        TempData["ErrorMessage"] = "You have already applied for this position.";
-                        return RedirectToAction("Index", "Positions");
-                    }
-                }
-            }
-        }
-        
         ViewBag.Position = position;
         // Autofill applicant info from logged-in user
         if (User != null && User.Identity != null && User.Identity.IsAuthenticated)

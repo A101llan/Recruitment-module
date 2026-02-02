@@ -800,7 +800,7 @@ namespace HR.Web.Services
             if (text.Contains("education") || text.Contains("teaching") || text.Contains("academic"))
                 return "Education";
             if (text.Contains("hr") || text.Contains("human resources") || text.Contains("recruitment"))
-                return "Human Resources";
+                return "Recruitment";
 
             return "General";
         }

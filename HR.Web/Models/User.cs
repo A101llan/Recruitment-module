@@ -19,6 +19,12 @@ namespace HR.Web.Models
         [Required, StringLength(256)]
         public string PasswordHash { get; set; }
 
+        public bool RequirePasswordChange { get; set; } = false;
+        
+        public System.DateTime? LastPasswordChange { get; set; }
+        
+        public System.DateTime? PasswordChangeExpiry { get; set; }
+
         public virtual ICollection<Interview> Interviews { get; set; }
     }
 }

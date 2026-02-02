@@ -225,7 +225,7 @@ namespace HR.Web.Services
     </style>
 </head>
 <body>
-    <div class='watermark'>HR SYSTEM</div>
+    <div class='watermark'>RECRUITMENT MODULE</div>
     
     <div class='header'>
         <h1><i class='fas fa-users'></i> Candidates Report</h1>
@@ -281,8 +281,8 @@ namespace HR.Web.Services
     
     <div class='footer'>
         <div class='logo-section'>
-            <div class='logo-placeholder'>HR SYSTEM</div>
-            <p><strong>Human Resources Management System</strong></p>
+            <div class='logo-placeholder'>RECRUITMENT MODULE</div>
+            <p><strong>Recruitment Management System</strong></p>
             <p>Professional Recruitment & Candidate Management</p>
             <p style='margin-top: 15px; font-size: 11px; color: #999;'>
                 Generated on {DateTime.Now:yyyy-MM-dd at HH:mm:ss} | Page 1 of 1
@@ -495,7 +495,7 @@ namespace HR.Web.Services
     </style>
 </head>
 <body>
-    <div class='watermark'>HR SYSTEM</div>
+    <div class='watermark'>RECRUITMENT MODULE</div>
     
     <div class='header'>
         <h1><i class='fas fa-file-alt'></i> Applications Report</h1>
@@ -542,13 +542,22 @@ namespace HR.Web.Services
 
             foreach (var app in applications)
             {
-                var statusClass = app.Status?.ToLower() switch
+                var statusClass = "status-default";
+                if (!string.IsNullOrEmpty(app.Status))
                 {
-                    "pending" => "status-pending",
-                    "approved" => "status-approved",
-                    "rejected" => "status-rejected",
-                    _ => ""
-                };
+                    switch (app.Status.ToLower())
+                    {
+                        case "pending":
+                            statusClass = "status-pending";
+                            break;
+                        case "approved":
+                            statusClass = "status-approved";
+                            break;
+                        case "rejected":
+                            statusClass = "status-rejected";
+                            break;
+                    }
+                }
                 
                 html += $@"
             <tr>
@@ -567,8 +576,8 @@ namespace HR.Web.Services
     
     <div class='footer'>
         <div class='logo-section'>
-            <div class='logo-placeholder'>HR SYSTEM</div>
-            <p><strong>Human Resources Management System</strong></p>
+            <div class='logo-placeholder'>RECRUITMENT MODULE</div>
+            <p><strong>Recruitment Management System</strong></p>
             <p>Professional Application Tracking & Management</p>
             <p style='margin-top: 15px; font-size: 11px; color: #999;'>
                 Generated on {DateTime.Now:yyyy-MM-dd at HH:mm:ss} | Page 1 of 1
@@ -578,7 +587,7 @@ namespace HR.Web.Services
             <strong>Confidential Document</strong> - For Internal Use Only
         </p>
         <p style='font-size: 10px; margin-top: 10px;'>
-            © {DateTime.Now.Year} HR Management System. All rights reserved.
+            © {DateTime.Now.Year} Recruitment Management System. All rights reserved.
         </p>
     </div>
 </body>
@@ -673,7 +682,7 @@ namespace HR.Web.Services
     
     <div class='footer'>
         <p>Total Interviews: " + interviews.Count + @"</p>
-        <p>HR System - Generated Report</p>
+        <p>Recruitment Module - Generated Report</p>
     </div>
 </body>
 </html>";
@@ -763,7 +772,7 @@ namespace HR.Web.Services
     
     <div class='footer'>
         <p>Total Departments: " + departments.Count + @"</p>
-        <p>HR System - Generated Report</p>
+        <p>Recruitment Module - Generated Report</p>
     </div>
 </body>
 </html>";
@@ -772,31 +781,41 @@ namespace HR.Web.Services
             File.Move(filePath.Replace(".pdf", ".html"), filePath);
         }
 
-        private string GeneratePositionReport(Report report, string generatedBy)
+        private string GeneratePositionReport(Report report, string generatedBy, string format = "csv")
         {
             var positions = _uow.Positions.GetAll(p => p.Department, p => p.Applications).ToList();
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", $"Positions_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
-            
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            
-            using (var writer = new StreamWriter(filePath))
+            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", $"Positions_{DateTime.Now:yyyyMMdd_HHmmss}.{format}");
+
+            if (format.ToLower() == "pdf")
             {
-                writer.WriteLine("ID,Title,Department,IsOpen,ApplicationCount");
-                foreach (var pos in positions)
-                {
-                    writer.WriteLine($"{pos.Id},{pos.Title},{pos.Department?.Name},{pos.IsOpen},{pos.Applications?.Count ?? 0}");
-                }
+                GeneratePositionPDF(positions, filePath, generatedBy);
+                return filePath;
             }
 
+            // CSV generation (existing logic)
+            using (var writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine("ID,Title,Department,SalaryMin,SalaryMax,Currency,Location,ApplicationsCount");
+                foreach (var position in positions)
+                {
+                    writer.WriteLine($"{position.Id},{position.Title},{position.Department?.Name},{position.SalaryMin},{position.SalaryMax},{position.Currency},{position.Location},{position.Applications?.Count ?? 0}");
+                }
+            }
             return filePath;
         }
 
-        private string GenerateSecurityReport(Report report, string generatedBy)
+        private string GenerateSecurityReport(Report report, string generatedBy, string format = "csv")
         {
             var auditLogs = _uow.AuditLogs.GetAll().ToList();
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", $"Security_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", $"Security_{DateTime.Now:yyyyMMdd_HHmmss}.{format}");
             
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+            
+            if (format.ToLower() == "pdf")
+            {
+                GenerateSecurityPDF(auditLogs, filePath, generatedBy);
+                return filePath;
+            }
             
             using (var writer = new StreamWriter(filePath))
             {
@@ -808,6 +827,98 @@ namespace HR.Web.Services
             }
 
             return filePath;
+        }
+
+        private void GeneratePositionPDF(List<Position> positions, string filePath, string generatedBy)
+        {
+            var html = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Positions Report</title>
+    <style>
+        @page {{ margin: 2cm; size: A4; }}
+        body {{ font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }}
+        .header {{ text-align: center; background: #28a745; color: white; padding: 30px; border-radius: 10px; }}
+        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+        th {{ background: #28a745; color: white; padding: 10px; }}
+        td {{ border: 1px solid #ddd; padding: 8px; }}
+    </style>
+</head>
+<body>
+    <div class='header'>
+        <h1>Positions Report</h1>
+        <p>Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
+    </div>
+    <table>
+        <tr><th>ID</th><th>Title</th><th>Department</th><th>Salary Range</th><th>Location</th></tr>";
+
+            foreach (var position in positions)
+            {
+                var salaryRange = $"{position.Currency ?? "KES"} {position.SalaryMin:N0} - {position.SalaryMax:N0}";
+                html += $@"
+        <tr>
+            <td>{position.Id}</td>
+            <td>{position.Title}</td>
+            <td>{position.Department?.Name}</td>
+            <td>{salaryRange}</td>
+            <td>{position.Location}</td>
+        </tr>";
+            }
+
+            html += @"
+    </table>
+</body>
+</html>";
+
+            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
+            File.Move(filePath.Replace(".pdf", ".html"), filePath);
+        }
+
+        private void GenerateSecurityPDF(List<AuditLog> auditLogs, string filePath, string generatedBy)
+        {
+            var html = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Report</title>
+    <style>
+        @page {{ margin: 2cm; size: A4; }}
+        body {{ font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }}
+        .header {{ text-align: center; background: #dc3545; color: white; padding: 30px; border-radius: 10px; }}
+        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+        th {{ background: #dc3545; color: white; padding: 10px; }}
+        td {{ border: 1px solid #ddd; padding: 8px; }}
+    </style>
+</head>
+<body>
+    <div class='header'>
+        <h1>Security Report</h1>
+        <p>Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
+    </div>
+    <table>
+        <tr><th>ID</th><th>Username</th><th>Action</th><th>Controller</th><th>Timestamp</th><th>IP Address</th></tr>";
+
+            foreach (var log in auditLogs.Take(100))
+            {
+                html += $@"
+        <tr>
+            <td>{log.Id}</td>
+            <td>{log.Username}</td>
+            <td>{log.Action}</td>
+            <td>{log.Controller}</td>
+            <td>{log.Timestamp:yyyy-MM-dd HH:mm}</td>
+            <td>{log.IPAddress}</td>
+        </tr>";
+            }
+
+            html += @"
+    </table>
+</body>
+</html>";
+
+            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
+            File.Move(filePath.Replace(".pdf", ".html"), filePath);
         }
 
         public List<Report> GetActiveReports()
