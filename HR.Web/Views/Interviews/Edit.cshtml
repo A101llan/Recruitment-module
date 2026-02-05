@@ -32,19 +32,9 @@
         {
             @Html.AntiForgeryToken()
             @Html.HiddenFor(m => m.Id)
+            @Html.HiddenFor(m => m.ApplicationId)
 
             <div class="form-row">
-                <div class="form-group col-12 col-md-6">
-                    @Html.LabelFor(m => m.ApplicationId, "Application")
-                    @Html.DropDownList(
-                        "ApplicationId",
-                        null,
-                        "-- Select application --",
-                        new { @class = "form-control" }
-                    )
-                    @Html.ValidationMessageFor(m => m.ApplicationId)
-                </div>
-
                 <div class="form-group col-12 col-md-6">
                     @Html.LabelFor(m => m.InterviewerId, "Interviewer")
                     @Html.DropDownList(
@@ -70,7 +60,7 @@
                         }
                     )
                     <small class="form-text text-muted">
-                        Uses your device�s date & time picker
+                        Uses your device's date & time picker
                     </small>
                 </div>
 

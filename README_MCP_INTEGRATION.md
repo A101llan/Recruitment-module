@@ -1,233 +1,233 @@
-# HR Questionnaire System with MCP Integration
+# Recruitment Module - MCP Integration Documentation
 
-## Overview
-This enhanced HR questionnaire system integrates Model Context Protocol (MCP) to provide AI-powered question generation, validation, and intelligent scoring capabilities.
+## 📋 Overview
 
-## 🚀 Key Features Implemented
+The Recruitment Module is a comprehensive ASP.NET MVC application for managing job applications, candidates, and positions. This document outlines the current system architecture and features.
 
-### 1. MCP Server (`mcp-server/`)
-- **Question Bank Resources**: Pre-built technical and behavioral questions
-- **Templates**: Ready-to-use questionnaires for different roles
-- **AI Tools**: Question generation, validation, and point optimization
-- **Scoring Rubrics**: Standardized evaluation criteria
-
-### 2. Enhanced Admin Interface
-- **AI-Powered Question Creation**: Generate questions from job descriptions
-- **Real-time Validation**: Check for bias and question quality
-- **Smart Point Suggestions**: AI-recommended scoring values
-- **Template Import**: Quick setup with pre-built questionnaires
-
-### 3. Position-Question Assignment
-- **Drag-and-Drop Interface**: Easy question ordering
-- **Visual Assignment**: Clear view of available vs assigned questions
-- **Bulk Operations**: Efficient management of multiple positions
-
-### 4. Advanced Scoring System
-- **Multi-Type Scoring**: Support for text, choice, number, and rating questions
-- **Position-Specific Points**: Different scoring for the same question across positions
-- **Real-time Calculation**: Live score updates and candidate ranking
-- **Performance Analytics**: Question effectiveness analysis
-
-### 5. Questionnaire Testing & Preview
-- **Interactive Preview**: See exactly how candidates will experience the questionnaire
-- **Test Mode**: Complete the questionnaire and see scoring in action
-- **Performance Insights**: Detailed breakdown of test results
-- **Recommendations**: AI-powered suggestions for improvement
-
-## 📁 Project Structure
+## 🏗️ Project Structure
 
 ```
 HR/
-├── mcp-server/                 # MCP Server
-│   ├── package.json           # Node.js dependencies
-│   └── server.js              # MCP server implementation
-├── HR.Web/
+├── HR.Web/                          # Main Web Application
 │   ├── Controllers/
-│   │   ├── AdminController.MCP.cs      # MCP-enhanced admin functions
-│   │   ├── AdminController.Scoring.cs  # Advanced scoring system
-│   │   └── QuestionnaireController.cs  # Preview & testing interface
+│   │   ├── AccountController.cs           # Authentication & password management
+│   │   ├── AdminController.cs             # Admin functionality
+│   │   ├── AdminController.MCP.cs         # MCP-enhanced admin features
+│   │   ├── AdminController.Scoring.cs     # Advanced candidate scoring
+│   │   ├── ApplicationsController.cs      # Job application management
+│   │   ├── PositionsController.cs         # Position management
+│   │   └── QuestionnaireController.cs      # Questionnaire system
+│   ├── Helpers/
+│   │   └── PasswordHelper.cs              # Secure password hashing & validation
+│   ├── Models/
+│   │   ├── ChangePasswordViewModel.cs      # Password change model
+│   │   ├── RegisterViewModel.cs           # User registration model
+│   │   └── User.cs                        # User entity model
 │   ├── Services/
-│   │   ├── MCPService.cs        # MCP integration layer
-│   │   └── ScoringService.cs    # Enhanced scoring logic
-│   └── Views/
-│       ├── Admin/
-│       │   ├── QuestionsWithMCP.cshtml      # AI-enhanced question management
-│       │   ├── EditQuestionWithMCP.cshtml  # AI-powered question editor
-│       │   ├── PositionQuestions.cshtml     # Question assignment UI
-│       │   └── EnhancedCandidateRankings.cshtml # Advanced rankings
-│       └── Questionnaire/
-│           ├── Preview.cshtml    # Questionnaire preview
-│           ├── Test.cshtml       # Interactive testing
-│           └── TestResult.cshtml # Detailed test results
+│   │   ├── ReportService.cs               # Report generation (CSV/PDF)
+│   │   ├── DynamicQuestionService.cs      # Dynamic question generation
+│   │   └── [Other Services]               # Various business logic services
+│   ├── Views/
+│   │   ├── Account/
+│   │   │   ├── Login.cshtml               # Login page with password toggle
+│   │   │   ├── ChangePassword.cshtml       # Password change interface
+│   │   │   ├── Register.cshtml             # User registration
+│   │   │   └── Index.cshtml               # Account overview
+│   │   ├── Admin/
+│   │   │   └── [Admin Views]              # Administrative interfaces
+│   │   ├── Applications/
+│   │   │   └── [Application Views]        # Application management
+│   │   ├── Positions/
+│   │   │   └── [Position Views]           # Position management
+│   │   └── Shared/
+│   │       └── _Layout.cshtml              # Master layout
+│   ├── Migrations/
+│   │   └── 202502020000000_AddPasswordChangeFields.cs  # DB migration
+│   ├── App_Data/
+│   │   └── Resumes/                       # Uploaded resume files
+│   ├── Reports/                           # Generated reports
+│   ├── Web.config                         # Application configuration
+│   └── Global.asax.cs                     # Application startup
+├── HR.sln                                # Solution file
+├── packages/                             # NuGet packages
+├── [SQL Scripts]                         # Database setup scripts
+└── [PowerShell Scripts]                  # Database management scripts
 ```
 
-## 🛠 Setup Instructions
+## 🔐 Security Features
 
-### 1. Install MCP Server
+### Password Management System
+- **Enhanced Password Hashing**: PBKDF2 with 100,000 iterations
+- **Default Password System**: All users can login with "Temp123!" 
+- **Forced Password Changes**: Users must change password on first login
+- **Password Strength Validation**: 8+ characters with multiple character types
+- **Real-time Strength Indicators**: Color-coded password feedback
+- **Password Visibility Toggles**: Eye icons on all password fields
+
+### Authentication & Authorization
+- **Role-based Access**: Admin and Client roles
+- **Secure Authentication Cookies**: 8-hour sessions
+- **Anti-forgery Token Protection**: CSRF prevention
+- **Account Lockout Protection**: Brute force prevention
+- **Comprehensive Audit Logging**: All security events tracked
+
+## 🚀 Key Features
+
+### User Management
+- **Registration System**: New user account creation
+- **Login/Logout**: Secure authentication
+- **Password Reset**: Secure password recovery
+- **Profile Management**: User information updates
+
+### Position Management
+- **Job Posting**: Create and manage job positions
+- **Department Organization**: Categorize positions by department
+- **Position Details**: Comprehensive job descriptions
+- **Application Tracking**: Monitor applications per position
+
+### Application Management
+- **Application Submission**: Candidates apply for positions
+- **Resume Upload**: File attachment support
+- **Candidate Evaluation**: Scoring and assessment
+
+### Questionnaire System
+- **Dynamic Questions**: AI-powered question generation
+- **Custom Questionnaires**: Position-specific assessments
+- **Candidate Testing**: Interactive testing interface
+- **Result Analysis**: Detailed test results and scoring
+
+### Reporting System
+- **Candidate Reports**: Comprehensive candidate data
+- **Application Reports**: Application status and metrics
+- **Interview Reports**: Interview scheduling and results
+- **Department Reports**: Department-wise analytics
+- **PDF/CSV Export**: Multiple format support
+
+## 🛠 Database Setup
+
+### Prerequisites
+- SQL Server Express or SQL Server
+- Visual Studio 2019+ or Visual Studio Code
+
+### Setup Scripts
+- `add_password_columns.sql` - Add password security columns
+- `grant_permissions.sql` - Set database permissions
+- `Setup-LocalDB.ps1` - Automated database setup
+
+### Migration
+- Entity Framework Code First migrations
+- Automatic schema updates
+- Data seeding capabilities
+
+## 🔧 Configuration
+
+### Web.config Settings
+- Database connection strings
+- Authentication configuration
+- File upload settings
+- Security parameters
+
+### Environment Setup
+- IIS Express development server
+- Local SQL Express database
+- Debug configuration enabled
+
+## 📊 Default Users
+
+The system comes with pre-configured users for testing:
+
+### Admin Users
+- **admin** / **Temp123!** - System administrator
+- **hr** / **Temp123!** - HR administrator
+
+### Client Users
+- **client** / **Temp123!** - Client user
+- **wambua** / **Temp123!** - Client user
+- **Monday** / **Temp123!** - Client user
+- **Tuesday** / **Temp123!** - Client user
+- **Wednesday** / **Temp123!** - Client user
+- **TClient** / **Temp123!** - Client user
+
+*Note: All users must change their password on first login.*
+
+## 🎯 Getting Started
+
+### 1. Clone Repository
 ```bash
-cd mcp-server
-npm install
+git clone https://github.com/A101llan/Recruitment-module.git
+cd Recruitment-module
 ```
 
-### 2. Start MCP Server
-```bash
-npm start
+### 2. Setup Database
+```powershell
+# Run database setup
+.\Setup-LocalDB.ps1
+
+# Or manually execute SQL scripts
+sqlcmd -S ".\SQLEXPRESS" -i add_password_columns.sql
+sqlcmd -S ".\SQLEXPRESS" -i grant_permissions.sql
 ```
 
-### 3. Update HR.Web Configuration
-- Ensure Node.js is installed and accessible
-- Update MCP server path in `MCPService.cs` if needed
+### 3. Open Solution
+- Open `HR.sln` in Visual Studio
+- Restore NuGet packages
+- Build the solution
 
-### 4. Run HR Application
-- Open in Visual Studio
-- Build and run the project
+### 4. Run Application
+- Press F5 in Visual Studio
+- Or use `dotnet run` in the HR.Web directory
+- Application runs on `http://localhost:8080`
 
-## 🎯 Key Workflows
+## 🔍 Development Notes
 
-### Admin Question Management
-1. Navigate to `/Admin/QuestionsWithMCP`
-2. Use AI generation or import templates
-3. Validate questions for bias and quality
-4. Assign questions to positions via drag-and-drop
-5. Preview and test questionnaires
+### Password Security Implementation
+- Uses PBKDF2 with SHA256
+- 100,000 iterations for enhanced security
+- 256-bit key generation
+- Per-user random salt generation
 
-### Candidate Evaluation
-1. Applications automatically scored based on questionnaire responses
-2. Real-time rankings updated in `/Admin/EnhancedCandidateRankings`
-3. Detailed score breakdowns available for each candidate
-4. Performance analytics for question optimization
+### Frontend Technologies
+- Bootstrap 4 for responsive design
+- Font Awesome for icons
+- jQuery for JavaScript interactions
+- Razor view engine for server-side rendering
 
-### Questionnaire Testing
-1. Access `/Questionnaire/Test/{positionId}`
-2. Complete questionnaire as a test candidate
-3. Receive immediate scoring and performance insights
-4. Get AI-powered recommendations for improvement
+### Backend Technologies
+- ASP.NET MVC 5
+- Entity Framework 6
+- SQL Server for data storage
+- PowerShell for automation scripts
 
-## 🔧 MCP Tools Available
+## 📝 Recent Updates
 
-### generate-questions
-Create relevant questions from job descriptions
-```json
-{
-  "jobTitle": "Senior Software Engineer",
-  "jobDescription": "Full job description...",
-  "experience": "senior",
-  "questionTypes": ["technical", "behavioral"],
-  "count": 5
-}
-```
+### Security Enhancements
+- ✅ Implemented comprehensive password security system
+- ✅ Added default password functionality
+- ✅ Enhanced password validation (8+ characters)
+- ✅ Added password visibility toggles
+- ✅ Implemented forced password changes
 
-### validate-question
-Check questions for bias and quality
-```json
-{
-  "question": "Describe your experience...",
-  "questionType": "Text",
-  "options": [...]
-}
-```
+### UI/UX Improvements
+- ✅ Enhanced login interface with password toggle
+- ✅ Improved password change workflow
+- ✅ Added real-time password strength indicators
 
-### suggest-points
-Get AI-recommended scoring values
-```json
-{
-  "question": "How would you handle...",
-  "options": ["Option 1", "Option 2", "Option 3"],
-  "difficulty": "intermediate"
-}
-```
 
-### import-template
-Load pre-built questionnaires
-```json
-{
-  "templateType": "senior-developer",
-  "customize": true
-}
-```
+## 🤝 Contributing
 
-### analyze-performance
-Get insights on question effectiveness
-```json
-{
-  "questionId": "tech_001",
-  "responseDistribution": {...},
-  "averageScore": 7.2,
-  "totalResponses": 45
-}
-```
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## 🎨 UI Features
+## 📄 License
 
-### Enhanced Question Editor
-- AI generation panel with job description input
-- Real-time question validation
-- Smart point suggestions
-- Template import functionality
+This project is proprietary software for Nanosoft Technologies recruitment management.
 
-### Position Question Assignment
-- Visual drag-and-drop interface
-- Question preview with scoring
-- Bulk assignment operations
-- Order management
+---
 
-### Advanced Rankings Dashboard
-- Real-time score updates
-- Visual progress indicators
-- Detailed score breakdowns
-- Export functionality
-
-### Interactive Testing Interface
-- Progress tracking
-- Auto-save functionality
-- Immediate scoring feedback
-- Performance analytics
-
-## 📊 Scoring System
-
-### Question Types Supported
-- **Text**: AI-powered content analysis
-- **Choice**: Point-based selection
-- **Number**: Scaled scoring
-- **Rating**: 1-5 scale conversion
-
-### Position-Specific Scoring
-- Default points from question options
-- Position-specific overrides
-- Flexible weighting systems
-- Real-time calculation
-
-### Performance Analytics
-- Question effectiveness metrics
-- Response distribution analysis
-- AI-powered optimization suggestions
-- Cross-position comparisons
-
-## 🔍 Benefits of MCP Integration
-
-### For Administrators
-- **Reduced Setup Time**: AI-generated questions and templates
-- **Improved Quality**: Bias detection and validation
-- **Better Insights**: Performance analytics and recommendations
-- **Efficient Management**: Bulk operations and smart suggestions
-
-### For Candidates
-- **Better Experience**: Clear, well-structured questions
-- **Fair Evaluation**: Bias-free and validated questions
-- **Immediate Feedback**: Real-time scoring in test mode
-
-### For Organizations
-- **Consistency**: Standardized question banks
-- **Compliance**: Bias detection and validation
-- **Analytics**: Data-driven question optimization
-- **Scalability**: Easy template-based setup
-
-## 🚀 Next Steps
-
-1. **Deploy MCP Server**: Set up production MCP instance
-2. **Customize Question Banks**: Add industry-specific questions
-3. **Configure Scoring**: Fine-tune point values and weights
-4. **Train Administrators**: Ensure proper use of AI features
-5. **Monitor Performance**: Use analytics to continuously improve
-
-This enhanced system transforms your HR questionnaire process from manual management to an AI-powered, intelligent system that saves time, improves quality, and provides valuable insights for better hiring decisions.
+**Last Updated**: February 2026
+**Version**: 2.0
+**Framework**: ASP.NET MVC 5
+**Database**: SQL Server Express

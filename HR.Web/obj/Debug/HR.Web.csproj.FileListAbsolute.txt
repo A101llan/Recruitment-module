@@ -45,10 +45,9 @@ C:\Users\allan\Documents\Examples\HR\HR.Web\bin\System.Web.WebPages.xml
 C:\Users\allan\Documents\Examples\HR\HR.Web\bin\System.Web.WebPages.Deployment.xml
 C:\Users\allan\Documents\Examples\HR\HR.Web\bin\System.Web.WebPages.Razor.xml
 C:\Users\allan\Documents\Examples\HR\HR.Web\bin\System.Web.Providers.xml
-C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.csproj.AssemblyReference.cache
-C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.csproj.SuggestedBindingRedirects.cache
 C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.dll.config
 C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.csproj.CoreCompileInputs.cache
-C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.csproj.Up2Date
+C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.csproj.CopyComplete
 C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.dll
 C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.pdb
+C:\Users\allan\Documents\Examples\HR\HR.Web\obj\Debug\HR.Web.csproj.AssemblyReference.cache

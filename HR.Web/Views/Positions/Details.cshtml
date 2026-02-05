@@ -165,14 +165,10 @@
             @Html.ActionLink("Edit", "Edit", new { id = Model.Id }, new { @class = "btn btn-blue" })
             @Html.ActionLink("Back", "Index", null, new { @class = "btn btn-secondary ml-2" })
         }
-        else if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
+        else
         {
             @Html.ActionLink("Apply", "Questionnaire", "Applications", new { positionId = Model.Id }, new { @class = "btn btn-blue" })
             @Html.ActionLink("Back", "Index", null, new { @class = "btn btn-secondary ml-2" })
-        }
-        else
-        {
-            @Html.ActionLink("Back", "Index", null, new { @class = "btn btn-secondary" })
         }
     </div>
 </div>
@@ -180,7 +176,7 @@
 {
     @Html.ActionLink("Edit", "Edit", new { id = Model.Id }, new { @class = "btn btn-secondary" })
 }
-else if (User != null && User.Identity != null && User.Identity.IsAuthenticated)
+else
 {
     @Html.ActionLink("Apply", "Questionnaire", "Applications", new { positionId = Model.Id }, new { @class = "btn btn-primary" })
 }

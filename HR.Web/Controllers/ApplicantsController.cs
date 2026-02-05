@@ -56,24 +56,55 @@ namespace HR.Web.Controllers
             return -1;
         }
 
-        public ActionResult Details(int id)
+        public ActionResult Details(int id, int? selectedApplicationId = null)
         {
-            var applicant = _uow.Applicants.GetAll(a => a.Applications).FirstOrDefault(a => a.Id == id);
+            // Try the original simple approach first
+            var applicant = _uow.Applicants.Get(id);
             if (applicant == null)
             {
                 return HttpNotFound();
             }
-            // Get latest application
-            var latestApp = applicant.Applications != null ? applicant.Applications.OrderByDescending(a => a.AppliedOn).FirstOrDefault() : null;
-            if (latestApp != null)
+            
+            // Get applications for this applicant using a simple direct query
+            var applications = _uow.Applications.GetAll()
+                .Where(a => a.ApplicantId == id)
+                .OrderByDescending(a => a.AppliedOn)
+                .ToList();
+            
+            // Debug: Check what we found
+            System.Diagnostics.Debug.WriteLine("Found applicant: " + applicant.FullName + " (ID: " + applicant.Id + ")");
+            System.Diagnostics.Debug.WriteLine("Found " + applications.Count + " applications for applicant " + id);
+            
+            // Default to latest application if none selected
+            var selectedApp = selectedApplicationId.HasValue 
+                ? applications.FirstOrDefault(a => a.Id == selectedApplicationId.Value)
+                : applications.FirstOrDefault();
+                
+            if (selectedApp != null)
             {
-                // Get questionnaire answers
-                var answers = _uow.ApplicationAnswers.GetAll(aa => aa.Question)
-                    .Where(aa => aa.ApplicationId == latestApp.Id)
+                // Get questionnaire answers for selected application
+                var answers = _uow.ApplicationAnswers.GetAll()
+                    .Where(aa => aa.ApplicationId == selectedApp.Id)
                     .ToList();
-                ViewBag.LatestApplication = latestApp;
+                
+                // Load questions explicitly to avoid proxy issues
+                foreach (var answer in answers)
+                {
+                    if (answer.QuestionId > 0)
+                    {
+                        answer.Question = _uow.Questions.Get(answer.QuestionId);
+                    }
+                }
+                
+                ViewBag.SelectedApplication = selectedApp;
                 ViewBag.QuestionnaireAnswers = answers;
+                
+                System.Diagnostics.Debug.WriteLine("Found " + answers.Count + " answers for application " + selectedApp.Id);
             }
+            
+            ViewBag.AllApplications = applications;
+            ViewBag.SelectedApplicationId = selectedApp?.Id;
+            
             return View(applicant);
         }
 
@@ -225,6 +256,40 @@ namespace HR.Web.Controllers
                 
                 TempData["DeleteError"] = "Error deleting applicant: " + ex.Message;
                 return RedirectToAction("Details", new { id });
+            }
+        }
+
+        public ActionResult DownloadCV(int id)
+        {
+            var application = _uow.Applications.Get(id);
+            if (application == null || string.IsNullOrEmpty(application.ResumePath))
+            {
+                return HttpNotFound();
+            }
+
+            try
+            {
+                var filePath = Server.MapPath(application.ResumePath);
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return HttpNotFound();
+                }
+
+                var fileBytes = System.IO.File.ReadAllBytes(filePath);
+                var fileName = System.IO.Path.GetFileName(filePath);
+                
+                // Log CV download
+                _auditService.LogAction(User.Identity.Name, "DOWNLOAD_CV", "Application", id.ToString(), 
+                    new { FileName = fileName, ApplicationId = id });
+
+                return File(fileBytes, System.Net.Mime.MediaTypeNames.Application.Octet, fileName);
+            }
+            catch (Exception ex)
+            {
+                _auditService.LogAction(User.Identity.Name, "DOWNLOAD_CV_ERROR", "Application", id.ToString(), 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                return new HttpStatusCodeResult(500, "Error downloading file");
             }
         }
     }

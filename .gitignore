@@ -1,4 +1,37 @@
+# .gitignore for .NET Recruitment Module
 
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bin/
+obj/
 
-#Ignore cursor AI rules
-.cursor\rules\codacy.mdc
+# Visual Studio files
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Packages
+packages/
+*.nupkg
+
+# Reports and temporary artifacts
+HR.Web/Reports/*
+App_Data/Resumes/*
+
+# Others
+.vscode/
+.nexus/
+.nexus-sync/
+nuget.exe

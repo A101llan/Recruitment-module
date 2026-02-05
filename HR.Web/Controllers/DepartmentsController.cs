@@ -5,7 +5,6 @@ using HR.Web.Models;
 
 namespace HR.Web.Controllers
 {
-    [Authorize]
     public class DepartmentsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
@@ -26,6 +25,7 @@ namespace HR.Web.Controllers
             return View(item);
         }
 
+        [Authorize(Roles = "Admin")]
         public ActionResult Create()
         {
             return View(new Department());
@@ -33,6 +33,7 @@ namespace HR.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public ActionResult Create(Department model)
         {
             if (!ModelState.IsValid)
@@ -44,6 +45,7 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index");
         }
 
+        [Authorize(Roles = "Admin")]
         public ActionResult Edit(int id)
         {
             var item = _uow.Departments.Get(id);
@@ -56,6 +58,7 @@ namespace HR.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public ActionResult Edit(Department model)
         {
             if (!ModelState.IsValid)
@@ -67,6 +70,7 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index");
         }
 
+        [Authorize(Roles = "Admin")]
         public ActionResult Delete(int id)
         {
             var item = _uow.Departments.Get(id);
@@ -79,6 +83,7 @@ namespace HR.Web.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public ActionResult DeleteConfirmed(int id)
         {
             var item = _uow.Departments.Get(id);

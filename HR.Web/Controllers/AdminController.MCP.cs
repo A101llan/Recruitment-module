@@ -29,12 +29,6 @@ namespace HR.Web.Controllers
             return View(new GenerateQuestionsViewModel());
         }
 
-        // GET: Admin/QuestionOptionsDebug
-        [AllowAnonymous]
-        public ActionResult QuestionOptionsDebug()
-        {
-            return View();
-        }
 
         // POST: Admin/GenerateQuestions
         [HttpPost]
@@ -638,31 +632,6 @@ namespace HR.Web.Controllers
             }
         }
 
-        [HttpPost]
-        [AllowAnonymous]
-        [OverrideAuthorization]
-        public async Task<ActionResult> TestConnection()
-        {
-            try
-            {
-                // Test the dynamic question service
-                var testResult = _questionService.GenerateQuestions(
-                    jobTitle: "Test Position",
-                    jobDescription: "Test job description for connection testing",
-                    keyResponsibilities: "Test responsibilities",
-                    requiredQualifications: "Test qualifications",
-                    experience: "mid",
-                    questionCount: 1,
-                    questionTypes: new List<string> { "Text" }
-                );
-
-                return Json(new { success = true, connected = testResult.Success }, JsonRequestBehavior.AllowGet);
-            }
-            catch
-            {
-                return Json(new { success = false, connected = false }, JsonRequestBehavior.AllowGet);
-            }
-        }
 
     }
 }

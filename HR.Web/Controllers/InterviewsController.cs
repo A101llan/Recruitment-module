@@ -7,7 +7,6 @@ using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
-    [Authorize]
     public class InterviewsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
@@ -82,6 +81,7 @@ namespace HR.Web.Controllers
             }
         }
 
+        [Authorize]
         public ActionResult Details(int id)
         {
             var interview = _uow.Interviews.GetAll(i => i.Application.Applicant, i => i.Application.Position, i => i.Interviewer)
@@ -93,6 +93,7 @@ namespace HR.Web.Controllers
             return View(interview);
         }
 
+        [Authorize]
         public ActionResult Create(int? applicationId)
         {
             LoadLookups();
@@ -105,6 +106,7 @@ namespace HR.Web.Controllers
             return View(interview);
         }
 
+        [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Create(Interview model)
@@ -121,6 +123,7 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index");
         }
 
+        [Authorize]
         public ActionResult Edit(int id)
         {
             var interview = _uow.Interviews.Get(id);
@@ -132,6 +135,7 @@ namespace HR.Web.Controllers
             return View(interview);
         }
 
+        [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Edit(Interview model)
@@ -147,6 +151,7 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index");
         }
 
+        [Authorize]
         public ActionResult Delete(int id)
         {
             var interview = _uow.Interviews.Get(id);
@@ -157,6 +162,7 @@ namespace HR.Web.Controllers
             return View(interview);
         }
 
+        [Authorize]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public ActionResult DeleteConfirmed(int id)

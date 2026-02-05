@@ -129,17 +129,50 @@
                     @Html.ValidationMessageFor(m => m.Title, "", new { @class = "text-danger" })
                 </div>
                 <div class="form-group mb-3">
-                    @Html.LabelFor(m => m.Description, "Description", htmlAttributes: new { @class = "font-weight-bold w-100" })
-                    @Html.TextAreaFor(m => m.Description, new { @class = "form-control mx-auto", rows = 3, placeholder = "Describe the role and responsibilities...", style = "max-width: 350px;" })
+                    @Html.LabelFor(m => m.Description, "Job Description", htmlAttributes: new { @class = "font-weight-bold w-100" })
+                    @Html.TextAreaFor(m => m.Description, new { @class = "form-control mx-auto", rows = 4, placeholder = "Provide a high-level overview of the position...", style = "max-width: 100%;" })
+                    @Html.ValidationMessageFor(m => m.Description, "", new { @class = "text-danger" })
+                </div>
+                <div class="form-group mb-3">
+                    @Html.LabelFor(m => m.Responsibilities, "Key Responsibilities", htmlAttributes: new { @class = "font-weight-bold w-100" })
+                    @Html.TextAreaFor(m => m.Responsibilities, new { @class = "form-control mx-auto", rows = 6, placeholder = "List the main responsibilities and duties for this position. You can use bullet points or numbered lists...", style = "max-width: 100%;" })
+                    @Html.ValidationMessageFor(m => m.Responsibilities, "", new { @class = "text-danger" })
+                </div>
+                <div class="form-group mb-3">
+                    @Html.LabelFor(m => m.Qualifications, "Required Qualifications", htmlAttributes: new { @class = "font-weight-bold w-100" })
+                    @Html.TextAreaFor(m => m.Qualifications, new { @class = "form-control mx-auto", rows = 6, placeholder = "List the required qualifications, skills, education, and experience needed for this position. You can use bullet points or numbered lists...", style = "max-width: 100%;" })
+                    @Html.ValidationMessageFor(m => m.Qualifications, "", new { @class = "text-danger" })
                 </div>
                 <div class="form-group mb-3">
                     <label class="font-weight-bold">Salary Range</label>
                     <div style="width: 100%; max-width: 350px;">
-                        <input type="range" id="salaryMin" name="SalaryMin" min="0" max="100000" step="1000" value="30000" style="width: 100%;">
-                        <input type="range" id="salaryMax" name="SalaryMax" min="0" max="100000" step="1000" value="50000" style="width: 100%; margin-top: 0.5rem;">
-                        <div style="margin-top: 0.3rem; font-size: 0.95rem;">
-                            <span>Selected Range: </span>
-                            <span id="salaryRangeDisplay">$30,000 - $50,000</span>
+                        <div class="mb-2">
+                            <label class="font-weight-bold" style="font-size: 0.9rem;">Currency:</label>
+                            <select id="currencySelect" name="Currency" class="form-control" style="max-width: 200px;">
+                                <option value="KES" selected>KES (KSh)</option>
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (&euro;)</option>
+                                <option value="GBP">GBP (&pound;)</option>
+                                <option value="CAD">CAD (C$)</option>
+                                <option value="AUD">AUD (A$)</option>
+                                <option value="JPY">JPY (&yen;)</option>
+                                <option value="CHF">CHF (CHF)</option>
+                                <option value="CNY">CNY (&yen;)</option>
+                                <option value="INR">INR (&#8377;)</option>
+                                <option value="BRL">BRL (R$)</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label style="font-size: 0.9rem;">Minimum Salary:</label>
+                            <input type="number" id="salaryMin" name="SalaryMin" min="0" step="1000" value="30000" class="form-control" placeholder="Enter minimum salary">
+                        </div>
+                        <div class="mb-2">
+                            <label style="font-size: 0.9rem;">Maximum Salary:</label>
+                            <input type="number" id="salaryMax" name="SalaryMax" min="0" step="1000" value="50000" class="form-control" placeholder="Enter maximum salary">
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.95rem; padding: 0.5rem; background: #eaf4fb; border-radius: 0.25rem;">
+                            <strong>Selected Range: </strong>
+                            <span id="salaryRangeDisplay">KSh 30,000 - KSh 50,000</span>
                         </div>
                     </div>
                 </div>
@@ -216,26 +249,92 @@
 
 @section Scripts {
 <script>
-    function formatSalary(val) {
-        return '$' + Number(val).toLocaleString();
+    var currencySymbols = {
+        'KES': 'KSh',
+        'USD': '$',
+        'EUR': '\u20AC',
+        'GBP': '\u00A3',
+        'CAD': 'C$',
+        'AUD': 'A$',
+        'JPY': '\u00A5',
+        'CHF': 'CHF ',
+        'CNY': '\u00A5',
+        'INR': '\u20B9',
+        'BRL': 'R$'
+    };
+
+    function formatSalary(val, currency) {
+        if (!val || val === '') return '';
+        var symbol = currencySymbols[currency] || 'KSh';
+        var num = parseFloat(val);
+        if (isNaN(num)) return '';
+        
+        // Format number with locale-specific formatting
+        var formatted = num.toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+        
+        // For CHF, symbol goes after with space
+        if (currency === 'CHF') {
+            return formatted + ' ' + symbol.trim();
+        }
+        
+        // For KES, symbol before with space
+        if (currency === 'KES') {
+            return symbol + ' ' + formatted;
+        }
+        
+        // For JPY and CNY, no space between symbol and number
+        if (currency === 'JPY' || currency === 'CNY') {
+            return symbol + formatted;
+        }
+        
+        // For others, add space if symbol is longer than 1 character
+        if (symbol.length > 1 && currency !== 'CHF') {
+            return symbol + ' ' + formatted;
+        }
+        
+        return symbol + formatted;
     }
+
     function updateSalaryRangeDisplay() {
         var min = document.getElementById('salaryMin').value;
         var max = document.getElementById('salaryMax').value;
+        var currencySelect = document.getElementById('currencySelect');
+        var currency = currencySelect ? currencySelect.value : 'KES';
+        
+        if (!min || !max) {
+            document.getElementById('salaryRangeDisplay').textContent = 'Please enter salary range';
+            return;
+        }
+        
         if (parseInt(min) > parseInt(max)) {
             // Swap if min > max
             var temp = min;
             min = max;
             max = temp;
+            document.getElementById('salaryMin').value = min;
+            document.getElementById('salaryMax').value = max;
         }
-        document.getElementById('salaryRangeDisplay').textContent = formatSalary(min) + ' - ' + formatSalary(max);
+        
+        document.getElementById('salaryRangeDisplay').textContent = 
+            formatSalary(min, currency) + ' - ' + formatSalary(max, currency);
     }
+
     document.addEventListener('DOMContentLoaded', function () {
-        var minSlider = document.getElementById('salaryMin');
-        var maxSlider = document.getElementById('salaryMax');
-        minSlider.addEventListener('input', updateSalaryRangeDisplay);
-        maxSlider.addEventListener('input', updateSalaryRangeDisplay);
-        updateSalaryRangeDisplay();
+        var minInput = document.getElementById('salaryMin');
+        var maxInput = document.getElementById('salaryMax');
+        var currencySelect = document.getElementById('currencySelect');
+        
+        if (minInput && maxInput) {
+            minInput.addEventListener('input', updateSalaryRangeDisplay);
+            maxInput.addEventListener('input', updateSalaryRangeDisplay);
+            if (currencySelect) {
+                currencySelect.addEventListener('change', updateSalaryRangeDisplay);
+            }
+            updateSalaryRangeDisplay();
+        }
     });
 </script>
 }

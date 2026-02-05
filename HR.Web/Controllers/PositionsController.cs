@@ -8,7 +8,6 @@ using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
-    [Authorize]
     public class PositionsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
@@ -115,6 +114,8 @@ namespace HR.Web.Controllers
                 var newValues = new { 
                     Title = model.Title, 
                     Description = model.Description, 
+                    Responsibilities = model.Responsibilities,
+                    Qualifications = model.Qualifications,
                     DepartmentId = model.DepartmentId,
                     Location = model.Location,
                     IsOpen = model.IsOpen,
@@ -461,9 +462,78 @@ namespace HR.Web.Controllers
                 return HttpNotFound();
             }
 
-            _uow.Positions.Remove(position);
-            _uow.Complete();
-            return RedirectToAction("Index");
+            try
+            {
+                // Use the context directly for more control over deletion order
+                var context = _uow.Context;
+                
+                // Debug: Check what applications exist for this position
+                var applications = context.Applications.Where(a => a.PositionId == id).ToList();
+                var applicationIds = applications.Select(a => a.Id).ToList();
+                
+                // Debug: Log what we found
+                System.Diagnostics.Debug.WriteLine($"Found {applications.Count} applications for position {id}");
+                foreach (var app in applications)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Application ID: {app.Id}, Applicant: {app.ApplicantId}");
+                }
+                
+                // Step 1: Delete PositionQuestions first
+                var positionQuestions = context.PositionQuestions.Where(pq => pq.PositionId == id).ToList();
+                
+                // Delete the PositionQuestions themselves
+                context.PositionQuestions.RemoveRange(positionQuestions);
+                
+                // Save changes for PositionQuestions first
+                _uow.Complete();
+                
+                // Step 2: Delete ALL application-related entities in the correct order
+                
+                // Delete ApplicationAnswers for these applications
+                var applicationAnswers = context.ApplicationAnswers.Where(aa => applicationIds.Contains(aa.ApplicationId));
+                context.ApplicationAnswers.RemoveRange(applicationAnswers);
+                
+                // Delete Interviews for these applications
+                var interviews = context.Interviews.Where(i => applicationIds.Contains(i.ApplicationId));
+                context.Interviews.RemoveRange(interviews);
+                
+                // Delete Onboardings for these applications
+                var onboardings = context.Onboardings.Where(o => applicationIds.Contains(o.ApplicationId));
+                context.Onboardings.RemoveRange(onboardings);
+                
+                // Save changes for application-related entities
+                _uow.Complete();
+                
+                // Step 3: Delete the applications themselves
+                context.Applications.RemoveRange(applications);
+                _uow.Complete();
+                
+                // Debug: Verify applications are deleted
+                var remainingApps = context.Applications.Where(a => a.PositionId == id).ToList();
+                System.Diagnostics.Debug.WriteLine($"Remaining applications after deletion: {remainingApps.Count}");
+                
+                // Step 4: Finally delete the position
+                context.Positions.Remove(position);
+                _uow.Complete();
+
+                // Log the deletion
+                var username = User.Identity.Name;
+                _auditService.LogAction(username, "DELETE_POSITION", "Position", id.ToString(), 
+                    $"Position '{position.Title}' and {applications.Count} associated applications deleted");
+
+                TempData["SuccessMessage"] = $"Position '{position.Title}' and {applications.Count} associated applications have been deleted successfully.";
+                return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                var username = User.Identity.Name;
+                _auditService.LogAction(username, "DELETE_POSITION_ERROR", "Position", id.ToString(), 
+                    $"Error deleting position: {ex.Message}");
+
+                ModelState.AddModelError("", "Unable to delete position. Please ensure there are no related records preventing deletion.");
+                return View(position);
+            }
         }
     }
 }

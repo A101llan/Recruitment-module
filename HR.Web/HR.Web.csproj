@@ -152,9 +152,14 @@
     <Compile Include="Models\Department.cs" />
     <Compile Include="Models\Position.cs" />
     <Compile Include="Models\RegisterViewModel.cs" />
+    <Compile Include="Models\ChangePasswordViewModel.cs" />
+    <Compile Include="Models\ForgotPasswordViewModel.cs" />
+    <Compile Include="Models\ResetPasswordViewModel.cs" />
+    <Compile Include="Models\PasswordReset.cs" />
     <Compile Include="Models\Applicant.cs" />
     <Compile Include="Models\LoginAttempt.cs" />
     <Compile Include="Models\AuditLog.cs" />
+    <Compile Include="Models\Report.cs" />
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\Application.cs" />
     <Compile Include="Models\Interview.cs" />
@@ -174,14 +179,15 @@
     <Compile Include="Data\HrContext.cs" />
     <Compile Include="Data\Repository.cs" />
     <Compile Include="Data\UnitOfWork.cs" />
-    <Compile Include="Services\EmailService.cs" />
     <Compile Include="Services\StorageService.cs" />
+    <Compile Include="Services\EmailService.cs" />
     <Compile Include="Services\CandidateEvaluationService.cs" />
     <Compile Include="Services\DynamicQuestionService.cs" />
     <Compile Include="Services\MCPService.cs" />
     <Compile Include="Services\ScoringService.cs" />
     <Compile Include="Services\SecurityService.cs" />
     <Compile Include="Services\AuditService.cs" />
+    <Compile Include="Services\ReportService.cs" />
     <Compile Include="Helpers\PasswordHelper.cs" />
     <Compile Include="Controllers\AdminController.cs" />
     <Compile Include="Controllers\AdminController.MCP.cs" />
@@ -196,6 +202,9 @@
     <Compile Include="Controllers\ApplicantsController.cs" />
     <Compile Include="Controllers\DepartmentsController.cs" />
     <Compile Include="Controllers\AccountController.cs" />
+    <Compile Include="Controllers\ReportGeneratorController.cs" />
+    <Compile Include="Controllers\SimpleReportsController.cs" />
+    <Compile Include="Controllers\ReportsController.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Global.asax" />
@@ -231,6 +240,9 @@
     <Content Include="Views\Departments\Details.cshtml" />
     <Content Include="Views\Account\Login.cshtml" />
     <Content Include="Views\Account\Register.cshtml" />
+    <Content Include="Views\Account\ChangePassword.cshtml" />
+    <Content Include="Views\Account\ForgotPassword.cshtml" />
+    <Content Include="Views\Account\ResetPassword.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\Resumes\" />

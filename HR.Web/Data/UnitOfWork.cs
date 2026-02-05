@@ -16,10 +16,12 @@ namespace HR.Web.Data
         public Repository<Onboarding> Onboardings { get { return new Repository<Onboarding>(_context); } }
         public Repository<Question> Questions { get { return new Repository<Question>(_context); } }
         public Repository<PositionQuestion> PositionQuestions { get { return new Repository<PositionQuestion>(_context); } }
+        public Repository<PositionQuestionOption> PositionQuestionOptions { get { return new Repository<PositionQuestionOption>(_context); } }
         public Repository<ApplicationAnswer> ApplicationAnswers { get { return new Repository<ApplicationAnswer>(_context); } }
         public Repository<LoginAttempt> LoginAttempts { get { return new Repository<LoginAttempt>(_context); } }
         public Repository<AuditLog> AuditLogs { get { return new Repository<AuditLog>(_context); } }
         public Repository<Report> Reports { get { return new Repository<Report>(_context); } }
+        public Repository<PasswordReset> PasswordResets { get { return new Repository<PasswordReset>(_context); } }
 
         // Expose the underlying context for advanced queries (e.g., Question options)
         public HrContext Context { get { return _context; } }

@@ -7,8 +7,9 @@ namespace HR.Web
         public static void RegisterGlobalFilters(GlobalFilterCollection filters)
         {
             filters.Add(new HandleErrorAttribute());
-            // Enforce authentication globally; controllers/actions can opt-out with [AllowAnonymous]
-            filters.Add(new AuthorizeAttribute());
+            // Global authentication is removed to allow anonymous browsing.
+            // controllers/actions will specify their own [Authorize] requirements.
+            // filters.Add(new AuthorizeAttribute());
         }
     }
 }

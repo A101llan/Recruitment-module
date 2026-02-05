@@ -147,15 +147,9 @@ namespace HR.Web.Helpers
 
         private static bool ContainsCommonPatterns(string password)
         {
-            var commonPatterns = new[]
-            {
-                "password", "123456", "qwerty", "admin", "letmein", "welcome",
-                "monkey", "dragon", "master", "sunshine", "princess", "football",
-                "baseball", "shadow", "superman", "iloveyou"
-            };
-
-            var lowerPassword = password.ToLower();
-            return commonPatterns.Any(pattern => lowerPassword.Contains(pattern));
+            // Removed common patterns check for more lenient validation
+            // Still enforcing length, character types, and sequential character checks
+            return false;
         }
 
         private static bool ContainsSequentialChars(string password)

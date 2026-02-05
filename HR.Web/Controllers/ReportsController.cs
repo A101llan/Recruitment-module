@@ -8,6 +8,7 @@ using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
+    [Authorize(Roles = "Admin")]
     public class ReportsController : Controller
     {
         // GET: Reports

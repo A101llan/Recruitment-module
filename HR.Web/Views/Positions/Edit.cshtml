@@ -120,8 +120,6 @@
     var selectedQuestionIds = ViewBag.SelectedQuestionIds as List<int> ?? new List<int>();
     Html.EnableClientValidation(false);
     Html.EnableUnobtrusiveJavaScript(false);
-    var responsibilitiesProp = typeof(HR.Web.Models.Position).GetProperty("Responsibilities");
-    var qualificationsProp = typeof(HR.Web.Models.Position).GetProperty("Qualifications");
     var currencyProp = typeof(HR.Web.Models.Position).GetProperty("Currency");
     string currencyValue = "KES";
     if (currencyProp != null && Model != null) {
@@ -144,22 +142,16 @@
                     @Html.TextAreaFor(m => m.Description, new { @class = "form-control mx-auto", rows = 4, placeholder = "Provide a detailed description of the position, including overview, requirements, and what makes this role unique...", style = "max-width: 100%;" })
                     @Html.ValidationMessageFor(m => m.Description, "", new { @class = "text-danger" })
                 </div>
-                if (responsibilitiesProp != null)
-                {
-                    var responsibilitiesValue = responsibilitiesProp.GetValue(Model);
-                    <div class="form-group mb-3">
-                        <label class="font-weight-bold w-100">Key Responsibilities</label>
-                        <textarea name="Responsibilities" class="form-control mx-auto" rows="6" placeholder="List the main responsibilities and duties for this position. You can use bullet points or numbered lists..." style="max-width: 100%;">@(responsibilitiesValue != null ? responsibilitiesValue.ToString() : "")</textarea>
-                    </div>
-                }
-                if (qualificationsProp != null)
-                {
-                    var qualificationsValue = qualificationsProp.GetValue(Model);
-                    <div class="form-group mb-3">
-                        <label class="font-weight-bold w-100">Required Qualifications</label>
-                        <textarea name="Qualifications" class="form-control mx-auto" rows="6" placeholder="List the required qualifications, skills, education, and experience needed for this position. You can use bullet points or numbered lists..." style="max-width: 100%;">@(qualificationsValue != null ? qualificationsValue.ToString() : "")</textarea>
-                    </div>
-                }
+                <div class="form-group mb-3">
+                    @Html.LabelFor(m => m.Responsibilities, "Key Responsibilities", htmlAttributes: new { @class = "font-weight-bold w-100" })
+                    @Html.TextAreaFor(m => m.Responsibilities, new { @class = "form-control mx-auto", rows = 6, placeholder = "List the main responsibilities and duties for this position. You can use bullet points or numbered lists...", style = "max-width: 100%;" })
+                    @Html.ValidationMessageFor(m => m.Responsibilities, "", new { @class = "text-danger" })
+                </div>
+                <div class="form-group mb-3">
+                    @Html.LabelFor(m => m.Qualifications, "Required Qualifications", htmlAttributes: new { @class = "font-weight-bold w-100" })
+                    @Html.TextAreaFor(m => m.Qualifications, new { @class = "form-control mx-auto", rows = 6, placeholder = "List the required qualifications, skills, education, and experience needed for this position. You can use bullet points or numbered lists...", style = "max-width: 100%;" })
+                    @Html.ValidationMessageFor(m => m.Qualifications, "", new { @class = "text-danger" })
+                </div>
                 <div class="form-group mb-3">
                     <label class="font-weight-bold">Salary Range</label>
                     <div style="width: 100%; max-width: 350px;">

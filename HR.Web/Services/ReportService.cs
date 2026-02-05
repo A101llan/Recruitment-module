@@ -14,52 +14,305 @@ namespace HR.Web.Services
         public string GenerateReportByType(string reportType, string generatedBy, string format = "csv")
         {
             string filePath = "";
-            
+            string html = "";
+            var fileName = $"{reportType}_{DateTime.Now:yyyyMMdd_HHmmss}.{format.ToLower()}";
+            filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", fileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
             switch (reportType.ToLower())
             {
                 case "candidate":
-                    filePath = GenerateCandidateReport(null, generatedBy, format);
+                    if (format.ToLower() == "pdf") html = GenerateCandidatePDF(generatedBy);
+                    else GenerateCandidateCSV(_uow.Applicants.GetAll().ToList(), filePath);
                     break;
                 case "application":
-                    filePath = GenerateApplicationReport(null, generatedBy, format);
+                    if (format.ToLower() == "pdf") html = GenerateApplicationPDF(generatedBy);
+                    else GenerateApplicationCSV(_uow.Applications.GetAll(a => a.Applicant, a => a.Position).ToList(), filePath);
                     break;
                 case "interview":
-                    filePath = GenerateInterviewReport(null, generatedBy, format);
+                    if (format.ToLower() == "pdf") html = GenerateInterviewPDF(generatedBy);
+                    else GenerateInterviewCSV(_uow.Interviews.GetAll().ToList(), filePath);
                     break;
                 case "department":
-                    filePath = GenerateDepartmentReport(null, generatedBy, format);
+                    if (format.ToLower() == "pdf") html = GenerateDepartmentPDF(generatedBy);
+                    else GenerateDepartmentCSV(_uow.Departments.GetAll(d => d.Positions).ToList(), filePath);
                     break;
                 case "position":
-                    filePath = GeneratePositionReport(null, generatedBy, format);
+                    if (format.ToLower() == "pdf") html = GeneratePositionPDF(generatedBy);
+                    else GeneratePositionCSV(_uow.Positions.GetAll(p => p.Department).ToList(), filePath);
                     break;
                 case "security":
-                    filePath = GenerateSecurityReport(null, generatedBy, format);
+                    if (format.ToLower() == "pdf") html = GenerateSecurityPDF(generatedBy);
+                    else GenerateSecurityCSV(_uow.AuditLogs.GetAll().ToList(), filePath);
                     break;
                 default:
                     throw new ArgumentException($"Unsupported report type: {reportType}");
             }
 
+            if (format.ToLower() == "pdf" && !string.IsNullOrEmpty(html))
+            {
+                File.WriteAllText(filePath, html);
+            }
+
             return filePath;
         }
 
-        private string GenerateCandidateReport(Report report, string generatedBy, string format = "csv")
+        public string PreviewReportByType(string reportType, string generatedBy)
         {
-            var candidates = _uow.Applicants.GetAll().ToList();
-            var fileName = $"Candidates_{DateTime.Now:yyyyMMdd_HHmmss}.{format.ToLower()}";
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", fileName);
-            
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            
-            if (format.ToLower() == "pdf")
+            switch (reportType.ToLower())
             {
-                GenerateCandidatePDF(candidates, filePath, generatedBy);
+                case "candidate": return GenerateCandidatePDF(generatedBy);
+                case "application": return GenerateApplicationPDF(generatedBy);
+                case "interview": return GenerateInterviewPDF(generatedBy);
+                case "department": return GenerateDepartmentPDF(generatedBy);
+                case "position": return GeneratePositionPDF(generatedBy);
+                case "security": return GenerateSecurityPDF(generatedBy);
+                default: return "<h3>Report type not supported for preview</h3>";
             }
-            else
-            {
-                GenerateCandidateCSV(candidates, filePath);
-            }
+        }
 
-            return filePath;
+        private string GetReportStyles(string themeColor = "#3498db", string secondaryColor = "#2980b9")
+        {
+            return $@"
+        @page {{
+            margin: 2cm 2cm 3cm 2cm;
+            size: A4;
+        }}
+        body {{ 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: #2c3e50;
+            background-color: #fff;
+        }}
+        .container {{
+            padding: 0 40px 80px 40px;
+        }}
+        .report-frame {{
+            border: 1px solid #e1e8ed;
+            border-radius: 25px;
+            margin: 0 0 50px 0;
+            padding: 0;
+            position: relative;
+            background: #fff;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.03);
+            overflow: hidden;
+            border-top: 5px solid {themeColor};
+            page-break-inside: avoid;
+            display: block;
+            width: 100%;
+        }}
+        .report-header-box {{
+            text-align: center;
+            background: linear-gradient(135deg, {themeColor} 0%, {secondaryColor} 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }}
+        .report-header-box h1 {{
+            margin: 0;
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }}
+        .report-header-box p {{
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }}
+        .report-meta {{
+            display: table;
+            width: 100%;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 5px solid {themeColor};
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }}
+        .meta-item {{
+            display: table-cell;
+            width: 33%;
+        }}
+        .meta-label {{
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: block;
+        }}
+        .meta-value {{
+            font-size: 15px;
+            color: #2c3e50;
+            font-weight: 600;
+        }}
+        .report-table {{ 
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%; 
+            margin-top: 30px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border: 1px solid #e1e8ed;
+        }}
+        .report-table th {{ 
+            background-color: {themeColor};
+            color: white !important;
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px;
+            border: none;
+        }}
+        .report-table td {{ 
+            border-bottom: 1px solid #f1f4f6;
+            padding: 15px;
+            text-align: left;
+            font-size: 14px;
+            color: #444;
+        }}
+        .report-table tr:last-child td {{
+            border-bottom: none;
+        }}
+        .report-table tr:nth-child(even) {{ 
+            background-color: #fafbfc; 
+        }}
+        .report-table tr {{
+            page-break-inside: avoid;
+        }}
+        .status-badge {{
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: inline-block;
+        }}
+        .badge-success {{ background: #d4edda; color: #155724; }}
+        .badge-warning {{ background: #fff3cd; color: #856404; }}
+        .badge-danger {{ background: #f8d7da; color: #721c24; }}
+        .report-footer {{ 
+            width: 100%;
+            text-align: center;
+            font-size: 11px;
+            color: #95a5a6;
+            padding: 25px 0;
+            margin-top: 40px;
+            border-radius: 0 0 25px 25px;
+            background: #fcfcfc;
+            border: 1px solid #e1e8ed;
+        }}
+        .page-number:after {{
+            content: ""Page "" counter(page);
+        }}
+        @media print {{
+            .page-break {{ 
+                display: block; 
+                page-break-before: always; 
+                margin: 40px 0;
+                height: 30px;
+                border: 1px solid #e1e8ed;
+                border-radius: 0 0 25px 25px;
+                background: #fff;
+            }}
+            .report-footer {{
+                position: fixed;
+                bottom: 0;
+                border-radius: 0 0 25px 25px;
+            }}
+        }}
+        .pagination-info {{
+            text-align: right;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }}
+        .stats-grid {{
+            display: table;
+            width: 100%;
+            border-spacing: 20px;
+            margin: 10px -20px;
+        }}
+        .stat-card-cell {{
+            display: table-cell;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid #ecf0f1;
+            width: 25%;
+        }}
+        .stat-value {{
+            font-size: 28px;
+            font-weight: 700;
+            color: {themeColor};
+            display: block;
+        }}
+        .stat-label {{
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            font-weight: bold;
+        }}
+";
+        }
+
+        private string GetReportHeader(string title, string subtitle, string themeColor = "#3498db", string secondaryColor = "#2980b9")
+        {
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+    <style>{GetReportStyles(themeColor, secondaryColor)}</style>
+</head>
+<body>
+    <div class='container'>";
+        }
+
+        private string GetReportMeta(string generatedBy, string reportCode)
+        {
+            return $@"
+        <div class='report-meta'>
+            <div class='meta-item'>
+                <span class='meta-label'>Generated By</span>
+                <span class='meta-value'>{generatedBy}</span>
+            </div>
+            <div class='meta-item'>
+                <span class='meta-label'>Date generated</span>
+                <span class='meta-value'>{DateTime.Now:MMMM dd, yyyy HH:mm}</span>
+            </div>
+            <div class='meta-item'>
+                <span class='meta-label'>Report ID</span>
+                <span class='meta-value'>{reportCode}</span>
+            </div>
+        </div>";
+        }
+
+        private string GetPageFooter()
+        {
+            return $@"
+        <div class='report-footer'>
+            <p><strong>Recruitment Management System</strong></p>
+            <p>This is a system-generated confidential document.</p>
+            <p>&copy; {DateTime.Now.Year} Nanosoft Technologies. All rights reserved.</p>
+        </div>";
+        }
+
+        private string GetReportFooter()
+        {
+            return $@"
+    </div>
+</body>
+</html>";
         }
 
         private void GenerateCandidateCSV(List<Applicant> candidates, string filePath)
@@ -74,252 +327,84 @@ namespace HR.Web.Services
             }
         }
 
-        private void GenerateCandidatePDF(List<Applicant> candidates, string filePath, string generatedBy)
+        private string GenerateCandidatePDF(string generatedBy)
         {
-            var html = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Candidates Report</title>
-    <style>
-        @page {{
-            margin: 2cm;
-            size: A4;
-        }}
-        body {{ 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-            color: #2c3e50;
-        }}
-        .header {{
-            text-align: center;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }}
-        .header h1 {{
-            margin: 0;
-            font-size: 28px;
-            font-weight: 300;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }}
-        .header p {{
-            margin: 5px 0 0 0;
-            opacity: 0.9;
-            font-size: 14px;
-        }}
-        .report-info {{
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border-left: 4px solid #3498db;
-        }}
-        .report-info strong {{
-            color: #2c3e50;
-        }}
-        table {{ 
-            border-collapse: collapse; 
-            width: 100%; 
-            margin-top: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            overflow: hidden;
-        }}
-        th {{ 
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
-            padding: 15px 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }}
-        td {{ 
-            border: 1px solid #e9ecef;
-            padding: 12px;
-            text-align: left;
-            font-size: 13px;
-        }}
-        tr:nth-child(even) {{ 
-            background-color: #f8f9fa; 
-        }}
-        tr:hover {{ 
-            background-color: #e3f2fd;
-            transition: background-color 0.3s ease;
-        }}
-        .footer {{ 
-            margin-top: 40px;
-            padding: 30px 0;
-            border-top: 2px solid #3498db;
-            text-align: center;
-            font-size: 12px;
-            color: #6c757d;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }}
-        .logo-section {{
-            margin-top: 20px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .logo-placeholder {{
-            width: 120px;
-            height: 60px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            margin: 10px auto;
-        }}
-        .stats {{
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }}
-        .stat-item {{
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-width: 120px;
-            margin: 5px;
-        }}
-        .stat-number {{
-            font-size: 24px;
-            font-weight: bold;
-            color: #3498db;
-        }}
-        .stat-label {{
-            font-size: 12px;
-            color: #6c757d;
-            margin-top: 5px;
-        }}
-        .watermark {{
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 72px;
-            color: rgba(52, 152, 219, 0.1);
-            font-weight: bold;
-            z-index: -1;
-            pointer-events: none;
-        }}
-    </style>
-</head>
-<body>
-    <div class='watermark'>RECRUITMENT MODULE</div>
-    
-    <div class='header'>
-        <h1><i class='fas fa-users'></i> Candidates Report</h1>
-        <p>Comprehensive Candidate Database Analysis</p>
-    </div>
-    
-    <div class='report-info'>
-        <p><strong>Generated on:</strong> {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-        <p><strong>Generated by:</strong> {generatedBy}</p>
-        <p><strong>Report ID:</strong> RPT-CAND-{DateTime.Now:yyyyMMddHHmmss}</p>
-    </div>
-
-    <div class='stats'>
-        <div class='stat-item'>
-            <div class='stat-number'>{candidates.Count}</div>
-            <div class='stat-label'>Total Candidates</div>
-        </div>
-        <div class='stat-item'>
-            <div class='stat-number'>{candidates.Count(c => !string.IsNullOrEmpty(c.Email))}</div>
-            <div class='stat-label'>With Email</div>
-        </div>
-        <div class='stat-item'>
-            <div class='stat-number'>{candidates.Count(c => !string.IsNullOrEmpty(c.Phone))}</div>
-            <div class='stat-label'>With Phone</div>
-        </div>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th><i class='fas fa-hashtag'></i> ID</th>
-                <th><i class='fas fa-user'></i> Full Name</th>
-                <th><i class='fas fa-envelope'></i> Email</th>
-                <th><i class='fas fa-phone'></i> Phone</th>
-            </tr>
-        </thead>
-        <tbody>";
-
-            foreach (var candidate in candidates)
-            {
-                html += $@"
-            <tr>
-                <td><strong>{candidate.Id}</strong></td>
-                <td>{candidate.FullName}</td>
-                <td>{candidate.Email}</td>
-                <td>{candidate.Phone}</td>
-            </tr>";
-            }
-
-            html += $@"
-        </tbody>
-    </table>
-    
-    <div class='footer'>
-        <div class='logo-section'>
-            <div class='logo-placeholder'>RECRUITMENT MODULE</div>
-            <p><strong>Recruitment Management System</strong></p>
-            <p>Professional Recruitment & Candidate Management</p>
-            <p style='margin-top: 15px; font-size: 11px; color: #999;'>
-                Generated on {DateTime.Now:yyyy-MM-dd at HH:mm:ss} | Page 1 of 1
-            </p>
-        </div>
-        <p style='margin-top: 20px;'>
-            <strong>Confidential Document</strong> - For Internal Use Only
-        </p>
-        <p style='font-size: 10px; margin-top: 10px;'>
-            {DateTime.Now.Year} HR Management System. All rights reserved.
-        </p>
-    </div>
-</body>
-</html>";
-
-            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
-            File.Move(filePath.Replace(".pdf", ".html"), filePath);
-        }
-
-        private string GenerateApplicationReport(Report report, string generatedBy, string format = "csv")
-        {
-            var applications = _uow.Applications.GetAll(a => a.Applicant, a => a.Position).ToList();
-            var fileName = $"Applications_{DateTime.Now:yyyyMMdd_HHmmss}.{format.ToLower()}";
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", fileName);
+            var candidates = _uow.Applicants.GetAll().ToList();
+            var html = GetReportHeader("Candidates Report", "Detailed analysis of applicant profiles", "#3498db", "#2980b9");
             
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            
-            if (format.ToLower() == "pdf")
+            int firstPageLimit = 7;
+            int otherPageLimit = 10;
+            int total = candidates.Count;
+            int processed = 0;
+            int pageNum = 1;
+
+            while (processed < total)
             {
-                GenerateApplicationPDF(applications, filePath, generatedBy);
-            }
-            else
-            {
-                GenerateApplicationCSV(applications, filePath);
+                int limit = (pageNum == 1) ? firstPageLimit : otherPageLimit;
+                var pageItems = candidates.Skip(processed).Take(limit).ToList();
+                
+                html += "<div class='report-frame'>";
+                
+                if (pageNum == 1)
+                {
+                    html += @"<div class='report-header-box'>
+                                <h1>Candidates Report</h1>
+                                <p>Detailed analysis of applicant profiles</p>
+                            </div>";
+                    html += GetReportMeta(generatedBy, "RPT-CAND-" + DateTime.Now.ToString("yyyyMMdd"));
+                    html += $@"
+                        <div class='stats-grid'>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value'>{total}</span>
+                                <span class='stat-label'>Total Candidates</span>
+                            </div>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value'>{candidates.Count(c => !string.IsNullOrEmpty(c.Email))}</span>
+                                <span class='stat-label'>With Email</span>
+                            </div>
+                        </div>";
+                }
+                else
+                {
+                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                }
+
+                html += @"<div style='padding: 0 40px 40px 40px;'>
+                            <table class='report-table'>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Full Name</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                foreach (var c in pageItems)
+                {
+                    html += $@"
+                    <tr>
+                        <td><strong>#{c.Id}</strong></td>
+                        <td>{c.FullName}</td>
+                        <td>{c.Email}</td>
+                        <td>{c.Phone}</td>
+                    </tr>";
+                }
+
+                html += "</tbody></table>" + GetPageFooter() + "</div></div>";
+                
+                processed += limit;
+                pageNum++;
+                
+                if (processed < total)
+                {
+                    html += "<div class='page-break'></div>";
+                }
             }
 
-            return filePath;
+            html += GetReportFooter();
+            return html;
         }
 
         private void GenerateApplicationCSV(List<Application> applications, string filePath)
@@ -334,287 +419,96 @@ namespace HR.Web.Services
             }
         }
 
-        private void GenerateApplicationPDF(List<Application> applications, string filePath, string generatedBy)
+        private string GenerateApplicationPDF(string generatedBy)
         {
-            var html = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Applications Report</title>
-    <style>
-        @page {{
-            margin: 2cm;
-            size: A4;
-        }}
-        body {{ 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-            color: #2c3e50;
-        }}
-        .header {{
-            text-align: center;
-            border-bottom: 3px solid #e74c3c;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }}
-        .header h1 {{
-            margin: 0;
-            font-size: 28px;
-            font-weight: 300;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }}
-        .header p {{
-            margin: 5px 0 0 0;
-            opacity: 0.9;
-            font-size: 14px;
-        }}
-        .report-info {{
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border-left: 4px solid #e74c3c;
-        }}
-        .report-info strong {{
-            color: #2c3e50;
-        }}
-        table {{ 
-            border-collapse: collapse; 
-            width: 100%; 
-            margin-top: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            overflow: hidden;
-        }}
-        th {{ 
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: white;
-            padding: 15px 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }}
-        td {{ 
-            border: 1px solid #e9ecef;
-            padding: 12px;
-            text-align: left;
-            font-size: 13px;
-        }}
-        tr:nth-child(even) {{ 
-            background-color: #f8f9fa; 
-        }}
-        tr:hover {{ 
-            background-color: #ffebee;
-            transition: background-color 0.3s ease;
-        }}
-        .footer {{ 
-            margin-top: 40px;
-            padding: 30px 0;
-            border-top: 2px solid #e74c3c;
-            text-align: center;
-            font-size: 12px;
-            color: #6c757d;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }}
-        .logo-section {{
-            margin-top: 20px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .logo-placeholder {{
-            width: 120px;
-            height: 60px;
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            margin: 10px auto;
-        }}
-        .stats {{
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }}
-        .stat-item {{
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-width: 120px;
-            margin: 5px;
-        }}
-        .stat-number {{
-            font-size: 24px;
-            font-weight: bold;
-            color: #e74c3c;
-        }}
-        .stat-label {{
-            font-size: 12px;
-            color: #6c757d;
-            margin-top: 5px;
-        }}
-        .watermark {{
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 72px;
-            color: rgba(231, 76, 60, 0.1);
-            font-weight: bold;
-            z-index: -1;
-            pointer-events: none;
-        }}
-        .status-badge {{
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }}
-        .status-pending {{ background: #fff3cd; color: #856404; }}
-        .status-approved {{ background: #d4edda; color: #155724; }}
-        .status-rejected {{ background: #f8d7da; color: #721c24; }}
-    </style>
-</head>
-<body>
-    <div class='watermark'>RECRUITMENT MODULE</div>
-    
-    <div class='header'>
-        <h1><i class='fas fa-file-alt'></i> Applications Report</h1>
-        <p>Job Applications Status & Analysis</p>
-    </div>
-    
-    <div class='report-info'>
-        <p><strong>Generated on:</strong> {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-        <p><strong>Generated by:</strong> {generatedBy}</p>
-        <p><strong>Report ID:</strong> RPT-APP-{DateTime.Now:yyyyMMddHHmmss}</p>
-    </div>
+            var applications = _uow.Applications.GetAll(a => a.Applicant, a => a.Position).ToList();
+            var html = GetReportHeader("Applications Report", "Track job application statuses and performance", "#e74c3c", "#c0392b");
+            
+            int firstPageLimit = 7;
+            int otherPageLimit = 10;
+            int total = applications.Count;
+            int processed = 0;
+            int pageNum = 1;
 
-    <div class='stats'>
-        <div class='stat-item'>
-            <div class='stat-number'>{applications.Count}</div>
-            <div class='stat-label'>Total Applications</div>
-        </div>
-        <div class='stat-item'>
-            <div class='stat-number'>{applications.Count(a => a.Status == "Pending")}</div>
-            <div class='stat-label'>Pending</div>
-        </div>
-        <div class='stat-item'>
-            <div class='stat-number'>{applications.Count(a => a.Status == "Approved")}</div>
-            <div class='stat-label'>Approved</div>
-        </div>
-        <div class='stat-item'>
-            <div class='stat-number'>{applications.Count(a => a.Status == "Rejected")}</div>
-            <div class='stat-label'>Rejected</div>
-        </div>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th><i class='fas fa-hashtag'></i> ID</th>
-                <th><i class='fas fa-user'></i> Applicant</th>
-                <th><i class='fas fa-briefcase'></i> Position</th>
-                <th><i class='fas fa-info-circle'></i> Status</th>
-                <th><i class='fas fa-calendar'></i> Applied Date</th>
-                <th><i class='fas fa-star'></i> Score</th>
-            </tr>
-        </thead>
-        <tbody>";
-
-            foreach (var app in applications)
+            while (processed < total)
             {
-                var statusClass = "status-default";
-                if (!string.IsNullOrEmpty(app.Status))
-                {
-                    switch (app.Status.ToLower())
-                    {
-                        case "pending":
-                            statusClass = "status-pending";
-                            break;
-                        case "approved":
-                            statusClass = "status-approved";
-                            break;
-                        case "rejected":
-                            statusClass = "status-rejected";
-                            break;
-                    }
-                }
+                int limit = (pageNum == 1) ? firstPageLimit : otherPageLimit;
+                var pageItems = applications.Skip(processed).Take(limit).ToList();
                 
-                html += $@"
-            <tr>
-                <td><strong>{app.Id}</strong></td>
-                <td>{app.Applicant.FullName}</td>
-                <td>{app.Position.Title}</td>
-                <td><span class='status-badge {statusClass}'>{app.Status}</span></td>
-                <td>{app.AppliedOn:yyyy-MM-dd}</td>
-                <td>{app.Score}</td>
-            </tr>";
+                html += "<div class='report-frame'>";
+                
+                if (pageNum == 1)
+                {
+                    html += @"<div class='report-header-box' style='background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);'>
+                                <h1>Applications Report</h1>
+                                <p>Track job application statuses and performance</p>
+                            </div>";
+                    html += GetReportMeta(generatedBy, "RPT-APP-" + DateTime.Now.ToString("yyyyMMdd"));
+                    html += $@"
+                        <div class='stats-grid'>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value' style='color:#e74c3c'>{total}</span>
+                                <span class='stat-label'>Total Apps</span>
+                            </div>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value' style='color:#e74c3c'>{applications.Count(a => a.Status == "Approved")}</span>
+                                <span class='stat-label'>Approved</span>
+                            </div>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value' style='color:#e74c3c'>{applications.Count(a => a.Status == "Pending")}</span>
+                                <span class='stat-label'>Pending</span>
+                            </div>
+                        </div>";
+                }
+                else
+                {
+                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                }
+
+                html += @"<div style='padding: 0 40px 40px 40px;'>
+                            <table class='report-table'>
+                                <thead>
+                                    <tr style='background-color:#e74c3c'>
+                                        <th>ID</th>
+                                        <th>Applicant</th>
+                                        <th>Position</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                foreach (var a in pageItems)
+                {
+                    var badge = "badge-warning";
+                    if (a.Status == "Approved") badge = "badge-success";
+                    else if (a.Status == "Rejected") badge = "badge-danger";
+
+                    html += $@"
+                    <tr>
+                        <td><strong>#{a.Id}</strong></td>
+                        <td>{(a.Applicant != null ? a.Applicant.FullName : "N/A")}</td>
+                        <td>{(a.Position != null ? a.Position.Title : "N/A")}</td>
+                        <td><span class='status-badge {badge}'>{a.Status}</span></td>
+                        <td>{a.AppliedOn:yyyy-MM-dd}</td>
+                        <td>{a.Score}</td>
+                    </tr>";
+                }
+
+                html += "</tbody></table>" + GetPageFooter() + "</div></div>";
+                
+                processed += limit;
+                pageNum++;
+                
+                if (processed < total)
+                {
+                    html += "<div class='page-break'></div>";
+                }
             }
 
-            html += $@"
-        </tbody>
-    </table>
-    
-    <div class='footer'>
-        <div class='logo-section'>
-            <div class='logo-placeholder'>RECRUITMENT MODULE</div>
-            <p><strong>Recruitment Management System</strong></p>
-            <p>Professional Application Tracking & Management</p>
-            <p style='margin-top: 15px; font-size: 11px; color: #999;'>
-                Generated on {DateTime.Now:yyyy-MM-dd at HH:mm:ss} | Page 1 of 1
-            </p>
-        </div>
-        <p style='margin-top: 20px;'>
-            <strong>Confidential Document</strong> - For Internal Use Only
-        </p>
-        <p style='font-size: 10px; margin-top: 10px;'>
-            © {DateTime.Now.Year} Recruitment Management System. All rights reserved.
-        </p>
-    </div>
-</body>
-</html>";
-
-            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
-            File.Move(filePath.Replace(".pdf", ".html"), filePath);
-        }
-
-        private string GenerateInterviewReport(Report report, string generatedBy, string format = "csv")
-        {
-            var interviews = _uow.Interviews.GetAll().ToList();
-            var fileName = $"Interviews_{DateTime.Now:yyyyMMdd_HHmmss}.{format.ToLower()}";
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", fileName);
-            
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            
-            if (format.ToLower() == "pdf")
-            {
-                GenerateInterviewPDF(interviews, filePath, generatedBy);
-            }
-            else
-            {
-                GenerateInterviewCSV(interviews, filePath);
-            }
-
-            return filePath;
+            html += GetReportFooter();
+            return html;
         }
 
         private void GenerateInterviewCSV(List<Interview> interviews, string filePath)
@@ -629,86 +523,86 @@ namespace HR.Web.Services
             }
         }
 
-        private void GenerateInterviewPDF(List<Interview> interviews, string filePath, string generatedBy)
+        private string GenerateInterviewPDF(string generatedBy)
         {
-            var html = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Interviews Report</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        h1 {{ color: #2c3e50; }}
-        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-        th {{ background-color: #f2f2f2; }}
-        .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <h1>Interviews Report</h1>
-    <p>Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-    <p>Generated by: {generatedBy}</p>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Application ID</th>
-                <th>Interviewer ID</th>
-                <th>Scheduled Date</th>
-                <th>Mode</th>
-                <th>Notes</th>
-            </tr>
-        </thead>
-        <tbody>";
-
-            foreach (var interview in interviews)
-            {
-                html += $@"
-            <tr>
-                <td>{interview.Id}</td>
-                <td>{interview.ApplicationId}</td>
-                <td>{interview.InterviewerId}</td>
-                <td>{interview.ScheduledAt:yyyy-MM-dd HH:mm}</td>
-                <td>{interview.Mode}</td>
-                <td>{interview.Notes}</td>
-            </tr>";
-            }
-
-            html += @"
-        </tbody>
-    </table>
-    
-    <div class='footer'>
-        <p>Total Interviews: " + interviews.Count + @"</p>
-        <p>Recruitment Module - Generated Report</p>
-    </div>
-</body>
-</html>";
-
-            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
-            File.Move(filePath.Replace(".pdf", ".html"), filePath);
-        }
-
-        private string GenerateDepartmentReport(Report report, string generatedBy, string format = "csv")
-        {
-            var departments = _uow.Departments.GetAll(d => d.Positions).ToList();
-            var fileName = $"Departments_{DateTime.Now:yyyyMMdd_HHmmss}.{format.ToLower()}";
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", fileName);
+            var interviews = _uow.Interviews.GetAll().ToList();
+            var html = GetReportHeader("Interviews Report", "Scheduled candidate assessments and feedback", "#9b59b6", "#8e44ad");
             
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            
-            if (format.ToLower() == "pdf")
+            int firstPageLimit = 7;
+            int otherPageLimit = 10;
+            int total = interviews.Count;
+            int processed = 0;
+            int pageNum = 1;
+
+            while (processed < total)
             {
-                GenerateDepartmentPDF(departments, filePath, generatedBy);
-            }
-            else
-            {
-                GenerateDepartmentCSV(departments, filePath);
+                int limit = (pageNum == 1) ? firstPageLimit : otherPageLimit;
+                var pageItems = interviews.Skip(processed).Take(limit).ToList();
+                
+                html += "<div class='report-frame'>";
+                
+                if (pageNum == 1)
+                {
+                    html += @"<div class='report-header-box' style='background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);'>
+                                <h1>Interviews Report</h1>
+                                <p>Scheduled candidate assessments and feedback</p>
+                            </div>";
+                    html += GetReportMeta(generatedBy, "RPT-INT-" + DateTime.Now.ToString("yyyyMMdd"));
+                    html += $@"
+                        <div class='stats-grid'>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value' style='color:#9b59b6'>{total}</span>
+                                <span class='stat-label'>Total Interviews</span>
+                            </div>
+                            <div class='stat-card-cell'>
+                                <span class='stat-value' style='color:#9b59b6'>{interviews.Count(i => i.ScheduledAt > DateTime.Now)}</span>
+                                <span class='stat-label'>Upcoming</span>
+                            </div>
+                        </div>";
+                }
+                else
+                {
+                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                }
+
+                html += @"<div style='padding: 0 40px 40px 40px;'>
+                            <table class='report-table'>
+                                <thead>
+                                    <tr style='background-color:#9b59b6'>
+                                        <th>ID</th>
+                                        <th>App ID</th>
+                                        <th>Scheduled Date</th>
+                                        <th>Mode</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                foreach (var i in pageItems)
+                {
+                    html += $@"
+                    <tr>
+                        <td><strong>#{i.Id}</strong></td>
+                        <td>#{i.ApplicationId}</td>
+                        <td>{i.ScheduledAt:yyyy-MM-dd HH:mm}</td>
+                        <td>{i.Mode}</td>
+                        <td>{i.Notes}</td>
+                    </tr>";
+                }
+
+                html += "</tbody></table>" + GetPageFooter() + "</div></div>";
+                
+                processed += limit;
+                pageNum++;
+                
+                if (processed < total)
+                {
+                    html += "<div class='page-break'></div>";
+                }
             }
 
-            return filePath;
+            html += GetReportFooter();
+            return html;
         }
 
         private void GenerateDepartmentCSV(List<Department> departments, string filePath)
@@ -723,76 +617,77 @@ namespace HR.Web.Services
             }
         }
 
-        private void GenerateDepartmentPDF(List<Department> departments, string filePath, string generatedBy)
+        private string GenerateDepartmentPDF(string generatedBy)
         {
-            var html = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Departments Report</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        h1 {{ color: #2c3e50; }}
-        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-        th {{ background-color: #f2f2f2; }}
-        .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <h1>Departments Report</h1>
-    <p>Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-    <p>Generated by: {generatedBy}</p>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Position Count</th>
-            </tr>
-        </thead>
-        <tbody>";
+            var departments = _uow.Departments.GetAll(d => d.Positions).ToList();
+            var html = GetReportHeader("Departments Report", "Organizational structure and allocation", "#1abc9c", "#16a085");
+            
+            int firstPageLimit = 7;
+            int otherPageLimit = 10;
+            int total = departments.Count;
+            int processed = 0;
+            int pageNum = 1;
 
-            foreach (var dept in departments)
+            while (processed < total)
             {
-                html += $@"
-            <tr>
-                <td>{dept.Id}</td>
-                <td>{dept.Name}</td>
-                <td>{dept.Description}</td>
-                <td>{dept.Positions?.Count ?? 0}</td>
-            </tr>";
+                int limit = (pageNum == 1) ? firstPageLimit : otherPageLimit;
+                var pageItems = departments.Skip(processed).Take(limit).ToList();
+                
+                html += "<div class='report-frame'>";
+                
+                if (pageNum == 1)
+                {
+                    html += @"<div class='report-header-box' style='background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);'>
+                                <h1>Departments Report</h1>
+                                <p>Organizational structure and allocation</p>
+                            </div>";
+                    html += GetReportMeta(generatedBy, "RPT-DEPT-" + DateTime.Now.ToString("yyyyMMdd"));
+                }
+                else
+                {
+                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                }
+
+                html += @"<div style='padding: 0 40px 40px 40px;'>
+                            <table class='report-table'>
+                                <thead>
+                                    <tr style='background-color:#1abc9c'>
+                                        <th>ID</th>
+                                        <th>Department Name</th>
+                                        <th>Description</th>
+                                        <th>Open Positions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                foreach (var d in pageItems)
+                {
+                    html += $@"
+                    <tr>
+                        <td><strong>#{d.Id}</strong></td>
+                        <td>{d.Name}</td>
+                        <td>{d.Description}</td>
+                        <td>{d.Positions?.Count ?? 0}</td>
+                    </tr>";
+                }
+
+                html += "</tbody></table>" + GetPageFooter() + "</div></div>";
+                
+                processed += limit;
+                pageNum++;
+                
+                if (processed < total)
+                {
+                    html += "<div class='page-break'></div>";
+                }
             }
 
-            html += @"
-        </tbody>
-    </table>
-    
-    <div class='footer'>
-        <p>Total Departments: " + departments.Count + @"</p>
-        <p>Recruitment Module - Generated Report</p>
-    </div>
-</body>
-</html>";
-
-            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
-            File.Move(filePath.Replace(".pdf", ".html"), filePath);
+            html += GetReportFooter();
+            return html;
         }
 
-        private string GeneratePositionReport(Report report, string generatedBy, string format = "csv")
+        private void GeneratePositionCSV(List<Position> positions, string filePath)
         {
-            var positions = _uow.Positions.GetAll(p => p.Department, p => p.Applications).ToList();
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", $"Positions_{DateTime.Now:yyyyMMdd_HHmmss}.{format}");
-
-            if (format.ToLower() == "pdf")
-            {
-                GeneratePositionPDF(positions, filePath, generatedBy);
-                return filePath;
-            }
-
-            // CSV generation (existing logic)
             using (var writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("ID,Title,Department,SalaryMin,SalaryMax,Currency,Location,ApplicationsCount");
@@ -801,22 +696,81 @@ namespace HR.Web.Services
                     writer.WriteLine($"{position.Id},{position.Title},{position.Department?.Name},{position.SalaryMin},{position.SalaryMax},{position.Currency},{position.Location},{position.Applications?.Count ?? 0}");
                 }
             }
-            return filePath;
         }
 
-        private string GenerateSecurityReport(Report report, string generatedBy, string format = "csv")
+        private string GeneratePositionPDF(string generatedBy)
         {
-            var auditLogs = _uow.AuditLogs.GetAll().ToList();
-            var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", $"Security_{DateTime.Now:yyyyMMdd_HHmmss}.{format}");
+            var positions = _uow.Positions.GetAll(p => p.Department).ToList();
+            var html = GetReportHeader("Positions Report", "Job vacancy listings and budget overview", "#2ecc71", "#27ae60");
             
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            
-            if (format.ToLower() == "pdf")
+            int firstPageLimit = 7;
+            int otherPageLimit = 10;
+            int total = positions.Count;
+            int processed = 0;
+            int pageNum = 1;
+
+            while (processed < total)
             {
-                GenerateSecurityPDF(auditLogs, filePath, generatedBy);
-                return filePath;
+                int limit = (pageNum == 1) ? firstPageLimit : otherPageLimit;
+                var pageItems = positions.Skip(processed).Take(limit).ToList();
+                
+                html += "<div class='report-frame'>";
+                
+                if (pageNum == 1)
+                {
+                    html += @"<div class='report-header-box' style='background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);'>
+                                <h1>Positions Report</h1>
+                                <p>Job vacancy listings and budget overview</p>
+                            </div>";
+                    html += GetReportMeta(generatedBy, "RPT-POS-" + DateTime.Now.ToString("yyyyMMdd"));
+                }
+                else
+                {
+                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                }
+
+                html += @"<div style='padding: 0 40px 40px 40px;'>
+                            <table class='report-table'>
+                                <thead>
+                                    <tr style='background-color:#2ecc71'>
+                                        <th>ID</th>
+                                        <th>Job Title</th>
+                                        <th>Department</th>
+                                        <th>Salary Range</th>
+                                        <th>Location</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                foreach (var p in pageItems)
+                {
+                    html += $@"
+                    <tr>
+                        <td><strong>#{p.Id}</strong></td>
+                        <td>{p.Title}</td>
+                        <td>{(p.Department != null ? p.Department.Name : "N/A")}</td>
+                        <td>{(p.Currency ?? "KES")} {p.SalaryMin:N0} - {p.SalaryMax:N0}</td>
+                        <td>{p.Location}</td>
+                    </tr>";
+                }
+
+                html += "</tbody></table>" + GetPageFooter() + "</div></div>";
+                
+                processed += limit;
+                pageNum++;
+                
+                if (processed < total)
+                {
+                    html += "<div class='page-break'></div>";
+                }
             }
-            
+
+            html += GetReportFooter();
+            return html;
+        }
+
+        private void GenerateSecurityCSV(List<AuditLog> auditLogs, string filePath)
+        {
             using (var writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("ID,Username,Action,Controller,Timestamp,IPAddress");
@@ -825,100 +779,77 @@ namespace HR.Web.Services
                     writer.WriteLine($"{log.Id},{log.Username},{log.Action},{log.Controller},{log.Timestamp:yyyy-MM-dd HH:mm},{log.IPAddress}");
                 }
             }
-
-            return filePath;
         }
 
-        private void GeneratePositionPDF(List<Position> positions, string filePath, string generatedBy)
+        private string GenerateSecurityPDF(string generatedBy)
         {
-            var html = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Positions Report</title>
-    <style>
-        @page {{ margin: 2cm; size: A4; }}
-        body {{ font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }}
-        .header {{ text-align: center; background: #28a745; color: white; padding: 30px; border-radius: 10px; }}
-        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-        th {{ background: #28a745; color: white; padding: 10px; }}
-        td {{ border: 1px solid #ddd; padding: 8px; }}
-    </style>
-</head>
-<body>
-    <div class='header'>
-        <h1>Positions Report</h1>
-        <p>Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-    </div>
-    <table>
-        <tr><th>ID</th><th>Title</th><th>Department</th><th>Salary Range</th><th>Location</th></tr>";
+            var auditLogs = _uow.AuditLogs.GetAll().OrderByDescending(l => l.Timestamp).Take(200).ToList();
+            var html = GetReportHeader("Security & Audit Report", "Log of critical system actions and access", "#34495e", "#2c3e50");
+            
+            int firstPageLimit = 7;
+            int otherPageLimit = 10;
+            int total = auditLogs.Count;
+            int processed = 0;
+            int pageNum = 1;
 
-            foreach (var position in positions)
+            while (processed < total)
             {
-                var salaryRange = $"{position.Currency ?? "KES"} {position.SalaryMin:N0} - {position.SalaryMax:N0}";
-                html += $@"
-        <tr>
-            <td>{position.Id}</td>
-            <td>{position.Title}</td>
-            <td>{position.Department?.Name}</td>
-            <td>{salaryRange}</td>
-            <td>{position.Location}</td>
-        </tr>";
+                int limit = (pageNum == 1) ? firstPageLimit : otherPageLimit;
+                var pageItems = auditLogs.Skip(processed).Take(limit).ToList();
+                
+                html += "<div class='report-frame'>";
+                
+                if (pageNum == 1)
+                {
+                    html += @"<div class='report-header-box' style='background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);'>
+                                <h1>Security Audit Report</h1>
+                                <p>Log of critical system actions and access</p>
+                            </div>";
+                    html += GetReportMeta(generatedBy, "RPT-SEC-" + DateTime.Now.ToString("yyyyMMdd"));
+                }
+                else
+                {
+                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                }
+
+                html += @"<div style='padding: 0 40px 40px 40px;'>
+                            <table class='report-table'>
+                                <thead>
+                                    <tr style='background-color:#34495e'>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Action</th>
+                                        <th>Module</th>
+                                        <th>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                foreach (var l in pageItems)
+                {
+                    html += $@"
+                    <tr>
+                        <td>{l.Timestamp:yyyy-MM-dd HH:mm}</td>
+                        <td><strong>{l.Username}</strong></td>
+                        <td>{l.Action}</td>
+                        <td>{l.Controller}</td>
+                        <td>{l.IPAddress}</td>
+                    </tr>";
+                }
+
+                html += "</tbody></table>" + GetPageFooter() + "</div></div>";
+                
+                processed += limit;
+                pageNum++;
+                
+                if (processed < total)
+                {
+                    html += "<div class='page-break'></div>";
+                }
             }
 
-            html += @"
-    </table>
-</body>
-</html>";
-
-            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
-            File.Move(filePath.Replace(".pdf", ".html"), filePath);
-        }
-
-        private void GenerateSecurityPDF(List<AuditLog> auditLogs, string filePath, string generatedBy)
-        {
-            var html = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Security Report</title>
-    <style>
-        @page {{ margin: 2cm; size: A4; }}
-        body {{ font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }}
-        .header {{ text-align: center; background: #dc3545; color: white; padding: 30px; border-radius: 10px; }}
-        table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-        th {{ background: #dc3545; color: white; padding: 10px; }}
-        td {{ border: 1px solid #ddd; padding: 8px; }}
-    </style>
-</head>
-<body>
-    <div class='header'>
-        <h1>Security Report</h1>
-        <p>Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-    </div>
-    <table>
-        <tr><th>ID</th><th>Username</th><th>Action</th><th>Controller</th><th>Timestamp</th><th>IP Address</th></tr>";
-
-            foreach (var log in auditLogs.Take(100))
-            {
-                html += $@"
-        <tr>
-            <td>{log.Id}</td>
-            <td>{log.Username}</td>
-            <td>{log.Action}</td>
-            <td>{log.Controller}</td>
-            <td>{log.Timestamp:yyyy-MM-dd HH:mm}</td>
-            <td>{log.IPAddress}</td>
-        </tr>";
-            }
-
-            html += @"
-    </table>
-</body>
-</html>";
-
-            File.WriteAllText(filePath.Replace(".pdf", ".html"), html);
-            File.Move(filePath.Replace(".pdf", ".html"), filePath);
+            html += GetReportFooter();
+            return html;
         }
 
         public List<Report> GetActiveReports()

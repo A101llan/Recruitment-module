@@ -8,6 +8,7 @@ using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
+    [Authorize(Roles = "Admin")]
     public class ReportGeneratorController : Controller
     {
         private readonly ReportService _reportService = new ReportService();
@@ -45,6 +46,30 @@ namespace HR.Web.Controllers
             }
         }
 
+        // POST: ReportGenerator/Preview
+        [HttpPost]
+        public ActionResult Preview(string reportType)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(reportType))
+                {
+                    return Json(new { success = false, message = "Please select a report type" });
+                }
+
+                var html = _reportService.PreviewReportByType(reportType, User.Identity.Name);
+                
+                return Json(new { 
+                    success = true, 
+                    html = html
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error generating preview: {ex.Message}" });
+            }
+        }
+
         // GET: ReportGenerator/Download?fileName=...
         public ActionResult Download(string fileName)
         {
@@ -61,7 +86,14 @@ namespace HR.Web.Controllers
                     return HttpNotFound();
                 }
 
-                return File(filePath, "text/csv", fileName);
+                string extension = Path.GetExtension(fileName).ToLower();
+                string contentType = "application/octet-stream";
+                
+                if (extension == ".csv") contentType = "text/csv";
+                else if (extension == ".pdf") contentType = "application/pdf";
+                else if (extension == ".html") contentType = "text/html";
+
+                return File(filePath, contentType, fileName);
             }
             catch
             {

@@ -21,6 +21,13 @@ namespace HR.Web.Controllers
         private readonly SecurityService _securityService = new SecurityService();
         private readonly AuditService _auditService = new AuditService();
 
+        // GET: Admin/Index - Default admin dashboard
+        public ActionResult Index()
+        {
+            // Redirect to user management as the default admin page
+            return RedirectToAction("UserManagement");
+        }
+
         /// <summary>
         /// Display candidates ranked by position with filtering capability
         /// 
@@ -494,6 +501,57 @@ namespace HR.Web.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
+        public ActionResult ExportQuestionBank()
+        {
+            try
+            {
+                var questions = _uow.Questions.GetAll().ToList();
+                var csv = new System.Text.StringBuilder();
+                
+                // CSV Header
+                csv.AppendLine("ID,Question Text,Question Type,Status,Created Date");
+                
+                // CSV Data
+                foreach (var question in questions)
+                {
+                    var status = question.IsActive != false ? "Active" : "Inactive";
+                    var createdDate = ""; // Question model doesn't have CreatedDate property
+                    
+                    // Escape commas and quotes in question text
+                    var questionText = question.Text?.Replace("\"", "\"\"") ?? "";
+                    if (questionText.Contains(","))
+                    {
+                        questionText = $"\"{questionText}\"";
+                    }
+                    
+                    csv.AppendLine($"{question.Id},{questionText},{question.Type},{status},{createdDate}");
+                }
+                
+                // Create audit log entry for export
+                _auditService.LogAction(User.Identity.Name, "EXPORT_QUESTION_BANK", "Admin", 
+                    questions.Count.ToString(), 
+                    new { ExportedCount = questions.Count, Format = "CSV" });
+                
+                return Json(new { 
+                    success = true, 
+                    data = csv.ToString(), 
+                    message = $"Successfully exported {questions.Count} questions." 
+                });
+            }
+            catch (Exception ex)
+            {
+                // Create audit log entry for failed export
+                _auditService.LogAction(User.Identity.Name, "EXPORT_QUESTION_BANK", "Admin", 
+                    "0", 
+                    wasSuccessful: false, errorMessage: ex.Message);
+                
+                return Json(new { success = false, message = "Error exporting question bank: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
         public ActionResult AddToSampleQuestions(string questionsJson)
         {
             try
@@ -563,11 +621,6 @@ namespace HR.Web.Controllers
             }
         }
 
-        public ActionResult TestQuestions()
-        {
-            // Return a simple response to verify routing works without a view dependency
-            return Content("Test Works");
-        }
 
         #region User Management
 

@@ -11,8 +11,7 @@ using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
-[Authorize]
-public class ApplicationsController : Controller
+    public class ApplicationsController : Controller
 {
     private readonly UnitOfWork _uow = new UnitOfWork();
     private readonly IStorageService _storage = new StorageService();
@@ -85,9 +84,17 @@ public class ApplicationsController : Controller
     }
 
     // Questionnaire for position application
-    [Authorize]
     public ActionResult Questionnaire(int positionId)
     {
+        // Check if user is authenticated
+        if (User == null || !User.Identity.IsAuthenticated)
+        {
+            // Store the position they want to apply for
+            TempData["ReturnUrl"] = Request.Url?.ToString();
+            TempData["ApplicationMessage"] = "Please register or login to apply for this position.";
+            return RedirectToAction("Register", "Account");
+        }
+
         var position = _uow.Positions.GetAll(p => p.PositionQuestions.Select(pq => pq.Question).Select(q => q.QuestionOptions))
             .FirstOrDefault(p => p.Id == positionId);
         if (position == null)
@@ -407,7 +414,6 @@ public class ApplicationsController : Controller
         return RedirectToAction("Index", "Positions");
     }
 
-        [Authorize]
         public ActionResult Index()
         {
             // If the user is Admin or HR, show all applications
@@ -456,8 +462,17 @@ public class ApplicationsController : Controller
 
         public ActionResult Create(int? positionId)
         {
+            // Check if user is authenticated
+            if (User == null || !User.Identity.IsAuthenticated)
+            {
+                // Store the position they want to apply for
+                TempData["ReturnUrl"] = Request.Url?.ToString();
+                TempData["ApplicationMessage"] = "Please register or login to apply for this position.";
+                return RedirectToAction("Register", "Account");
+            }
+
             // If the user is authenticated and not Admin/HR, attempt to preselect their Applicant record
-            if (User != null && User.Identity != null && User.Identity.IsAuthenticated && !User.IsInRole("Admin"))
+            if (!User.IsInRole("Admin"))
             {
                 var user = _uow.Users.GetAll().FirstOrDefault(u => u.UserName == User.Identity.Name);
                 if (user != null)
