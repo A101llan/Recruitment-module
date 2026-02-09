@@ -12,11 +12,17 @@ namespace HR.Web.Services
 
         public class GeneratedQuestion
         {
-            public string Id { get; set; } = Guid.NewGuid().ToString();
+            public GeneratedQuestion()
+            {
+                Id = Guid.NewGuid().ToString();
+                Options = new List<QuestionOption>();
+            }
+
+            public string Id { get; set; }
             public string Text { get; set; }
             public string Type { get; set; } // Text, Choice, Number, Rating
             public string Category { get; set; }
-            public List<QuestionOption> Options { get; set; } = new List<QuestionOption>();
+            public List<QuestionOption> Options { get; set; }
             public int Difficulty { get; set; } // 1-5
             public int MaxPoints { get; set; }
         }
@@ -29,22 +35,37 @@ namespace HR.Web.Services
 
         public class QuestionGenerationResult
         {
+            public QuestionGenerationResult()
+            {
+                Questions = new List<GeneratedQuestion>();
+                Metadata = new Dictionary<string, object>();
+            }
+
             public bool Success { get; set; }
-            public List<GeneratedQuestion> Questions { get; set; } = new List<GeneratedQuestion>();
-            public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
+            public List<GeneratedQuestion> Questions { get; set; }
+            public Dictionary<string, object> Metadata { get; set; }
             public string Message { get; set; }
         }
 
         public class JobAnalysis
         {
+            public JobAnalysis()
+            {
+                TechnicalSkills = new List<string>();
+                SoftSkills = new List<string>();
+                Responsibilities = new List<string>();
+                Qualifications = new List<string>();
+                KeyTerms = new List<string>();
+            }
+
             public string JobTitle { get; set; }
             public string SeniorityLevel { get; set; }
-            public List<string> TechnicalSkills { get; set; } = new List<string>();
-            public List<string> SoftSkills { get; set; } = new List<string>();
-            public List<string> Responsibilities { get; set; } = new List<string>();
-            public List<string> Qualifications { get; set; } = new List<string>();
+            public List<string> TechnicalSkills { get; set; }
+            public List<string> SoftSkills { get; set; }
+            public List<string> Responsibilities { get; set; }
+            public List<string> Qualifications { get; set; }
             public string Industry { get; set; }
-            public List<string> KeyTerms { get; set; } = new List<string>();
+            public List<string> KeyTerms { get; set; }
         }
 
         public QuestionGenerationResult GenerateQuestions(
@@ -93,14 +114,14 @@ namespace HR.Web.Services
                     Questions = questions,
                     Metadata = new Dictionary<string, object>
                     {
-                        ["jobTitle"] = jobTitle,
-                        ["experience"] = experience,
-                        ["questionCount"] = questions.Count,
-                        ["generatedAt"] = DateTime.UtcNow.ToString("O"),
-                        ["analysis"] = analysis,
-                        ["distribution"] = questionDistribution
+                        { "jobTitle", jobTitle },
+                        { "experience", experience },
+                        { "questionCount", questions.Count },
+                        { "generatedAt", DateTime.UtcNow.ToString("O") },
+                        { "analysis", analysis },
+                        { "distribution", questionDistribution }
                     },
-                    Message = $"Successfully generated {questions.Count} dynamic questions"
+                    Message = string.Format("Successfully generated {0} dynamic questions", questions.Count)
                 };
             }
             catch (Exception ex)
@@ -108,7 +129,7 @@ namespace HR.Web.Services
                 return new QuestionGenerationResult
                 {
                     Success = false,
-                    Message = $"Error generating questions: {ex.Message}"
+                    Message = "Error generating questions: " + ex.Message
                 };
             }
         }
@@ -117,12 +138,12 @@ namespace HR.Web.Services
         {
             var analysis = new JobAnalysis
             {
-                JobTitle = jobTitle?.Trim() ?? "",
+                JobTitle = jobTitle != null ? jobTitle.Trim() : "",
                 SeniorityLevel = DetermineSeniority(experience, jobTitle, jobDescription)
             };
 
             // Combine all text for analysis
-            var allText = $"{jobTitle} {jobDescription} {keyResponsibilities} {requiredQualifications}".ToLower();
+            var allText = string.Format("{0} {1} {2} {3}", jobTitle, jobDescription, keyResponsibilities, requiredQualifications).ToLower();
 
             // Extract technical skills
             analysis.TechnicalSkills = ExtractTechnicalSkills(allText);
@@ -210,14 +231,14 @@ namespace HR.Web.Services
                 // Experience questions
                 () => new GeneratedQuestion
                 {
-                    Text = $"Describe your experience with {GetRandomSkill(analysis)} and provide specific examples of projects where you've applied this skill.",
+                    Text = string.Format("Describe your experience with {0} and provide specific examples of projects where you've applied this skill.", GetRandomSkill(analysis)),
                     Category = "Technical Experience",
                     Difficulty = 3,
                     MaxPoints = 10
                 },
                 () => new GeneratedQuestion
                 {
-                    Text = $"Tell us about the most challenging {analysis.JobTitle} project you've worked on and what made it successful.",
+                    Text = string.Format("Tell us about the most challenging {0} project you've worked on and what made it successful.", analysis.JobTitle),
                     Category = "Problem Solving",
                     Difficulty = 4,
                     MaxPoints = 10
@@ -226,14 +247,14 @@ namespace HR.Web.Services
                 // Behavioral questions
                 () => new GeneratedQuestion
                 {
-                    Text = $"Describe a situation where you had to {GetRandomResponsibility(analysis)}. What was your approach and what was the outcome?",
+                    Text = string.Format("Describe a situation where you had to {0}. What was your approach and what was the outcome?", GetRandomResponsibility(analysis)),
                     Category = "Behavioral",
                     Difficulty = 3,
                     MaxPoints = 9
                 },
                 () => new GeneratedQuestion
                 {
-                    Text = $"How do you handle disagreements with team members when working on {analysis.JobTitle} responsibilities?",
+                    Text = string.Format("How do you handle disagreements with team members when working on {0} responsibilities?", analysis.JobTitle),
                     Category = "Teamwork",
                     Difficulty = 3,
                     MaxPoints = 8
@@ -242,14 +263,14 @@ namespace HR.Web.Services
                 // Motivation questions
                 () => new GeneratedQuestion
                 {
-                    Text = $"What specifically about this {analysis.JobTitle} position interests you and how does it align with your career goals?",
+                    Text = string.Format("What specifically about this {0} position interests you and how does it align with your career goals?", analysis.JobTitle),
                     Category = "Motivation",
                     Difficulty = 2,
                     MaxPoints = 8
                 },
                 () => new GeneratedQuestion
                 {
-                    Text = $"How do you stay current with developments in {analysis.Industry ?? "your field"}?",
+                    Text = string.Format("How do you stay current with developments in {0}?", analysis.Industry ?? "your field"),
                     Category = "Learning",
                     Difficulty = 3,
                     MaxPoints = 9
@@ -258,14 +279,14 @@ namespace HR.Web.Services
                 // Problem-solving questions
                 () => new GeneratedQuestion
                 {
-                    Text = $"Describe a time you had to learn a new {GetRandomSkill(analysis)} quickly. What was your learning process?",
+                    Text = string.Format("Describe a time you had to learn a new {0} quickly. What was your learning process?", GetRandomSkill(analysis)),
                     Category = "Adaptability",
                     Difficulty = 3,
                     MaxPoints = 9
                 },
                 () => new GeneratedQuestion
                 {
-                    Text = $"What strategies do you use to ensure quality when {GetRandomResponsibility(analysis)}?",
+                    Text = string.Format("What strategies do you use to ensure quality when {0}?", GetRandomResponsibility(analysis)),
                     Category = "Quality Focus",
                     Difficulty = 3,
                     MaxPoints = 8
@@ -331,7 +352,7 @@ namespace HR.Web.Services
                 // Technical proficiency
                 () => new GeneratedQuestion
                 {
-                    Text = $"How would you rate your proficiency with {GetRandomSkill(analysis)}?",
+                    Text = string.Format("How would you rate your proficiency with {0}?", GetRandomSkill(analysis)),
                     Category = "Technical Skills",
                     Difficulty = 3,
                     MaxPoints = 10,
@@ -424,7 +445,7 @@ namespace HR.Web.Services
                 // Use different technical skills for variations
                 if (analysis.TechnicalSkills.Count > variationIndex)
                 {
-                    return $"How would you rate your proficiency in {analysis.TechnicalSkills[variationIndex]}?";
+                    return string.Format("How would you rate your proficiency in {0}?", analysis.TechnicalSkills[variationIndex]);
                 }
                 variations.Add("How comfortable are you learning new technical skills?");
                 variations.Add("How do you stay updated with technical developments in your field?");
@@ -438,9 +459,9 @@ namespace HR.Web.Services
             else
             {
                 // Generic variations
-                variations.Add($"In your experience, how would you approach {baseText.ToLower()}?");
-                variations.Add($"What strategies have worked well for you regarding {baseText.ToLower()}?");
-                variations.Add($"How would you improve your approach to {baseText.ToLower()}?");
+                variations.Add(string.Format("In your experience, how would you approach {0}?", baseText.ToLower()));
+                variations.Add(string.Format("What strategies have worked well for you regarding {0}?", baseText.ToLower()));
+                variations.Add(string.Format("How would you improve your approach to {0}?", baseText.ToLower()));
             }
             
             return variations[Math.Min(variationIndex - 1, variations.Count - 1)];
@@ -498,7 +519,7 @@ namespace HR.Web.Services
                 // Technical skills rating
                 () => new GeneratedQuestion
                 {
-                    Text = $"On a scale of 1-10, how would you rate your proficiency with {GetRandomSkill(analysis)}?",
+                    Text = string.Format("On a scale of 1-10, how would you rate your proficiency with {0}?", GetRandomSkill(analysis)),
                     Category = "Technical Skills",
                     Difficulty = 2,
                     MaxPoints = 10,
@@ -622,7 +643,7 @@ namespace HR.Web.Services
                 // Technical skills rating
                 () => new GeneratedQuestion
                 {
-                    Text = $"Rate your proficiency with {GetRandomSkill(analysis)} and related technologies.",
+                    Text = string.Format("Rate your proficiency with {0} and related technologies.", GetRandomSkill(analysis)),
                     Category = "Technical Skills",
                     Difficulty = 3,
                     MaxPoints = 10,
@@ -712,12 +733,12 @@ namespace HR.Web.Services
         private bool IsValidQuestionType(string type)
         {
             var validTypes = new[] { "text", "choice", "number", "rating" };
-            return validTypes.Contains(type?.ToLower());
+            return validTypes.Contains(type != null ? type.ToLower() : null);
         }
 
                 private string DetermineSeniority(string experience, string jobTitle, string jobDescription)
         {
-            var allText = $"{experience} {jobTitle} {jobDescription}".ToLower();
+            var allText = string.Format("{0} {1} {2}", experience, jobTitle, jobDescription).ToLower();
 
             if (allText.Contains("senior") || allText.Contains("lead") || allText.Contains("principal") || allText.Contains("architect"))
                 return "Senior";
@@ -726,7 +747,7 @@ namespace HR.Web.Services
             if (allText.Contains("mid") || allText.Contains("intermediate"))
                 return "Mid-level";
 
-            var expLower = experience?.ToLower() ?? "mid";
+            var expLower = experience != null ? experience.ToLower() : "mid";
             switch (expLower)
             {
                 case "senior":
@@ -775,14 +796,14 @@ namespace HR.Web.Services
 
         private List<string> ExtractResponsibilities(string keyResponsibilities, string jobDescription)
         {
-            var text = $"{keyResponsibilities} {jobDescription}";
+            var text = keyResponsibilities + " " + jobDescription;
             var sentences = Regex.Split(text, @"(?<=[.!?])\s+").Where(s => s.Length > 10).ToList();
             return sentences.Take(5).Select(s => s.Trim().TrimEnd('.')).ToList();
         }
 
         private List<string> ExtractQualifications(string requiredQualifications, string jobDescription)
         {
-            var text = $"{requiredQualifications} {jobDescription}";
+            var text = requiredQualifications + " " + jobDescription;
             var sentences = Regex.Split(text, @"(?<=[.!?])\s+").Where(s => s.Length > 10).ToList();
             return sentences.Take(5).Select(s => s.Trim().TrimEnd('.')).ToList();
         }

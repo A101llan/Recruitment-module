@@ -35,14 +35,14 @@ namespace HR.Web.Controllers
                 
                 return Json(new { 
                     success = true, 
-                    message = $"Report '{fileName}' generated successfully",
+                    message = string.Format("Report '{0}' generated successfully", fileName),
                     fileName = fileName,
                     filePath = filePath
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error generating report: {ex.Message}" });
+                return Json(new { success = false, message = "Error generating report: " + ex.Message });
             }
         }
 
@@ -66,7 +66,7 @@ namespace HR.Web.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error generating preview: {ex.Message}" });
+                return Json(new { success = false, message = "Error generating preview: " + ex.Message });
             }
         }
 

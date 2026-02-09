@@ -12,27 +12,64 @@ namespace HR.Web.Controllers
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
         private readonly AuditService _auditService = new AuditService();
+        private readonly TenantService _tenantService = new TenantService();
 
-        public ActionResult Index()
+        public ActionResult Index(int? companyId = null)
         {
-            var positions = _uow.Positions.GetAll(p => p.Department);
+            bool isSuperAdmin = _tenantService.IsSuperAdmin();
+            ViewBag.IsSuperAdmin = isSuperAdmin;
             
-            // Filter positions based on user role
-            if (User == null || !User.IsInRole("Admin"))
+            if (isSuperAdmin)
             {
-                // For non-admin users (clients), only show open positions
-                positions = positions.Where(p => p.IsOpen);
+                System.Collections.Generic.IEnumerable<Position> positionsList;
+                if (!companyId.HasValue)
+                {
+                    // Show ALL positions from ALL companies
+                    ViewBag.SelectedCompanyName = "All Companies";
+                    ViewBag.SelectedCompanyId = null;
+                    positionsList = _uow.Positions.GetAll(p => p.Department, p => p.Company);
+                }
+                else
+                {
+                    // SuperAdmin with company selected -> show ONLY that company's positions
+                    var company = _uow.Companies.Get(companyId.Value);
+                    ViewBag.SelectedCompanyName = company != null ? company.Name : "Unknown Company";
+                    ViewBag.SelectedCompanyId = companyId.Value;
+                    
+                    positionsList = _uow.Positions.GetAll(p => p.Department, p => p.Company)
+                        .Where(p => p.CompanyId == companyId.Value);
+                }
+
+                // SuperAdmins view positions as read-only
+                ViewBag.IsAdmin = false;
+                ViewBag.IsReadOnly = true;
+                ViewBag.IsSuperAdmin = true;
+                
+                // Fetch all companies for the visibility toggle UI
+                ViewBag.AllCompanies = _uow.Companies.GetAll().OrderBy(c => c.Name).ToList();
+
+                return View(positionsList.OrderByDescending(p => p.PostedOn).ToList());
+            }
+
+            // Standard user/admin logic
+            var standardQuery = _uow.Positions.GetAll(p => p.Department).AsQueryable();
+            
+            // SECURITY: If we ever get here and somehow they are a SuperAdmin (shouldn't happen with the branch above), 
+            // the TenantFilter will return everything. We must prevent this if they don't have a company.
+            standardQuery = _tenantService.ApplyTenantFilter(standardQuery);
+            
+            ViewBag.IsAdmin = User.Identity.IsAuthenticated && User.IsInRole("Admin");
+            ViewBag.IsReadOnly = false;
+            
+            // For non-admin users (clients), only show open positions
+            if (!User.IsInRole("Admin"))
+            {
+                // Only show positions from active companies
+                standardQuery = standardQuery.Where(p => p.IsOpen && (p.Company == null || p.Company.IsActive));
             }
             
-            var orderedPositions = positions.OrderByDescending(p => p.PostedOn);
-            
-            // Pass additional view data for filtering
-            ViewBag.IsAdmin = User != null && User.IsInRole("Admin");
-            ViewBag.AllPositions = ViewBag.IsAdmin ? 
-                _uow.Positions.GetAll(p => p.Department).OrderByDescending(p => p.PostedOn) : 
-                orderedPositions;
-            
-            return View(orderedPositions);
+            var result = standardQuery.OrderByDescending(p => p.PostedOn).ToList();
+            return View(result);
         }
 
         public ActionResult Details(int id)
@@ -56,9 +93,15 @@ namespace HR.Web.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult Create()
         {
+            // SuperAdmin should not create positions
+            if (_tenantService.IsSuperAdmin())
+            {
+                return RedirectToAction("Index");
+            }
+            
             ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name");
-            // Load all questions (not just active ones) with their options so admin can see all available questions
-            ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
+            // Load all questions (not just active ones) with their options and company so admin can see all available questions
+            ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions, q => q.Company).ToList();
             return View(new Position
             {
                 IsOpen = true,
@@ -71,8 +114,14 @@ namespace HR.Web.Controllers
         [Authorize(Roles = "Admin")]
         public ActionResult Create(Position model, int[] selectedQuestions)
         {
+            // SuperAdmin should not create positions
+            if (_tenantService.IsSuperAdmin())
+            {
+                return RedirectToAction("Index");
+            }
+
             Debug.WriteLine("[PositionsController.Create][POST] Entered at " + DateTime.UtcNow);
-            Debug.WriteLine($"Title='{model?.Title}', DeptId={model?.DepartmentId}, IsOpen={model?.IsOpen}");
+            Debug.WriteLine(string.Format("Title='{0}', DeptId={1}, IsOpen={2}", model != null ? model.Title : "", model != null ? model.DepartmentId : 0, model != null ? model.IsOpen : false));
             Debug.WriteLine("ModelState.IsValid = " + ModelState.IsValid);
 
             // ensure a department was selected (DropDownList optionLabel posts empty -> 0)
@@ -87,7 +136,7 @@ namespace HR.Web.Controllers
                 {
                     foreach (var err in kvp.Value.Errors)
                     {
-                        Debug.WriteLine($"[PositionsController.Create][ModelError] Key='{kvp.Key}', Error='{err.ErrorMessage}', Exception='{err.Exception?.Message}'");
+                        Debug.WriteLine(string.Format("[PositionsController.Create][ModelError] Key='{0}', Error='{1}', Exception='{2}'", kvp.Key, err.ErrorMessage, err.Exception != null ? err.Exception.Message : ""));
                     }
                 }
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
@@ -126,7 +175,7 @@ namespace HR.Web.Controllers
             catch (Exception ex)
             {
                 Debug.WriteLine("[PositionsController.Create][POST] Exception during save: " + ex);
-                var msg = ex.GetBaseException()?.Message ?? ex.Message;
+                var msg = ex.GetBaseException() != null ? ex.GetBaseException().Message : ex.Message;
                 
                 // Log failed creation
                 _auditService.LogAction(User.Identity.Name, "CREATE", "Positions", "new", 
@@ -177,35 +226,35 @@ namespace HR.Web.Controllers
 
             ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", position.DepartmentId);
             
-            // Load all questions (include inactive ones too so admin can see everything) with their options
-            var allQuestions = _uow.Questions.GetAll(q => q.QuestionOptions).ToList();
+            // Load all questions (include inactive ones too so admin can see everything) with their options and company
+            var allQuestions = _uow.Questions.GetAll(q => q.QuestionOptions, q => q.Company).ToList();
             ViewBag.QuestionList = allQuestions;
-            Debug.WriteLine($"[PositionsController.Edit] Loaded {allQuestions.Count} questions from database.");
+            Debug.WriteLine(string.Format("[PositionsController.Edit] Loaded {0} questions from database.", allQuestions.Count));
             
             // Debug: Check each question and its options
             foreach (var q in allQuestions)
             {
-                Debug.WriteLine($"Question: {q.Text} (Type: {q.Type})");
-                Debug.WriteLine($"Options count: {q.QuestionOptions?.Count() ?? 0}");
+                Debug.WriteLine(string.Format("Question: {0} (Type: {1})", q.Text, q.Type));
+                Debug.WriteLine(string.Format("Options count: {0}", q.QuestionOptions != null ? q.QuestionOptions.Count() : 0));
                 if (q.QuestionOptions != null)
                 {
                     foreach (var opt in q.QuestionOptions)
                     {
-                        Debug.WriteLine($"  - Option: {opt.Text} (Points: {opt.Points})");
+                        Debug.WriteLine(string.Format("  - Option: {0} (Points: {1})", opt.Text, opt.Points));
                     }
                 }
             }
             
             // Also check if there are any QuestionOptions in the database at all
             var allOptions = _uow.Context.Set<QuestionOption>().ToList();
-            Debug.WriteLine($"[PositionsController.Edit] Total QuestionOptions in database: {allOptions.Count}");
+            Debug.WriteLine(string.Format("[PositionsController.Edit] Total QuestionOptions in database: {0}", allOptions.Count));
             foreach (var opt in allOptions.Take(5))
             {
-                Debug.WriteLine($"  - Option ID {opt.Id}: {opt.Text} (QuestionId: {opt.QuestionId})");
+                Debug.WriteLine(string.Format("  - Option ID {0}: {1} (QuestionId: {2})", opt.Id, opt.Text, opt.QuestionId));
             }
             
             // Get currently selected question IDs for pre-checking
-            var selectedQuestionIds = position.PositionQuestions?.Select(pq => pq.QuestionId).ToList() ?? new System.Collections.Generic.List<int>();
+            var selectedQuestionIds = position.PositionQuestions != null ? position.PositionQuestions.Select(pq => pq.QuestionId).ToList() : new System.Collections.Generic.List<int>();
             ViewBag.SelectedQuestionIds = selectedQuestionIds;
             
             return View(position);
@@ -217,7 +266,7 @@ namespace HR.Web.Controllers
         public ActionResult Edit(Position model, int[] selectedQuestions)
         {
             Debug.WriteLine("[PositionsController.Edit][POST] Entered at " + DateTime.UtcNow);
-            Debug.WriteLine($"Title='{model?.Title}', DeptId={model?.DepartmentId}, IsOpen={model?.IsOpen}");
+            Debug.WriteLine(string.Format("Title='{0}', DeptId={1}, IsOpen={2}", model != null ? model.Title : "", model != null ? model.DepartmentId : 0, model != null ? model.IsOpen : false));
             Debug.WriteLine("ModelState.IsValid = " + ModelState.IsValid);
 
             if (!ModelState.IsValid)
@@ -317,7 +366,7 @@ namespace HR.Web.Controllers
             catch (Exception ex)
             {
                 Debug.WriteLine("[PositionsController.Edit][POST] Exception during save: " + ex);
-                var msg = ex.GetBaseException()?.Message ?? ex.Message;
+                var msg = ex.GetBaseException() != null ? ex.GetBaseException().Message : ex.Message;
                 ModelState.AddModelError("", "Unable to save position: " + msg);
                 ViewBag.DepartmentId = new SelectList(_uow.Departments.GetAll(), "Id", "Name", model.DepartmentId);
                 ViewBag.QuestionList = _uow.Questions.GetAll(q => q.QuestionOptions).Where(q => q.IsActive).ToList();
@@ -392,13 +441,13 @@ namespace HR.Web.Controllers
                         q.Text,
                         q.Type,
                         HasOptions = q.QuestionOptions != null,
-                        OptionsCount = q.QuestionOptions?.Count() ?? 0,
-                        Options = q.QuestionOptions?.Select(o => new
+                        OptionsCount = q.QuestionOptions != null ? q.QuestionOptions.Count() : 0,
+                        Options = q.QuestionOptions != null ? q.QuestionOptions.Select(o => new
                         {
                             o.Id,
                             o.Text,
                             o.Points
-                        }).ToList()
+                        }).ToList() : null
                     }).ToList()
                 };
                 
@@ -425,7 +474,7 @@ namespace HR.Web.Controllers
                     q.Id,
                     q.Text,
                     q.Type,
-                    OptionsCount = q.QuestionOptions?.Count() ?? 0
+                    OptionsCount = q.QuestionOptions != null ? q.QuestionOptions.Count() : 0
                 }).ToList(),
                 Options = allOptions.Select(o => new
                 {
@@ -472,10 +521,10 @@ namespace HR.Web.Controllers
                 var applicationIds = applications.Select(a => a.Id).ToList();
                 
                 // Debug: Log what we found
-                System.Diagnostics.Debug.WriteLine($"Found {applications.Count} applications for position {id}");
+                System.Diagnostics.Debug.WriteLine(string.Format("Found {0} applications for position {1}", applications.Count, id));
                 foreach (var app in applications)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Application ID: {app.Id}, Applicant: {app.ApplicantId}");
+                    System.Diagnostics.Debug.WriteLine(string.Format("Application ID: {0}, Applicant: {1}", app.Id, app.ApplicantId));
                 }
                 
                 // Step 1: Delete PositionQuestions first
@@ -510,7 +559,7 @@ namespace HR.Web.Controllers
                 
                 // Debug: Verify applications are deleted
                 var remainingApps = context.Applications.Where(a => a.PositionId == id).ToList();
-                System.Diagnostics.Debug.WriteLine($"Remaining applications after deletion: {remainingApps.Count}");
+                System.Diagnostics.Debug.WriteLine(string.Format("Remaining applications after deletion: {0}", remainingApps.Count));
                 
                 // Step 4: Finally delete the position
                 context.Positions.Remove(position);
@@ -519,9 +568,9 @@ namespace HR.Web.Controllers
                 // Log the deletion
                 var username = User.Identity.Name;
                 _auditService.LogAction(username, "DELETE_POSITION", "Position", id.ToString(), 
-                    $"Position '{position.Title}' and {applications.Count} associated applications deleted");
+                    string.Format("Position '{0}' and {1} associated applications deleted", position.Title, applications.Count));
 
-                TempData["SuccessMessage"] = $"Position '{position.Title}' and {applications.Count} associated applications have been deleted successfully.";
+                TempData["SuccessMessage"] = string.Format("Position '{0}' and {1} associated applications have been deleted successfully.", position.Title, applications.Count);
                 return RedirectToAction("Index");
             }
             catch (Exception ex)
@@ -529,11 +578,34 @@ namespace HR.Web.Controllers
                 // Log the error
                 var username = User.Identity.Name;
                 _auditService.LogAction(username, "DELETE_POSITION_ERROR", "Position", id.ToString(), 
-                    $"Error deleting position: {ex.Message}");
+                    string.Format("Error deleting position: {0}", ex.Message));
 
                 ModelState.AddModelError("", "Unable to delete position. Please ensure there are no related records preventing deletion.");
                 return View(position);
             }
+        }
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public ActionResult ToggleCompanyVisibility(int companyId, bool isVisible)
+        {
+            if (!_tenantService.IsSuperAdmin())
+            {
+                return new HttpStatusCodeResult(403, "Access Denied");
+            }
+
+            var company = _uow.Companies.Get(companyId);
+            if (company == null)
+            {
+                return HttpNotFound();
+            }
+
+            // 'isVisible' maps to IsActive for public display purposes
+            company.IsActive = isVisible;
+            _uow.Companies.Update(company);
+            _uow.Complete();
+
+            return Json(new { success = true, newStatus = company.IsActive });
         }
     }
 }

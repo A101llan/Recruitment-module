@@ -4,9 +4,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Web.Models
 {
-    public class Interview
+    public class Interview : ITenantEntity
     {
         public int Id { get; set; }
+
+        public int? CompanyId { get; set; }
+        public virtual Company Company { get; set; }
 
         [ForeignKey("Application")]
         public int ApplicationId { get; set; }

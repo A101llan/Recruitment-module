@@ -39,7 +39,8 @@ namespace HR.Web.Controllers
             try
             {
                 // Debug: Log to System.Diagnostics instead of Response
-                var debugMsg = $"=== GenerateQuestions Debug ===\njobTitle: {jobTitle}\njobDescription length: {jobDescription?.Length ?? 0}\ncount: {count}\nexperience: {experience}\nquestionTypes: {(questionTypes != null ? string.Join(", ", questionTypes) : "null")}\n";
+                var debugMsg = string.Format("=== GenerateQuestions Debug ===\njobTitle: {0}\njobDescription length: {1}\ncount: {2}\nexperience: {3}\nquestionTypes: {4}\n",
+                    jobTitle, jobDescription != null ? jobDescription.Length : 0, count, experience, questionTypes != null ? string.Join(", ", questionTypes) : "null");
                 
                 System.Diagnostics.Debug.WriteLine(debugMsg);
                 System.Diagnostics.Trace.WriteLine(debugMsg);
@@ -48,21 +49,21 @@ namespace HR.Web.Controllers
                 if (string.IsNullOrEmpty(jobTitle) || string.IsNullOrEmpty(jobDescription))
                 {
                     var errorMsg = "Job title and description are required";
-                    System.Diagnostics.Debug.WriteLine($"Validation Error: {errorMsg}");
+                    System.Diagnostics.Debug.WriteLine("Validation Error: " + errorMsg);
                     return Json(new { success = false, message = errorMsg });
                 }
 
                 if (count <= 0)
                 {
                     var errorMsg = "Number of questions must be greater than 0";
-                    System.Diagnostics.Debug.WriteLine($"Validation Error: {errorMsg}");
+                    System.Diagnostics.Debug.WriteLine("Validation Error: " + errorMsg);
                     return Json(new { success = false, message = errorMsg });
                 }
 
                 if (count > 50)
                 {
                     var errorMsg = "Number of questions cannot exceed 50";
-                    System.Diagnostics.Debug.WriteLine($"Validation Error: {errorMsg}");
+                System.Diagnostics.Debug.WriteLine(string.Format("Validation Error: {0}", errorMsg));
                     return Json(new { success = false, message = errorMsg });
                 }
 
@@ -76,10 +77,10 @@ namespace HR.Web.Controllers
                     requiredQualifications: requiredQualifications ?? "",
                     experience: experience,
                     questionCount: count,
-                    questionTypes: questionTypes?.ToList()
+                    questionTypes: questionTypes != null ? questionTypes.ToList() : null
                 );
 
-                System.Diagnostics.Debug.WriteLine($"Question service returned: Success={result.Success}, QuestionCount={result.Questions?.Count ?? 0}");
+                System.Diagnostics.Debug.WriteLine(string.Format("Question service returned: Success={0}, QuestionCount={1}", result.Success, result.Questions != null ? result.Questions.Count : 0));
 
                 if (result.Success)
                 {
@@ -119,7 +120,7 @@ namespace HR.Web.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error generating questions: {ex.Message}" });
+                return Json(new { success = false, message = "Error generating questions: " + ex.Message });
             }
         }
 
@@ -152,7 +153,7 @@ namespace HR.Web.Controllers
                     requiredQualifications: requiredQualifications ?? "",
                     experience: experience,
                     questionCount: count,
-                    questionTypes: questionTypes?.ToList()
+                    questionTypes: questionTypes != null ? questionTypes.ToList() : null
                 );
 
                 if (result.Success)
@@ -281,7 +282,8 @@ namespace HR.Web.Controllers
                     {
                         Text = generatedQ.Text,
                         Type = generatedQ.Type,
-                        IsActive = true
+                        IsActive = true,
+                        CompanyId = _tenantService.GetCurrentUserCompanyId()
                     };
                     
                     _uow.Questions.Add(question);
@@ -310,13 +312,13 @@ namespace HR.Web.Controllers
 
                 return Json(new { 
                     success = true, 
-                    message = $"Successfully added {addedCount} questions to the sample questions collection.",
+                    message = string.Format("Successfully added {0} questions to the sample questions collection.", addedCount),
                     count = addedCount
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error adding questions to sample collection: {ex.Message}" });
+                return Json(new { success = false, message = "Error adding questions to sample collection: " + ex.Message });
             }
         }
 
@@ -340,7 +342,8 @@ namespace HR.Web.Controllers
                     {
                         Text = generatedQ.Text,
                         Type = generatedQ.Type,
-                        IsActive = true
+                        IsActive = true,
+                        CompanyId = _tenantService.GetCurrentUserCompanyId()
                     };
                     
                     _uow.Questions.Add(question);
@@ -369,13 +372,13 @@ namespace HR.Web.Controllers
 
                 return Json(new { 
                     success = true, 
-                    message = $"Successfully added {addedCount} questions to the sample questions collection.",
+                    message = string.Format("Successfully added {0} questions to the sample questions collection.", addedCount),
                     count = addedCount
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error adding questions to sample collection: {ex.Message}" });
+                return Json(new { success = false, message = "Error adding questions to sample collection: " + ex.Message });
             }
         }
 
@@ -399,7 +402,8 @@ namespace HR.Web.Controllers
                         {
                             Text = decision.newText.ToString(),
                             Type = decision.type.ToString(),
-                            IsActive = true
+                            IsActive = true,
+                            CompanyId = _tenantService.GetCurrentUserCompanyId()
                         };
                         _uow.Context.Set<Question>().Add(question);
                         _uow.Complete();
@@ -410,13 +414,13 @@ namespace HR.Web.Controllers
 
                 return Json(new { 
                     success = true, 
-                    message = $"Successfully processed decisions. Added {addedCount} new questions to the sample collection.",
+                    message = string.Format("Successfully processed decisions. Added {0} new questions to the sample collection.", addedCount),
                     addedCount = addedCount
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error processing duplicate decisions: {ex.Message}" });
+                return Json(new { success = false, message = "Error processing duplicate decisions: " + ex.Message });
             }
         }
 
@@ -437,13 +441,13 @@ namespace HR.Web.Controllers
                 System.Diagnostics.Debug.WriteLine("=== CreatePositionWithQuestions Debug ===");
                 foreach (var q in questions)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Question: {q.Text} (Type: {q.Type})");
-                    System.Diagnostics.Debug.WriteLine($"Options count: {q.Options?.Count ?? 0}");
+                    System.Diagnostics.Debug.WriteLine(string.Format("Question: {0} (Type: {1})", q.Text, q.Type));
+                    System.Diagnostics.Debug.WriteLine(string.Format("Options count: {0}", q.Options != null ? q.Options.Count : 0));
                     if (q.Options != null)
                     {
                         foreach (var opt in q.Options)
                         {
-                            System.Diagnostics.Debug.WriteLine($"  - Option: {opt.Text} (Points: {opt.Points})");
+                            System.Diagnostics.Debug.WriteLine(string.Format("  - Option: {0} (Points: {1})", opt.Text, opt.Points));
                         }
                     }
                 }
@@ -456,13 +460,13 @@ namespace HR.Web.Controllers
                 System.Diagnostics.Debug.WriteLine("=== After Fix ===");
                 foreach (var q in questionsFixed)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Question: {q.Text} (Type: {q.Type})");
-                    System.Diagnostics.Debug.WriteLine($"Options count: {q.Options?.Count ?? 0}");
+                    System.Diagnostics.Debug.WriteLine(string.Format("Question: {0} (Type: {1})", q.Text, q.Type));
+                    System.Diagnostics.Debug.WriteLine(string.Format("Options count: {0}", q.Options != null ? q.Options.Count : 0));
                     if (q.Options != null)
                     {
                         foreach (var opt in q.Options)
                         {
-                            System.Diagnostics.Debug.WriteLine($"  - Option: {opt.Text} (Points: {opt.Points})");
+                            System.Diagnostics.Debug.WriteLine(string.Format("  - Option: {0} (Points: {1})", opt.Text, opt.Points));
                         }
                     }
                 }
@@ -489,7 +493,8 @@ namespace HR.Web.Controllers
                     IsOpen = true,
                     Currency = "KES",
                     SalaryMin = string.IsNullOrEmpty(positionSalaryMin) ? (int?)null : int.Parse(positionSalaryMin),
-                    SalaryMax = string.IsNullOrEmpty(positionSalaryMax) ? (int?)null : int.Parse(positionSalaryMax)
+                    SalaryMax = string.IsNullOrEmpty(positionSalaryMax) ? (int?)null : int.Parse(positionSalaryMax),
+                    CompanyId = _tenantService.GetCurrentUserCompanyId()
                 };
                 
                 _uow.Context.Set<Position>().Add(position);
@@ -503,7 +508,8 @@ namespace HR.Web.Controllers
                     {
                         Text = generatedQ.Text,
                         Type = generatedQ.Type,
-                        IsActive = true
+                        IsActive = true,
+                        CompanyId = _tenantService.GetCurrentUserCompanyId()
                     };
                     _uow.Context.Set<Question>().Add(question);
                     _uow.Complete(); // Save question first to get ID
@@ -511,7 +517,7 @@ namespace HR.Web.Controllers
                     // Create question options if they exist
                     if (generatedQ.Options != null && generatedQ.Options.Any())
                     {
-                        System.Diagnostics.Debug.WriteLine($"Creating {generatedQ.Options.Count} options for question: {generatedQ.Text}");
+                        System.Diagnostics.Debug.WriteLine(string.Format("Creating {0} options for question: {1}", generatedQ.Options.Count, generatedQ.Text));
                         foreach (var option in generatedQ.Options)
                         {
                             var questionOption = new QuestionOption
@@ -521,18 +527,18 @@ namespace HR.Web.Controllers
                                 Points = option.Points
                             };
                             _uow.Context.Set<QuestionOption>().Add(questionOption);
-                            System.Diagnostics.Debug.WriteLine($"  Added option: {option.Text} (Points: {option.Points}) for QuestionId: {question.Id}");
+                            System.Diagnostics.Debug.WriteLine(string.Format("  Added option: {0} (Points: {1}) for QuestionId: {2}", option.Text, option.Points, question.Id));
                         }
                         _uow.Complete(); // Save options
-                        System.Diagnostics.Debug.WriteLine($"Options saved for question {question.Id}");
+                        System.Diagnostics.Debug.WriteLine("Options saved for question " + question.Id);
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine($"No options found for question: {generatedQ.Text}");
-                        System.Diagnostics.Debug.WriteLine($"generatedQ.Options is null: {generatedQ.Options == null}");
+                        System.Diagnostics.Debug.WriteLine("No options found for question: " + generatedQ.Text);
+                        System.Diagnostics.Debug.WriteLine(string.Format("generatedQ.Options is null: {0}", generatedQ.Options == null));
                         if (generatedQ.Options != null)
                         {
-                            System.Diagnostics.Debug.WriteLine($"generatedQ.Options.Count: {generatedQ.Options.Count}");
+                            System.Diagnostics.Debug.WriteLine(string.Format("generatedQ.Options.Count: {0}", generatedQ.Options.Count));
                         }
                     }
                     
@@ -549,13 +555,13 @@ namespace HR.Web.Controllers
                 
                 return Json(new { 
                     success = true, 
-                    message = $"Successfully created position '{positionTitle}' with {questionsFixed.Count} questions assigned.",
+                    message = string.Format("Successfully created position '{0}' with {1} questions assigned.", positionTitle, questionsFixed.Count),
                     positionId = position.Id
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error creating position: {ex.Message}" });
+                return Json(new { success = false, message = "Error creating position: " + ex.Message });
             }
         }
 
@@ -599,7 +605,8 @@ namespace HR.Web.Controllers
                     {
                         Text = generatedQ.Text,
                         Type = generatedQ.Type,
-                        IsActive = true
+                        IsActive = true,
+                        CompanyId = _tenantService.GetCurrentUserCompanyId()
                     };
                     
                     _uow.Questions.Add(question);
@@ -624,11 +631,11 @@ namespace HR.Web.Controllers
                     }
                 }
                 
-                return Json(new { success = true, message = $"Successfully added {questions.Count} questions to the question bank." });
+                return Json(new { success = true, message = string.Format("Successfully added {0} questions to the question bank.", questions.Count) });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error adding questions to bank: {ex.Message}" });
+                return Json(new { success = false, message = "Error adding questions to bank: " + ex.Message });
             }
         }
 

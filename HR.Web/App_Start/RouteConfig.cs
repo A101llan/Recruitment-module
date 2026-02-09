@@ -12,6 +12,12 @@ namespace HR.Web
             routes.IgnoreRoute("Scripts/{*pathInfo}");
 
             routes.MapRoute(
+                name: "SuperAdminLegacy",
+                url: "SuperAdmin/{action}/{id}",
+                defaults: new { controller = "Companies", action = "Index", id = UrlParameter.Optional }
+            );
+
+            routes.MapRoute(
                 name: "Default",
                 url: "{controller}/{action}/{id}",
                 defaults: new { controller = "Positions", action = "Index", id = UrlParameter.Optional }

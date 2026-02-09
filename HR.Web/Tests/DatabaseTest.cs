@@ -20,7 +20,7 @@ namespace HR.Web.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Database connection failed: {ex.Message}");
+                Console.WriteLine(string.Format("Database connection failed: {0}", ex.Message));
                 return false;
             }
         }
@@ -41,7 +41,7 @@ namespace HR.Web.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Database creation failed: {ex.Message}");
+                Console.WriteLine(string.Format("Database creation failed: {0}", ex.Message));
                 return false;
             }
         }

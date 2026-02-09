@@ -3,9 +3,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HR.Web.Models
 {
-    public class Department
+    public class Department : ITenantEntity
     {
         public int Id { get; set; }
+
+        [Required]
+        public int? CompanyId { get; set; }
+        public virtual Company Company { get; set; }
 
         [Required, StringLength(100)]
         public string Name { get; set; }

@@ -56,9 +56,9 @@ namespace HR.Web.Controllers
                     ? lockoutEndTime.Value - DateTime.Now 
                     : TimeSpan.Zero;
                 
-                ModelState.AddModelError("", $"Account is locked. Please try again in {remainingTime.Minutes} minutes.");
+                ModelState.AddModelError("", string.Format("Account is locked. Please try again in {0} minutes.", remainingTime.Minutes));
                 _securityService.RecordLoginAttempt(username, clientIP, false, "Account locked");
-                _auditService.LogLogin(username, false, $"Account locked. Try again in {remainingTime.Minutes} minutes");
+                _auditService.LogLogin(username, false, string.Format("Account locked. Try again in {0} minutes", remainingTime.Minutes));
                 return View();
             }
 
@@ -67,7 +67,7 @@ namespace HR.Web.Controllers
             if (user == null)
             {
                 var remainingAttempts = _securityService.GetRemainingAttempts(username);
-                ModelState.AddModelError("", $"Invalid username or password. {remainingAttempts} attempts remaining.");
+                ModelState.AddModelError("", string.Format("Invalid username or password. {0} attempts remaining.", remainingAttempts));
                 _securityService.RecordLoginAttempt(username, clientIP, false, "Invalid username");
                 _auditService.LogLogin(username, false, "Invalid username");
                 return View();
@@ -84,8 +84,8 @@ namespace HR.Web.Controllers
             {
                 var remainingAttempts = _securityService.GetRemainingAttempts(username);
                 var warningMessage = remainingAttempts > 1 
-                    ? $"Invalid username or password. {remainingAttempts} attempts remaining."
-                    : $"Invalid username or password. {remainingAttempts} attempt remaining before account lockout.";
+                    ? string.Format("Invalid username or password. {0} attempts remaining.", remainingAttempts)
+                    : string.Format("Invalid username or password. {0} attempt remaining before account lockout.", remainingAttempts);
                 
                 ModelState.AddModelError("", warningMessage);
                 _securityService.RecordLoginAttempt(username, clientIP, false, "Invalid password");
@@ -100,8 +100,13 @@ namespace HR.Web.Controllers
             // Log successful login
             _auditService.LogLogin(username, true);
 
-            // Use the user's stored role from the database
+            // Determine the user's role for the authentication ticket
+            // If they are not belonging to any company (CompanyId is null), we treat them as a SuperAdmin
             var userRole = string.IsNullOrWhiteSpace(user.Role) ? "Client" : user.Role;
+            if (!user.CompanyId.HasValue && userRole == "Admin")
+            {
+                userRole = "SuperAdmin"; // Global admins should have SuperAdmin rights
+            }
 
             // Check if user needs to change password
             bool requirePasswordChange = user.RequirePasswordChange || 
@@ -153,6 +158,10 @@ namespace HR.Web.Controllers
             if (string.Equals(userRole, "Client", StringComparison.OrdinalIgnoreCase))
             {
                 return RedirectToAction("Index", "Positions");
+            }
+            if (string.Equals(userRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction("Index", "Companies");
             }
             return RedirectToAction("Index", "Dashboard");
         }
@@ -303,7 +312,7 @@ namespace HR.Web.Controllers
             {
                 ModelState.AddModelError("", "An error occurred while changing your password. Please try again.");
                 _auditService.LogAction(username, "PASSWORD_CHANGE_ERROR", "Account", user.Id.ToString(), 
-                    $"Password change failed: {ex.Message}");
+                    "Password change failed: " + ex.Message);
                 return View(model);
             }
         }
@@ -312,7 +321,11 @@ namespace HR.Web.Controllers
         public ActionResult Logout()
         {
             var username = User.Identity.Name;
+            
             FormsAuthentication.SignOut();
+            Session.Clear();
+            Session.Abandon();
+            
             _auditService.LogLogout(username);
             return RedirectToAction("Login");
         }
@@ -324,13 +337,19 @@ namespace HR.Web.Controllers
         }
 
         [AllowAnonymous]
+        public ActionResult LicenseExpired()
+        {
+            return View();
+        }
+
+        [AllowAnonymous]
         public ActionResult Register()
         {
             // Show application message if coming from application attempt
             if (TempData["ApplicationMessage"] != null)
             {
                 ViewBag.ApplicationMessage = TempData["ApplicationMessage"].ToString();
-                ViewBag.ReturnUrl = TempData["ReturnUrl"]?.ToString();
+                ViewBag.ReturnUrl = TempData["ReturnUrl"] != null ? TempData["ReturnUrl"].ToString() : null;
             }
             
             return View();
@@ -392,13 +411,22 @@ namespace HR.Web.Controllers
 
             try
             {
+                // Get default company (or determine from subdomain/invite in production)
+                var defaultCompany = _uow.Companies.GetAll().FirstOrDefault(c => c.Slug == "default");
+                if (defaultCompany == null)
+                {
+                    ModelState.AddModelError("", "System configuration error: No default company found. Please contact support.");
+                    return View(model);
+                }
+
                 // Create User entity with hashed password
                 var user = new User
                 {
                     UserName = model.UserName,
                     Email = model.Email,
                     Role = defaultRole,
-                    PasswordHash = PasswordHelper.HashPassword(model.Password)
+                    PasswordHash = PasswordHelper.HashPassword(model.Password),
+                    CompanyId = defaultCompany.Id  // Assign to company
                 };
                 _uow.Users.Add(user);
                 _uow.Complete();
@@ -410,7 +438,8 @@ namespace HR.Web.Controllers
                     {
                         FullName = model.UserName,
                         Email = model.Email,
-                        Phone = model.Phone
+                        Phone = model.Phone,
+                        CompanyId = defaultCompany.Id  // Assign to company
                     };
                     _uow.Applicants.Add(applicant);
                     _uow.Complete();
@@ -418,7 +447,7 @@ namespace HR.Web.Controllers
 
                 // Log successful registration
                 _auditService.LogAction(User.Identity.Name, "REGISTER", "Account", user.Id.ToString(), 
-                    $"New user registered: {user.UserName} ({user.Email})");
+                    string.Format("New user registered: {0} ({1})", user.UserName, user.Email));
 
                 // Auto-login the newly registered user
                 var ticket = new FormsAuthenticationTicket(
@@ -448,7 +477,7 @@ namespace HR.Web.Controllers
             {
                 // Log the error
                 _auditService.LogAction(User.Identity.Name, "REGISTER_ERROR", "Account", "", 
-                    $"Registration failed: {ex.Message}");
+                    "Registration failed: " + ex.Message);
                 
                 ModelState.AddModelError("", "Registration failed. Please try again.");
                 return View(model);
@@ -520,7 +549,7 @@ namespace HR.Web.Controllers
 
                         // Log the password reset request
                         _auditService.LogAction(user.UserName, "PASSWORD_RESET_REQUEST", "Account", user.Id.ToString(), 
-                            $"Password reset requested for email: {user.Email}");
+                            "Password reset requested for email: " + user.Email);
                     }
                     else
                     {
@@ -537,7 +566,7 @@ namespace HR.Web.Controllers
                     if (ex.InnerException != null) errorMessage += " Inner Error: " + ex.InnerException.Message;
                     
                     _auditService.LogAction("SYSTEM", "PASSWORD_RESET_ERROR", "Account", "", 
-                        $"Password reset failed: {errorMessage}");
+                        "Password reset failed: " + errorMessage);
                     var fullMessage = "An error occurred while processing your request: " + errorMessage;
                     ModelState.AddModelError("", fullMessage);
                     ViewBag.ErrorMessage = fullMessage;
@@ -625,7 +654,7 @@ namespace HR.Web.Controllers
                 catch (Exception ex)
                 {
                     _auditService.LogAction("SYSTEM", "PASSWORD_RESET_ERROR", "Account", "", 
-                        $"Password reset completion failed: {ex.Message}");
+                        "Password reset completion failed: " + ex.Message);
                     ModelState.AddModelError("", "An error occurred while resetting your password. Please try again.");
                 }
             }

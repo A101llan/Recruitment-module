@@ -37,7 +37,7 @@ namespace HR.Web.Services
             return new MCPResult
             {
                 Success = true,
-                Message = $"MCPService stub response for tool '{toolName}'",
+                Message = string.Format("MCPService stub response for tool '{0}'", toolName),
                 Data = null,
                 Result = stubResponse
             };

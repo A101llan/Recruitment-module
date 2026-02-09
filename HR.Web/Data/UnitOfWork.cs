@@ -7,6 +7,7 @@ namespace HR.Web.Data
     {
         private readonly HrContext _context = new HrContext();
 
+        public Repository<Company> Companies { get { return new Repository<Company>(_context); } }
         public Repository<User> Users { get { return new Repository<User>(_context); } }
         public Repository<Department> Departments { get { return new Repository<Department>(_context); } }
         public Repository<Position> Positions { get { return new Repository<Position>(_context); } }
@@ -14,6 +15,7 @@ namespace HR.Web.Data
         public Repository<Application> Applications { get { return new Repository<Application>(_context); } }
         public Repository<Interview> Interviews { get { return new Repository<Interview>(_context); } }
         public Repository<Onboarding> Onboardings { get { return new Repository<Onboarding>(_context); } }
+
         public Repository<Question> Questions { get { return new Repository<Question>(_context); } }
         public Repository<PositionQuestion> PositionQuestions { get { return new Repository<PositionQuestion>(_context); } }
         public Repository<PositionQuestionOption> PositionQuestionOptions { get { return new Repository<PositionQuestionOption>(_context); } }
@@ -22,6 +24,8 @@ namespace HR.Web.Data
         public Repository<AuditLog> AuditLogs { get { return new Repository<AuditLog>(_context); } }
         public Repository<Report> Reports { get { return new Repository<Report>(_context); } }
         public Repository<PasswordReset> PasswordResets { get { return new Repository<PasswordReset>(_context); } }
+        public Repository<LicenseTransaction> LicenseTransactions { get { return new Repository<LicenseTransaction>(_context); } }
+        public Repository<ImpersonationRequest> ImpersonationRequests { get { return new Repository<ImpersonationRequest>(_context); } }
 
         // Expose the underlying context for advanced queries (e.g., Question options)
         public HrContext Context { get { return _context; } }

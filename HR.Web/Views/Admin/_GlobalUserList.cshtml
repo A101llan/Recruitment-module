@@ -1,0 +1,170 @@
+@model IEnumerable<HR.Web.ViewModels.UserManagementViewModel>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light-soft text-uppercase small font-weight-bold text-muted">
+            <tr>
+                <th class="px-4 py-3 border-0">Identity</th>
+                <th class="py-3 border-0">Access Level</th>
+                <th class="py-3 border-0">Affiliation</th>
+                <th class="py-3 border-0">Activity Log</th>
+                <th class="py-3 border-0">State</th>
+                <th class="px-4 py-3 border-0 text-right">Operations</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white">
+            @foreach (var user in Model)
+            {
+                <tr class="user-row transition-all">
+                    <td class="px-4 py-3">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-wrapper mr-3">
+                                <div class="avatar-circle">
+                                    @(string.IsNullOrEmpty(user.UserName) ? "?" : user.UserName.Substring(0, 1).ToUpper())
+                                </div>
+                                <div class="status-indicator @(user.IsLocked ? "bg-danger" : "bg-success")"></div>
+                            </div>
+                            <div>
+                                <div class="user-name font-weight-bold text-dark">@user.UserName</div>
+                                <div class="user-email text-muted x-small">@user.Email</div>
+                                @if (user.Role == "SuperAdmin")
+                                {
+                                    <span class="badge badge-soft-danger x-small px-2 py-1 mt-1">
+                                        <i class="fas fa-crown mr-1"></i>System Master
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column">
+                            <span class="role-text font-weight-semi-bold">@user.Role</span>
+                            <div class="progress mt-1" style="height: 4px; width: 60px;">
+                                <div class="progress-bar @(user.Role == "SuperAdmin" ? "bg-danger" : (user.Role == "Admin" ? "bg-warning" : "bg-info"))" style="width: @(user.Role == "SuperAdmin" ? "100%" : (user.Role == "Admin" ? "70%" : "30%"))"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center text-secondary">
+                            <i class="fas @(user.CompanyName == "System" ? "fa-server" : "fa-building") mr-2 opacity-5"></i>
+                            <span class="font-weight-medium">@user.CompanyName</span>
+                        </div>
+                    </td>
+                    <td>
+                        @if (user.LastLoginDate.HasValue)
+                        {
+                            <div class="font-weight-medium small text-dark">@user.LastLoginDate.Value.ToString("MMM dd, yyyy")</div>
+                            <div class="text-muted x-small">at @user.LastLoginDate.Value.ToString("HH:mm") • <span class="text-info">@user.LastLoginIP</span></div>
+                        }
+                        else
+                        {
+                            <span class="badge badge-light text-muted font-italic px-2 py-1">No Activity Data</span>
+                        }
+                    </td>
+                    <td>
+                        <span class="badge badge-pill px-3 py-2 @(user.IsLocked ? "badge-soft-danger" : "badge-soft-success")">
+                            <i class="fas @(user.IsLocked ? "fa-lock mr-1" : "fa-check-circle mr-1")"></i>
+                            @(user.IsLocked ? "Locked" : "Authorized")
+                        </span>
+                    </td>
+                    <td class="px-4 text-right">
+                        <div class="action-wrap d-flex justify-content-end align-items-center">
+                            @if (user.IsLocked)
+                            {
+                                using (Html.BeginForm("UnlockUserAccount", "Admin", new { id = user.Id }, FormMethod.Post, new { @class = "d-inline mr-2" }))
+                                {
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-icon-only btn-light-success" title="Restore Account Access" onclick="return confirm('Unlock access for @(user.UserName)?');">
+                                        <i class="fas fa-unlock"></i>
+                                    </button>
+                                }
+                            }
+                            @if (user.Role != "SuperAdmin")
+                            {
+                                using (Html.BeginForm("ElevateToSuperAdmin", "Admin", new { id = user.Id }, FormMethod.Post, new { @class = "d-inline mr-2" }))
+                                {
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-icon-only btn-light-warning" title="Promote to Master Authority" onclick="return confirm('Grant full system-wide authority to @(user.UserName)?');">
+                                        <i class="fas fa-crown"></i>
+                                    </button>
+                                }
+                            }
+                            <a href="@Url.Action("UpdateUserRole", "Admin", new { id = user.Id })" class="btn btn-icon-only btn-light-primary" title="Modify Profiles">
+                                <i class="fas fa-pencil-alt"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<style>
+    /* Premium Table Styling */
+    .bg-light-soft { background-color: #fcfcfd; }
+    .x-small { font-size: 0.75rem; }
+    .font-weight-semi-bold { font-weight: 600; }
+    .font-weight-medium { font-weight: 500; }
+    .opacity-5 { opacity: 0.5; }
+    
+    .user-row:hover {
+        background-color: #f8fbff !important;
+    }
+
+    .avatar-wrapper {
+        position: relative;
+    }
+
+    .avatar-circle {
+        width: 42px;
+        height: 42px;
+        background: linear-gradient(135deg, #e0e6ed 0%, #d1d9e6 100%);
+        color: #495057;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .status-indicator {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+    }
+
+    .badge-soft-success { background-color: #d1efdf; color: #027a48; }
+    .badge-soft-danger { background-color: #fee4e2; color: #b42318; }
+    .badge-soft-warning { background-color: #fffaeb; color: #b54708; }
+
+    .btn-icon-only {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-light-primary { background: #f0f3ff; color: #0061f2; }
+    .btn-light-primary:hover { background: #0061f2; color: #fff; transform: scale(1.1); }
+    
+    .btn-light-warning { background: #fff8eb; color: #f4a100; }
+    .btn-light-warning:hover { background: #f4a100; color: #fff; transform: scale(1.1); }
+
+    .btn-light-success { background: #e6fcf5; color: #099268; }
+    .btn-light-success:hover { background: #099268; color: #fff; transform: scale(1.1); }
+
+    .role-text { font-size: 0.9rem; }
+</style>

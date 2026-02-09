@@ -14,7 +14,12 @@ namespace HR.Web.Models
         public string Type { get; set; }
         public bool IsActive { get; set; }
 
-        public List<QuestionOptionVM> Options { get; set; } = new List<QuestionOptionVM>();
+        public QuestionAdminViewModel()
+        {
+            Options = new List<QuestionOptionVM>();
+        }
+
+        public List<QuestionOptionVM> Options { get; set; }
 
         // Central list of allowed types for dropdowns / validation
         public static readonly string[] AllowedTypes = new[]

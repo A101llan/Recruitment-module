@@ -8,6 +8,14 @@ namespace HR.Web.Controllers
     {
         public ActionResult Index()
         {
+            if (User.Identity.IsAuthenticated)
+            {
+                if (User.IsInRole("SuperAdmin") && Session["ImpersonatedCompanyId"] == null)
+                {
+                    return RedirectToAction("Index", "Companies");
+                }
+                return RedirectToAction("Index", "Dashboard");
+            }
             return RedirectToAction("Index", "Positions");
         }
 

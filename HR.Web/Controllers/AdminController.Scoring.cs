@@ -118,7 +118,7 @@ namespace HR.Web.Controllers
                 }
 
                 _uow.Complete();
-                TempData["Message"] = $"Scores recalculated for {updatedCount} applications.";
+                TempData["Message"] = string.Format("Scores recalculated for {0} applications.", updatedCount);
                 return Json(new { success = true, updatedCount });
             }
             catch (Exception ex)
@@ -146,7 +146,7 @@ namespace HR.Web.Controllers
                 {
                     PositionId = position.Id,
                     PositionTitle = position.Title,
-                    DepartmentName = position.Department?.Name ?? "Unknown",
+                    DepartmentName = position.Department != null ? position.Department.Name : "Unknown",
                     ApplicationCount = applications,
                     AverageScore = averageScore,
                     MaxScore = maxScore,
@@ -172,11 +172,11 @@ namespace HR.Web.Controllers
             for (int i = 0; i < rankings.Count; i++)
             {
                 var rank = rankings[i];
-                csv += $"{i + 1},{rank.CandidateName},{rank.CandidateEmail},{rank.TotalScore},{rank.MaxScore},{rank.Percentage:F1}%,{rank.AppliedDate:yyyy-MM-dd},{rank.Status}\n";
+                csv += string.Format("{0},{1},{2},{3},{4},{5:F1}%,{6:yyyy-MM-dd},{7}\n", i + 1, rank.CandidateName, rank.CandidateEmail, rank.TotalScore, rank.MaxScore, rank.Percentage, rank.AppliedDate, rank.Status);
             }
 
             var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
-            return File(bytes, "text/csv", $"rankings_{position.Title}_{DateTime.Now:yyyyMMdd}.csv");
+            return File(bytes, "text/csv", string.Format("rankings_{0}_{1:yyyyMMdd}.csv", position.Title, DateTime.Now));
         }
 
         /// <summary>
@@ -245,7 +245,7 @@ namespace HR.Web.Controllers
                 }
 
                 _uow.Complete();
-                TempData["Message"] = $"Bulk score recalculation completed. {updatedCount} applications updated.";
+                TempData["Message"] = string.Format("Bulk score recalculation completed. {0} applications updated.", updatedCount);
                 return RedirectToAction("ScoringStatistics");
             }
             catch (Exception ex)

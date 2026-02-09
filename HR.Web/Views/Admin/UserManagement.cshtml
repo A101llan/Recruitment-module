@@ -4,192 +4,187 @@
     ViewBag.Title = "User Management";
 }
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="card-title mb-0">
-                        <i class="fas fa-users"></i> User Management
-                    </h3>
+<div class="container-fluid py-5" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); min-height: 100vh;">
+    <div class="header-glass mb-5 p-4 rounded-lg shadow-sm border-0 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="display-5 font-weight-bold text-dark mb-1">
+                <i class="fas fa-users text-primary mr-3 animate-pulse"></i>User Management
+            </h1>
+            <p class="lead text-muted mb-0">Manage access and authority for your organization's users</p>
+        </div>
+        <div class="d-flex gap-3">
+            <a href="@Url.Action("SecurityLogs", "Admin")" class="btn btn-glass-info rounded-pill px-4 transition-all mr-2">
+                <i class="fas fa-shield-alt mr-2"></i> Security Logs
+            </a>
+            <a href="@Url.Action("Index", "Dashboard")" class="btn btn-glass-secondary rounded-pill px-4 transition-all">
+                <i class="fas fa-arrow-left mr-2"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-modern alert-success alert-dismissible fade show mb-5 shadow-sm border-0" role="alert">
+            <div class="d-flex align-items-center">
+                <div class="alert-icon-wrap mr-3">
+                    <i class="fas fa-check-circle fa-lg"></i>
+                </div>
+                <div>
+                    <h6 class="alert-heading mb-0 font-weight-bold">Success!</h6>
+                    <span>@TempData["SuccessMessage"]</span>
+                </div>
+            </div>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
+
+    <!-- Stat Summary -->
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="stat-card glass-card p-4 rounded-lg shadow-sm mb-4 mb-md-0 border-0">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <a href="@Url.Action("SecurityLogs", "Admin")" class="btn btn-info">
-                            <i class="fas fa-shield-alt"></i> Security Logs
-                        </a>
-                        <a href="@Url.Action("Index", "Dashboard")" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Back to Dashboard
-                        </a>
+                        <p class="text-uppercase text-muted small font-weight-bold mb-1">Total Members</p>
+                        <h2 class="mb-0 font-weight-bold">@Model.Count()</h2>
+                    </div>
+                    <div class="stat-icon-wrap bg-primary-soft">
+                        <i class="fas fa-users text-primary fa-2x"></i>
                     </div>
                 </div>
-                <div class="card-body">
-                    @if (TempData["SuccessMessage"] != null)
-                    {
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle"></i> @TempData["SuccessMessage"]
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                    }
-
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead class="thead-dark">
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Failed Attempts</th>
-                                    <th>Last Login</th>
-                                    <th>Last IP</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (!Model.Any())
-                                {
-                                    <tr>
-                                        <td colspan="9" class="text-center text-muted py-4">
-                                            <i class="fas fa-users-slash fa-3x mb-3"></i>
-                                            <p>No users found.</p>
-                                        </td>
-                                    </tr>
-                                }
-                                else
-                                {
-                                    foreach (var user in Model)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <strong>@user.UserName</strong>
-                                            </td>
-                                            <td>@user.Email</td>
-                                            <td>@user.Phone</td>
-                                            <td>
-                                                <span class="badge @user.RoleBadgeClass">
-                                                    @user.Role
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge @user.StatusBadgeClass">
-                                                    @user.Status
-                                                </span>
-                                                @if (user.IsLocked && user.LockoutEndTime.HasValue)
-                                                {
-                                                    <small class="text-muted d-block">
-                                                        <i class="fas fa-clock"></i>
-                                                        Until @user.LockoutEndTime.Value.ToString("HH:mm")
-                                                    </small>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (user.FailedLoginAttempts > 0)
-                                                {
-                                                    <span class="text-warning">
-                                                        <i class="fas fa-exclamation-triangle"></i> @user.FailedLoginAttempts
-                                                    </span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-success">
-                                                        <i class="fas fa-check-circle"></i> 0
-                                                    </span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (user.LastLoginDate.HasValue)
-                                                {
-                                                    <small>@user.LastLoginDate.Value.ToString("MMM dd, yyyy HH:mm")</small>
-                                                }
-                                                else
-                                                {
-                                                    <small class="text-muted">Never</small>
-                                                }
-                                            </td>
-                                            <td>
-                                                <small class="text-monospace">@user.LastLoginIP</small>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group" role="group">
-                                                    <a href="@Url.Action("UpdateUserRole", new { id = user.Id })" 
-                                                       class="btn btn-sm btn-outline-primary" 
-                                                       title="Update Role">
-                                                        <i class="fas fa-user-edit"></i>
-                                                    </a>
-                                                    @if (user.IsLocked)
-                                                    {
-                                                        <form method="post" action="@Url.Action("UnlockUserAccount", new { id = user.Id })" 
-                                                              style="display: inline;">
-                                                            @Html.AntiForgeryToken()
-                                                            <button type="submit" class="btn btn-sm btn-outline-success" 
-                                                                    title="Unlock Account"
-                                                                    onclick="return confirm('Are you sure you want to unlock this user account?');">
-                                                                <i class="fas fa-unlock"></i>
-                                                            </button>
-                                                        </form>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                            </tbody>
-                        </table>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card glass-card p-4 rounded-lg shadow-sm mb-4 mb-md-0 border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase text-muted small font-weight-bold mb-1">Active Accounts</p>
+                        <h2 class="mb-0 font-weight-bold text-success">@Model.Count(u => !u.IsLocked)</h2>
                     </div>
-
-                    <div class="row mt-4">
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6 class="card-title">
-                                        <i class="fas fa-info-circle"></i> Legend
-                                    </h6>
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <p class="mb-1"><strong>Status:</strong></p>
-                                            <span class="badge badge-success">Active</span> - Account is normal<br>
-                                            <span class="badge badge-danger">Locked</span> - Account is locked
-                                        </div>
-                                        <div class="col-6">
-                                            <p class="mb-1"><strong>Roles:</strong></p>
-                                            <span class="badge badge-danger">Admin</span> - Full access<br>
-                                            <span class="badge badge-primary">Client</span> - Basic access
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6 class="card-title">
-                                        <i class="fas fa-chart-bar"></i> Statistics
-                                    </h6>
-                                    <div class="row text-center">
-                                        <div class="col-4">
-                                            <h4 class="text-primary">@Model.Count()</h4>
-                                            <small>Total Users</small>
-                                        </div>
-                                        <div class="col-4">
-                                            <h4 class="text-success">@Model.Count(u => !u.IsLocked)</h4>
-                                            <small>Active</small>
-                                        </div>
-                                        <div class="col-4">
-                                            <h4 class="text-danger">@Model.Count(u => u.IsLocked)</h4>
-                                            <small>Locked</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="stat-icon-wrap bg-success-soft">
+                        <i class="fas fa-user-check text-success fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card glass-card p-4 rounded-lg shadow-sm border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase text-muted small font-weight-bold mb-1">Restricted Access</p>
+                        <h2 class="mb-0 font-weight-bold text-danger">@Model.Count(u => u.IsLocked)</h2>
+                    </div>
+                    <div class="stat-icon-wrap bg-danger-soft">
+                        <i class="fas fa-user-lock text-danger fa-2x"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- User List Section -->
+    <div class="content-container glass-card rounded-lg shadow-lg border-0 overflow-hidden">
+        <div class="p-0">
+            @Html.Partial("_GlobalUserList", Model)
+        </div>
+    </div>
 </div>
+
+<style>
+    /* Premium Design System */
+    :root {
+        --primary: #0061f2;
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.4);
+    }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid var(--glass-border);
+    }
+
+    .header-glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 2px solid #fff;
+    }
+
+    .stat-card {
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stat-icon-wrap {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bg-primary-soft { background-color: rgba(0, 97, 242, 0.1); }
+    .bg-success-soft { background-color: rgba(0, 172, 105, 0.1); }
+    .bg-danger-soft { background-color: rgba(232, 21, 0, 0.1); }
+
+    .alert-modern {
+        border-left: 5px solid #00ac69;
+        padding-left: 1.5rem;
+    }
+
+    .alert-icon-wrap {
+        width: 40px;
+        height: 40px;
+        background: #00ac69;
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-glass-info {
+        background: rgba(0, 207, 213, 0.1);
+        border: 1px solid rgba(0, 207, 213, 0.2);
+        color: #007275;
+    }
+
+    .btn-glass-info:hover {
+        background: rgba(0, 207, 213, 0.2);
+        color: #005658;
+    }
+
+    .btn-glass-secondary {
+        background: rgba(108, 117, 125, 0.1);
+        border: 1px solid rgba(108, 117, 125, 0.2);
+        color: #495057;
+    }
+
+    .btn-glass-secondary:hover {
+        background: rgba(108, 117, 125, 0.2);
+    }
+
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    .transition-all {
+        transition: all 0.2s ease-in-out;
+    }
+</style>
 
 @section Scripts {
     <script>

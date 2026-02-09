@@ -17,9 +17,15 @@ namespace HR.Web.Models
         [Required]
         public DateTime ExpiryDate { get; set; }
 
-        public bool IsUsed { get; set; } = false;
+        public PasswordReset()
+        {
+            IsUsed = false;
+            CreatedDate = DateTime.UtcNow;
+        }
 
-        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public bool IsUsed { get; set; }
+
+        public DateTime CreatedDate { get; set; }
 
         public virtual User User { get; set; }
     }

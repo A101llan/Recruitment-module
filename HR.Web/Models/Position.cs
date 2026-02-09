@@ -5,9 +5,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Web.Models
 {
-    public class Position
+    public class Position : ITenantEntity
     {
         public int Id { get; set; }
+
+        [Required]
+        public int? CompanyId { get; set; }
+        public virtual Company Company { get; set; }
 
         [Required, StringLength(150)]
         public string Title { get; set; }

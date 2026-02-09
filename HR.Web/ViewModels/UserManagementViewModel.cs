@@ -30,6 +30,8 @@ namespace HR.Web.ViewModels
         public int FailedLoginAttempts { get; set; }
 
         public DateTime CreatedDate { get; set; }
+        
+        public string CompanyName { get; set; }
 
         public string Status
         {
@@ -55,7 +57,8 @@ namespace HR.Web.ViewModels
         {
             get
             {
-                switch (Role?.ToLower())
+                var role = Role != null ? Role.ToLower() : string.Empty;
+                switch (role)
                 {
                     case "admin":
                         return "badge-danger";
@@ -85,5 +88,12 @@ namespace HR.Web.ViewModels
         public string NewRole { get; set; }
 
         public string Reason { get; set; }
+    }
+
+    public class SuperAdminUserManagementViewModel
+    {
+        public System.Collections.Generic.List<UserManagementViewModel> GlobalUsers { get; set; }
+        public System.Collections.Generic.List<UserManagementViewModel> Admins { get; set; }
+        public System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<UserManagementViewModel>> UsersByCompany { get; set; }
     }
 }

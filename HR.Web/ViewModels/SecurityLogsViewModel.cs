@@ -69,6 +69,11 @@ namespace HR.Web.ViewModels
 
     public class LogFilter
     {
+        public LogFilter()
+        {
+            LogType = LogType.All;
+        }
+
         public string Username { get; set; }
         public string Action { get; set; }
         public string Controller { get; set; }
@@ -76,7 +81,7 @@ namespace HR.Web.ViewModels
         public DateTime? EndDate { get; set; }
         public bool? WasSuccessful { get; set; }
         public string IPAddress { get; set; }
-        public LogType LogType { get; set; } = LogType.All;
+        public LogType LogType { get; set; }
     }
 
     public enum LogType

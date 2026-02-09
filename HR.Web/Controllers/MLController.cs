@@ -39,7 +39,7 @@ namespace HR.Web.Controllers
                         type = q.Type,
                         category = q.Category,
                         isRequired = q.IsRequired,
-                        options = q.Options?.Select(o => new { text = o.Text, points = o.Points })
+                        options = q.Options != null ? q.Options.Select(o => new { text = o.Text, points = o.Points }) : null
                     }),
                     metadata = new
                     {

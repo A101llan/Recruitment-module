@@ -39,7 +39,7 @@ namespace HR.Web.Services
             if (failedAttempts.Count >= MaxFailedAttempts)
             {
                 var oldestAttempt = failedAttempts.LastOrDefault();
-                return oldestAttempt?.AttemptTime.AddMinutes(LockoutDurationMinutes);
+                return oldestAttempt != null ? (DateTime?)oldestAttempt.AttemptTime.AddMinutes(LockoutDurationMinutes) : null;
             }
             
             return null;

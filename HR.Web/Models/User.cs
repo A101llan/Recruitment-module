@@ -3,9 +3,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HR.Web.Models
 {
-    public class User
+    public class User : ITenantEntity
     {
         public int Id { get; set; }
+
+        public int? CompanyId { get; set; }
+        public virtual Company Company { get; set; }
 
         [Required, StringLength(100)]
         public string UserName { get; set; }
@@ -19,7 +22,12 @@ namespace HR.Web.Models
         [Required, StringLength(256)]
         public string PasswordHash { get; set; }
 
-        public bool RequirePasswordChange { get; set; } = false;
+        public User()
+        {
+            RequirePasswordChange = false;
+        }
+
+        public bool RequirePasswordChange { get; set; }
         
         public System.DateTime? LastPasswordChange { get; set; }
         

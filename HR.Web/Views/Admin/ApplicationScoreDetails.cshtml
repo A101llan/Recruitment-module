@@ -1,0 +1,46 @@
+@model HR.Web.Controllers.ApplicationScoreDetailsViewModel
+@{
+    Layout = null; // This is a partial view for a modal
+}
+
+<div class="row mb-4">
+    <div class="col-md-6 border-right">
+        <h6>Candidate Information</h6>
+        <p class="mb-1"><strong>@Model.Application.Applicant.FullName</strong></p>
+        <p class="mb-0 small text-muted">@Model.Application.Applicant.Email</p>
+    </div>
+    <div class="col-md-6 text-center">
+        <h6>Total Score</h6>
+        <h3 class="text-primary mb-0">@Model.TotalScore.ToString("F1") / @Model.MaxScore</h3>
+        <span class="badge badge-@(Model.Percentage >= 80 ? "success" : Model.Percentage >= 60 ? "warning" : "danger")">
+            @Model.Percentage.ToString("F1")%
+        </span>
+    </div>
+</div>
+
+<h6>Question Breakdown</h6>
+<div class="table-responsive">
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Question</th>
+                <th class="text-center">Score</th>
+                <th class="text-center">Max</th>
+                <th class="text-center">%</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var detail in Model.ScoreBreakdown)
+            {
+                <tr>
+                    <td class="small">@detail.QuestionText</td>
+                    <td class="text-center">@detail.Score.ToString("F1")</td>
+                    <td class="text-center">@detail.MaxScore</td>
+                    <td class="text-center">
+                        <small>@detail.Percentage.ToString("F1")%</small>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

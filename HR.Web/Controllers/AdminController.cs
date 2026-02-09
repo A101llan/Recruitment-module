@@ -14,12 +14,13 @@ namespace HR.Web.Controllers
     /// Admin controller for managing candidates, applications, and rankings
     /// Allows admins to view candidates ranked by position, filter, and manage applications
     /// </summary>
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin, SuperAdmin")]
     public partial class AdminController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
         private readonly SecurityService _securityService = new SecurityService();
         private readonly AuditService _auditService = new AuditService();
+        private readonly TenantService _tenantService = new TenantService();
 
         // GET: Admin/Index - Default admin dashboard
         public ActionResult Index()
@@ -82,11 +83,16 @@ namespace HR.Web.Controllers
              */
 
             // Get all applications with related data
-            var applications = _uow.Applications.GetAll(
+            var applicationsQuery = _uow.Applications.GetAll(
                 a => a.Applicant,
                 a => a.Position,
                 a => a.Position.Department
-            ).ToList();
+            ).AsQueryable();
+
+            // Apply tenant filter
+            applicationsQuery = _tenantService.ApplyTenantFilter(applicationsQuery);
+
+            var applications = applicationsQuery.ToList();
 
             // Filter by position if specified
             if (positionId.HasValue)
@@ -173,6 +179,14 @@ namespace HR.Web.Controllers
             {
                 return HttpNotFound();
             }
+            
+            // Check tenant access
+            var companyId = _tenantService.GetCurrentUserCompanyId();
+            if (companyId.HasValue && application.CompanyId != companyId.Value && !_tenantService.IsSuperAdmin())
+            {
+                return new HttpStatusCodeResult(403, "Access Denied: This application belongs to another company.");
+            }
+            
             return View(application);
         }
 
@@ -218,7 +232,7 @@ namespace HR.Web.Controllers
          *    - Candidate pool quality metrics
          */
         // Questions management (CRUD)
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         public ActionResult Questions()
         {
             // Use eager loading to get questions with their options in one query
@@ -245,7 +259,7 @@ namespace HR.Web.Controllers
             return View("QuestionsWithMCP", list);
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         public ActionResult EditQuestion(int? id)
         {
             if (id == null)
@@ -272,7 +286,7 @@ namespace HR.Web.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [ValidateAntiForgeryToken]
         public ActionResult EditQuestion(QuestionAdminViewModel model)
         {
@@ -300,6 +314,7 @@ namespace HR.Web.Controllers
                     var oldOptions = _uow.Context.Set<QuestionOption>().Where(o => o.QuestionId == q.Id);
                     _uow.Context.Set<QuestionOption>().RemoveRange(oldOptions);
                 }
+
                 else
                 {
                     // create new
@@ -309,6 +324,14 @@ namespace HR.Web.Controllers
                         Type = model.Type,
                         IsActive = model.IsActive
                     };
+                    
+                    // Assign company
+                    var companyId = _tenantService.GetCurrentUserCompanyId();
+                    if (companyId.HasValue)
+                    {
+                        q.CompanyId = companyId.Value;
+                    }
+                    
                     _uow.Questions.Add(q);
                     _uow.Complete();
                 }
@@ -358,7 +381,7 @@ namespace HR.Web.Controllers
             {
                 var action = isUpdate ? "UPDATE" : "CREATE";
                 _auditService.LogAction(User.Identity.Name, action, "Admin", 
-                    model.Id?.ToString() ?? "new", 
+                    model.Id.HasValue ? model.Id.Value.ToString() : "new", 
                     wasSuccessful: false, errorMessage: ex.Message);
                 
                 TempData["Error"] = "Error saving question: " + ex.Message;
@@ -368,7 +391,7 @@ namespace HR.Web.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [ValidateAntiForgeryToken]
         public ActionResult DeleteQuestion(int id)
         {
@@ -427,7 +450,7 @@ namespace HR.Web.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [ValidateAntiForgeryToken]
         public ActionResult BatchDeleteQuestions(int[] questionIds)
         {
@@ -447,7 +470,7 @@ namespace HR.Web.Controllers
                     if (q == null) continue;
                     
                     // Store question details for audit log before deletion
-                    deletedQuestions.Add($"ID: {id}, Text: {q.Text}");
+                    deletedQuestions.Add("ID: " + id + ", Text: " + q.Text);
                     
                     // Delete related records in proper order due to foreign key constraints
                     
@@ -484,8 +507,8 @@ namespace HR.Web.Controllers
                     string.Join(",", questionIds), 
                     new { DeletedCount = deletedCount, Questions = deletedQuestions });
                 
-                TempData["Message"] = $"Successfully deleted {deletedCount} question(s).";
-                return Json(new { success = true, message = $"Successfully deleted {deletedCount} question(s)." });
+                TempData["Message"] = string.Format("Successfully deleted {0} question(s).", deletedCount);
+                return Json(new { success = true, message = string.Format("Successfully deleted {0} question(s).", deletedCount) });
             }
             catch (Exception ex)
             {
@@ -499,7 +522,7 @@ namespace HR.Web.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [ValidateAntiForgeryToken]
         public ActionResult ExportQuestionBank()
         {
@@ -518,13 +541,13 @@ namespace HR.Web.Controllers
                     var createdDate = ""; // Question model doesn't have CreatedDate property
                     
                     // Escape commas and quotes in question text
-                    var questionText = question.Text?.Replace("\"", "\"\"") ?? "";
+                    var questionText = (question.Text != null ? question.Text.Replace("\"", "\"\"") : null) ?? "";
                     if (questionText.Contains(","))
                     {
-                        questionText = $"\"{questionText}\"";
+                        questionText = "\"" + questionText + "\"";
                     }
                     
-                    csv.AppendLine($"{question.Id},{questionText},{question.Type},{status},{createdDate}");
+                    csv.AppendLine(string.Format("{0},{1},{2},{3},{4}", question.Id, questionText, question.Type, status, createdDate));
                 }
                 
                 // Create audit log entry for export
@@ -535,7 +558,7 @@ namespace HR.Web.Controllers
                 return Json(new { 
                     success = true, 
                     data = csv.ToString(), 
-                    message = $"Successfully exported {questions.Count} questions." 
+                    message = string.Format("Successfully exported {0} questions.", questions.Count) 
                 });
             }
             catch (Exception ex)
@@ -550,7 +573,7 @@ namespace HR.Web.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [ValidateAntiForgeryToken]
         public ActionResult AddToSampleQuestions(string questionsJson)
         {
@@ -602,7 +625,7 @@ namespace HR.Web.Controllers
                         requiresDecision = true,
                         duplicates = duplicates, 
                         newQuestions = newQuestions,
-                        message = $"Found {duplicates.Count} potential duplicates. Please review before adding."
+                        message = string.Format("Found {0} potential duplicates. Please review before adding.", duplicates.Count)
                     });
                 }
                 else
@@ -611,7 +634,7 @@ namespace HR.Web.Controllers
                     return Json(new { 
                         success = true, 
                         requiresDecision = false,
-                        message = $"All {questions.Count} questions are already in the question bank."
+                        message = string.Format("All {0} questions are already in the question bank.", questions.Count)
                     });
                 }
             }
@@ -628,10 +651,12 @@ namespace HR.Web.Controllers
         /// Display all registered users with their account status and role management options
         /// Only Admin role can access this
         /// </summary>
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         public ActionResult UserManagement()
         {
-            var users = _uow.Users.GetAll().ToList();
+            var usersQuery = _uow.Users.GetAll().AsQueryable();
+            usersQuery = _tenantService.ApplyTenantFilter(usersQuery);
+            var users = usersQuery.ToList();
             var userViewModels = new List<UserManagementViewModel>();
 
             foreach (var user in users)
@@ -653,12 +678,13 @@ namespace HR.Web.Controllers
                     UserName = user.UserName,
                     Email = user.Email,
                     Role = user.Role,
-                    Phone = _uow.Applicants.GetAll()
+
+                    Phone = _uow.Applicants.GetAll() // Applicants are already tenant filtered if TenantService is applied, but here we query by email
                         .Where(a => a.Email == user.Email)
                         .Select(a => a.Phone)
                         .FirstOrDefault(),
-                    LastLoginDate = lastLogin?.Timestamp,
-                    LastLoginIP = lastLogin?.IPAddress,
+                    LastLoginDate = lastLogin != null ? (DateTime?)lastLogin.Timestamp : null,
+                    LastLoginIP = lastLogin != null ? lastLogin.IPAddress : null,
                     IsLocked = isLocked,
                     LockoutEndTime = lockoutEndTime,
                     FailedLoginAttempts = actualFailedAttempts,
@@ -673,13 +699,20 @@ namespace HR.Web.Controllers
         /// Display form to update user role
         /// Only Admin role can access this
         /// </summary>
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         public ActionResult UpdateUserRole(int id)
         {
             var user = _uow.Users.Get(id);
             if (user == null)
             {
                 return HttpNotFound();
+            }
+
+            // Check if user belongs to current tenant
+            var companyId = _tenantService.GetCurrentUserCompanyId();
+            if (companyId.HasValue && user.CompanyId != companyId.Value && !_tenantService.IsSuperAdmin())
+            {
+                return new HttpStatusCodeResult(403, "Access Denied: User belongs to another company.");
             }
 
             var viewModel = new UserRoleUpdateViewModel
@@ -699,7 +732,7 @@ namespace HR.Web.Controllers
         /// Only Admin role can access this
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [ValidateAntiForgeryToken]
         public ActionResult UpdateUserRole(UserRoleUpdateViewModel model)
         {
@@ -712,6 +745,13 @@ namespace HR.Web.Controllers
             if (user == null)
             {
                 return HttpNotFound();
+            }
+
+            // Check if user belongs to current tenant
+            var companyId = _tenantService.GetCurrentUserCompanyId();
+            if (companyId.HasValue && user.CompanyId != companyId.Value && !_tenantService.IsSuperAdmin())
+            {
+                return new HttpStatusCodeResult(403, "Access Denied");
             }
 
             var oldRole = user.Role;
@@ -728,7 +768,7 @@ namespace HR.Web.Controllers
                 new { Role = model.NewRole }
             );
 
-            TempData["SuccessMessage"] = $"User {user.UserName} role updated from {oldRole} to {model.NewRole}";
+            TempData["SuccessMessage"] = string.Format("User {0} role updated from {1} to {2}", user.UserName, oldRole, model.NewRole);
             return RedirectToAction("UserManagement");
         }
 
@@ -736,7 +776,7 @@ namespace HR.Web.Controllers
         /// Unlock a locked user account
         /// Only Admin role can access this
         /// </summary>
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult UnlockUserAccount(int id)
@@ -745,6 +785,13 @@ namespace HR.Web.Controllers
             if (user == null)
             {
                 return HttpNotFound();
+            }
+
+            // Check if user belongs to current tenant
+            var companyId = _tenantService.GetCurrentUserCompanyId();
+            if (companyId.HasValue && user.CompanyId != companyId.Value && !_tenantService.IsSuperAdmin())
+            {
+                return new HttpStatusCodeResult(403, "Access Denied");
             }
 
             // Clear failed login attempts
@@ -760,7 +807,7 @@ namespace HR.Web.Controllers
                 new { UnlockedBy = User.Identity.Name, UnlockedAt = DateTime.Now }
             );
 
-            TempData["SuccessMessage"] = $"User {user.UserName} account has been unlocked";
+            TempData["SuccessMessage"] = string.Format("User {0} account has been unlocked", user.UserName);
             return RedirectToAction("UserManagement");
         }
 
@@ -772,7 +819,7 @@ namespace HR.Web.Controllers
         /// Display security logs (login attempts and audit logs)
         /// Only Admin role can access this
         /// </summary>
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         public ActionResult SecurityLogs(LogFilter filter)
         {
             // Initialize filter with empty values on initial load
@@ -794,6 +841,7 @@ namespace HR.Web.Controllers
 
             // Get login attempts
             var loginAttemptsQuery = _uow.LoginAttempts.GetAll().AsQueryable();
+            loginAttemptsQuery = _tenantService.ApplyTenantFilter(loginAttemptsQuery);
             
             if (!string.IsNullOrEmpty(viewModel.Filter.Username))
                 loginAttemptsQuery = loginAttemptsQuery.Where(l => l.Username.Contains(viewModel.Filter.Username));
@@ -827,6 +875,7 @@ namespace HR.Web.Controllers
 
             // Get audit logs
             var auditLogsQuery = _uow.AuditLogs.GetAll().AsQueryable();
+            auditLogsQuery = _tenantService.ApplyTenantFilter(auditLogsQuery);
             
             if (!string.IsNullOrEmpty(viewModel.Filter.Username))
                 auditLogsQuery = auditLogsQuery.Where(a => a.Username.Contains(viewModel.Filter.Username));

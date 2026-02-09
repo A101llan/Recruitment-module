@@ -1,0 +1,301 @@
+@model HR.Web.ViewModels.SuperAdminUserManagementViewModel
+@{
+    ViewBag.Title = "Global User Management";
+}
+
+<div class="container-fluid py-5" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); min-height: 100vh;">
+    <div class="header-glass mb-5 p-4 rounded-lg shadow-sm border-0 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="display-5 font-weight-bold text-dark mb-1">
+                <i class="fas fa-users-cog text-primary mr-3 animate-pulse"></i>Global Control Center
+            </h1>
+            <p class="lead text-muted mb-0">System-wide user orchestration and security monitoring</p>
+        </div>
+        <div class="d-flex gap-3">
+            <a href="@Url.Action("UserManagement", "Admin")" class="btn btn-glass-secondary rounded-pill px-4 transition-all">
+                <i class="fas fa-arrow-left mr-2"></i> Local Admin
+            </a>
+            <button class="btn btn-primary rounded-pill px-4 shadow-sm ml-2">
+                <i class="fas fa-plus mr-2"></i> New User
+            </button>
+        </div>
+    </div>
+
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-modern alert-success alert-dismissible fade show mb-5 shadow-sm border-0" role="alert">
+            <div class="d-flex align-items-center">
+                <div class="alert-icon-wrap mr-3">
+                    <i class="fas fa-check-circle fa-lg"></i>
+                </div>
+                <div>
+                    <h6 class="alert-heading mb-0 font-weight-bold">Success!</h6>
+                    <span>@TempData["Message"]</span>
+                </div>
+            </div>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
+
+    <!-- Stat Cards Summary -->
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="stat-card glass-card p-4 rounded-lg shadow-sm mb-4 mb-md-0 border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase text-muted small font-weight-bold mb-1">System Entities</p>
+                        <h2 class="mb-0 font-weight-bold">@Model.GlobalUsers.Count</h2>
+                    </div>
+                    <div class="stat-icon-wrap bg-primary-soft">
+                        <i class="fas fa-globe text-primary fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-success font-weight-bold"><i class="fas fa-arrow-up mr-1"></i>Active</span>
+                    <span class="text-muted small ml-2">Unassigned users</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card glass-card p-4 rounded-lg shadow-sm mb-4 mb-md-0 border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase text-muted small font-weight-bold mb-1">Total Admin Pool</p>
+                        <h2 class="mb-0 font-weight-bold">@Model.Admins.Count</h2>
+                    </div>
+                    <div class="stat-icon-wrap bg-warning-soft">
+                        <i class="fas fa-user-shield text-warning fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-warning font-weight-bold"><i class="fas fa-lock mr-1"></i>Secure</span>
+                    <span class="text-muted small ml-2">Authorities</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card glass-card p-4 rounded-lg shadow-sm border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase text-muted small font-weight-bold mb-1">Active Companies</p>
+                        <h2 class="mb-0 font-weight-bold">@Model.UsersByCompany.Count</h2>
+                    </div>
+                    <div class="stat-icon-wrap bg-success-soft">
+                        <i class="fas fa-building text-success fa-2x"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-info font-weight-bold"><i class="fas fa-sync mr-1"></i>Live</span>
+                    <span class="text-muted small ml-2">Corporate tenants</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <div class="content-container glass-card rounded-lg shadow-lg border-0">
+        <div class="tabs-header p-2 border-bottom">
+            <ul class="nav nav-pills nav-fill" id="userTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active rounded-lg py-3 transition-all" id="global-tab" data-toggle="pill" href="#global" role="tab">
+                        <i class="fas fa-fingerprint mr-2"></i>System Users
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-lg py-3 transition-all" id="admins-tab" data-toggle="pill" href="#admins" role="tab">
+                        <i class="fas fa-shield-alt mr-2"></i>Global Admins
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-lg py-3 transition-all" id="companies-tab" data-toggle="pill" href="#companies" role="tab">
+                        <i class="fas fa-sitemap mr-2"></i>Tenant Users
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="tab-content" id="userTabsContent">
+            <!-- System Users -->
+            <div class="tab-pane fade show active p-0" id="global" role="tabpanel">
+                @Html.Partial("_GlobalUserList", Model.GlobalUsers)
+            </div>
+
+            <!-- Global Admins -->
+            <div class="tab-pane fade p-0" id="admins" role="tabpanel">
+                @Html.Partial("_GlobalUserList", Model.Admins)
+            </div>
+
+            <!-- Tenant Users -->
+            <div class="tab-pane fade p-4" id="companies" role="tabpanel">
+                <div class="accordion custom-accordion" id="companyAccordion">
+                    @{ var companyIdx = 0; }
+                    @foreach (var company in Model.UsersByCompany)
+                    {
+                        <div class="accordion-item mb-3 border rounded-lg overflow-hidden transition-all">
+                            <div class="accordion-header bg-white" id="heading@companyIdx">
+                                <h2 class="mb-0">
+                                    <button class="btn btn-block text-left py-4 px-4 d-flex justify-content-between align-items-center font-weight-bold" type="button" data-toggle="collapse" data-target="#collapse@companyIdx">
+                                        <span class="d-flex align-items-center">
+                                            <div class="company-bubble mr-3">@company.Key.Substring(0, 1).ToUpper()</div>
+                                            <span>@company.Key</span>
+                                        </span>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge badge-soft-primary px-3 py-2 rounded-pill mr-3">@company.Value.Count users</span>
+                                            <i class="fas fa-chevron-down accordion-arrow"></i>
+                                        </div>
+                                    </button>
+                                </h2>
+                            </div>
+
+                            <div id="collapse@companyIdx" class="collapse" data-parent="#companyAccordion">
+                                <div class="p-0 bg-light border-top">
+                                    @Html.Partial("_GlobalUserList", company.Value)
+                                </div>
+                            </div>
+                        </div>
+                        companyIdx++;
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Premium Look & Feel CSS */
+    :root {
+        --primary: #0061f2;
+        --secondary: #6900f2;
+        --success: #00ac69;
+        --info: #00cfd5;
+        --warning: #f4a100;
+        --danger: #e81500;
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.4);
+    }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #2e384d;
+    }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid var(--glass-border);
+    }
+
+    .header-glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 2px solid #fff;
+    }
+
+    .stat-card {
+        transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(0, 97, 242, 0.2);
+    }
+
+    .stat-icon-wrap {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bg-primary-soft { background-color: rgba(0, 97, 242, 0.1); }
+    .bg-warning-soft { background-color: rgba(244, 161, 0, 0.1); }
+    .bg-success-soft { background-color: rgba(0, 172, 105, 0.1); }
+
+    .nav-pills .nav-link {
+        color: #6c757d;
+        font-weight: 600;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+    }
+
+    .nav-pills .nav-link.active {
+        background-color: transparent;
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+
+    .nav-pills .nav-link:hover:not(.active) {
+        background-color: rgba(0, 97, 242, 0.05);
+        color: var(--primary);
+    }
+
+    .alert-modern {
+        border-left: 5px solid #00ac69;
+        padding-left: 1.5rem;
+    }
+
+    .alert-icon-wrap {
+        width: 40px;
+        height: 40px;
+        background: #00ac69;
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .company-bubble {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #0061f2 0%, #6900f2 100%);
+        color: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        box-shadow: 0 4px 6px rgba(0, 97, 242, 0.2);
+    }
+
+    .accordion-arrow {
+        transition: transform 0.3s ease;
+        color: #adb5bd;
+    }
+
+    .btn:not(.collapsed) .accordion-arrow {
+        transform: rotate(180deg);
+        color: var(--primary);
+    }
+
+    .transition-all {
+        transition: all 0.2s ease-in-out;
+    }
+
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.1); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
+    .btn-glass-secondary {
+        background: rgba(108, 117, 125, 0.1);
+        border: 1px solid rgba(108, 117, 125, 0.2);
+        color: #495057;
+    }
+
+    .btn-glass-secondary:hover {
+        background: rgba(108, 117, 125, 0.2);
+        color: #212529;
+    }
+</style>

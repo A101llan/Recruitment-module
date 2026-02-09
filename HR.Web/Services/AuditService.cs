@@ -25,9 +25,9 @@ namespace HR.Web.Services
                     EntityId = entityId,
                     OldValues = oldValues != null ? JsonConvert.SerializeObject(oldValues) : null,
                     NewValues = newValues != null ? JsonConvert.SerializeObject(newValues) : null,
-                    IPAddress = context?.Request?.UserHostAddress ?? "Unknown",
+                    IPAddress = (context != null && context.Request != null ? context.Request.UserHostAddress : null) ?? "Unknown",
                     Timestamp = DateTime.Now,
-                    UserAgent = context?.Request?.UserAgent ?? "Unknown",
+                    UserAgent = (context != null && context.Request != null ? context.Request.UserAgent : null) ?? "Unknown",
                     WasSuccessful = wasSuccessful,
                     ErrorMessage = errorMessage
                 };
@@ -77,7 +77,7 @@ namespace HR.Web.Services
         public void LogUnauthorizedAccess(string username, string controller, string action)
         {
             LogAction(username, "UNAUTHORIZED_ACCESS", controller, 
-                wasSuccessful: false, errorMessage: $"Attempted to access {action}");
+                wasSuccessful: false, errorMessage: "Attempted to access " + action);
         }
     }
 }

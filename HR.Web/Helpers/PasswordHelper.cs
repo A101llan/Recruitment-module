@@ -16,10 +16,10 @@ namespace HR.Web.Helpers
         public static string HashPassword(string password)
         {
             if (string.IsNullOrWhiteSpace(password))
-                throw new ArgumentException("Password cannot be null or empty", nameof(password));
+                throw new ArgumentException("Password cannot be null or empty", "password");
 
             if (!IsPasswordStrong(password))
-                throw new ArgumentException("Password does not meet security requirements", nameof(password));
+                throw new ArgumentException("Password does not meet security requirements", "password");
 
             using (var algorithm = new Rfc2898DeriveBytes(
                 password,
@@ -29,7 +29,7 @@ namespace HR.Web.Helpers
                 var key = Convert.ToBase64String(algorithm.GetBytes(KeySize));
                 var salt = Convert.ToBase64String(algorithm.Salt);
 
-                return $"{Iterations}.{salt}.{key}";
+                return string.Format("{0}.{1}.{2}", Iterations, salt, key);
             }
         }
 
@@ -238,8 +238,8 @@ namespace HR.Web.Helpers
 
         public static string GetPasswordStrengthMessage()
         {
-            return $"Password must be at least {MinPasswordLength} characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character. " +
-                   "Passwords cannot contain common patterns or sequential characters.";
+            return string.Format("Password must be at least {0} characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character. " +
+                   "Passwords cannot contain common patterns or sequential characters.", MinPasswordLength);
         }
     }
 }

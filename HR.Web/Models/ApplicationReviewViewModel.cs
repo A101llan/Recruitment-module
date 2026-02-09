@@ -14,8 +14,13 @@ namespace HR.Web.Models
         public string ApplicantName { get; set; }
         public string ApplicantEmail { get; set; }
 
+        public ApplicationReviewViewModel()
+        {
+            QuestionAnswers = new List<QuestionAnswerViewModel>();
+        }
+
         // Dynamic question answers
-        public List<QuestionAnswerViewModel> QuestionAnswers { get; set; } = new List<QuestionAnswerViewModel>();
+        public List<QuestionAnswerViewModel> QuestionAnswers { get; set; }
 
         // Legacy questionnaire answers (for backward compatibility)
         public string WhyInterested { get; set; }

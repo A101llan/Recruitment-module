@@ -63,7 +63,7 @@ namespace HR.Web.Services
             catch (Exception ex)
             {
                 // Log error but don't throw - email failure shouldn't break the app
-                System.Diagnostics.Debug.WriteLine($"Email sending failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("Email sending failed: " + ex.Message);
                 // In production, you'd want proper logging here
             }
         }
@@ -71,7 +71,7 @@ namespace HR.Web.Services
         public async Task SendPasswordResetEmailAsync(string to, string resetLink)
         {
             var subject = "Password Reset Request - Nanosoft HR System";
-            var body = $@"
+            var body = string.Format(@"
 <!DOCTYPE html>
 <html>
 <head>
@@ -102,13 +102,13 @@ namespace HR.Web.Services
             </div>
             
             <p style='text-align: center;'>
-                <a href='{resetLink}' class='button'>Reset Your Password</a>
+                <a href='{0}' class='button'>Reset Your Password</a>
             </p>
             
             <p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
             
             <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
-            <p style='word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 4px;'>{resetLink}</p>
+            <p style='word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 4px;'>{0}</p>
         </div>
         <div class='footer'>
             <p>&copy; 2026 Nanosoft Technologies. All rights reserved.</p>
@@ -116,7 +116,7 @@ namespace HR.Web.Services
         </div>
     </div>
 </body>
-</html>";
+</html>", resetLink);
 
             await SendAsync(to, subject, body);
         }

@@ -190,43 +190,82 @@
                 <div class="form-group mb-3">
                     <label class="font-weight-bold">Questionnaire questions</label>
                     <small class="form-text text-muted mb-2">
-                        Select which reusable questions should appear for applicants of this position.
+                        Select which reusable questions should appear for applicants of this position. efficiently select questions by company or individually.
                     </small>
                     @if (questions != null && questions.Any())
                     {
+                        var groupedQuestions = questions.GroupBy(q => q.Company != null ? q.Company.Name : "Global Questions").OrderBy(g => g.Key);
+                        
                         <div class="question-list">
-                            @foreach (var q in questions)
+                            @foreach (var group in groupedQuestions)
                             {
-                                <div class="question-item mb-3 p-3 border rounded">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" name="selectedQuestions" value="@q.Id" id="q_@q.Id" />
-                                        <label class="form-check-label" for="q_@q.Id">
-                                            <strong>Question:</strong> @q.Text
-                                            <span class="badge bg-secondary ms-2">@q.Type</span>
-                                        </label>
+                                var groupId = "group_" + Math.Abs(group.Key.GetHashCode());
+                                <div class="card mb-3 border">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                                        <h6 class="mb-0 font-weight-bold text-dark">
+                                            <i class="fas fa-building text-muted mr-2"></i>@group.Key
+                                        </h6>
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input group-select-all" id="@groupId" data-target-group="@groupId">
+                                            <label class="custom-control-label font-weight-bold text-primary" for="@groupId" style="cursor: pointer;">Select All</label>
+                                        </div>
                                     </div>
-                                    
-                                    @if (q.QuestionOptions != null && q.QuestionOptions.Any())
-                                    {
-                                        <div class="ms-4">
-                                            <strong>Options:</strong>
-                                            <ul class="mb-0">
-                                                @foreach (var option in q.QuestionOptions)
+                                    <div class="card-body p-3">
+                                        @foreach (var q in group)
+                                        {
+                                            <div class="question-item mb-3 p-3 border rounded @(groupId)-item">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input question-checkbox @groupId-checkbox" type="checkbox" name="selectedQuestions" value="@q.Id" id="q_@q.Id" />
+                                                    <label class="form-check-label" for="q_@q.Id">
+                                                        <strong>Question:</strong> @q.Text
+                                                        <span class="badge bg-secondary ms-2">@q.Type</span>
+                                                    </label>
+                                                </div>
+                                                
+                                                @if (q.QuestionOptions != null && q.QuestionOptions.Any())
                                                 {
-                                                    <li>@option.Text (@option.Points points)</li>
+                                                    <div class="ms-4">
+                                                        <strong>Options:</strong>
+                                                        <ul class="mb-0 pl-3">
+                                                            @foreach (var option in q.QuestionOptions)
+                                                            {
+                                                                <li>@option.Text (@option.Points points)</li>
+                                                            }
+                                                        </ul>
+                                                    </div>
                                                 }
-                                            </ul>
-                                        </div>
-                                    }
-                                    else if (q.Type == "Choice")
-                                    {
-                                        <div class="ms-4 text-warning">
-                                            <em><i class="fas fa-exclamation-triangle"></i> No options available - This choice question needs options</em>
-                                        </div>
-                                    }
+                                                else if (q.Type == "Choice")
+                                                {
+                                                    <div class="ms-4 text-warning">
+                                                        <em><i class="fas fa-exclamation-triangle"></i> No options available - This choice question needs options</em>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             }
                         </div>
+                        
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                // Handle "Select All" for groups
+                                var groupSelects = document.querySelectorAll('.group-select-all');
+                                groupSelects.forEach(function(groupSelect) {
+                                    groupSelect.addEventListener('change', function() {
+                                        var targetGroupClass = this.getAttribute('data-target-group') + '-checkbox';
+                                        var checkboxes = document.querySelectorAll('.' + targetGroupClass);
+                                        var isChecked = this.checked;
+                                        checkboxes.forEach(function(box) {
+                                            box.checked = isChecked;
+                                        });
+                                    });
+                                });
+
+                                // Optional: Update "Select All" state if all individual items are checked/unchecked manually
+                                // This requires more event listeners, keeping it simple for now as requested.
+                            });
+                        </script>
                     }
                     else
                     {

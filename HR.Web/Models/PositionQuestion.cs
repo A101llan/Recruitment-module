@@ -15,7 +15,12 @@ namespace HR.Web.Models
 
         public int Order { get; set; }
 
-        public bool IsRequired { get; set; } = true;
+        public PositionQuestion()
+        {
+            IsRequired = true;
+        }
+
+        public bool IsRequired { get; set; }
 
         public virtual Position Position { get; set; }
         public virtual Question Question { get; set; }

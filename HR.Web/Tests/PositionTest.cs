@@ -28,7 +28,7 @@ namespace HR.Web.Tests
                 };
                 uow.Positions.Add(position);
                 uow.Complete();
-                Console.WriteLine($"Test position added with ID: {position.Id}");
+                Console.WriteLine(string.Format("Test position added with ID: {0}", position.Id));
             }
         }
     }

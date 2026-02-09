@@ -15,7 +15,7 @@ namespace HR.Web.Services
         {
             string filePath = "";
             string html = "";
-            var fileName = $"{reportType}_{DateTime.Now:yyyyMMdd_HHmmss}.{format.ToLower()}";
+            var fileName = string.Format("{0}_{1:yyyyMMdd_HHmmss}.{2}", reportType, DateTime.Now, format.ToLower());
             filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Reports", fileName);
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
@@ -46,7 +46,7 @@ namespace HR.Web.Services
                     else GenerateSecurityCSV(_uow.AuditLogs.GetAll().ToList(), filePath);
                     break;
                 default:
-                    throw new ArgumentException($"Unsupported report type: {reportType}");
+                    throw new ArgumentException("Unsupported report type: " + reportType);
             }
 
             if (format.ToLower() == "pdf" && !string.IsNullOrEmpty(html))
@@ -73,23 +73,24 @@ namespace HR.Web.Services
 
         private string GetReportStyles(string themeColor = "#3498db", string secondaryColor = "#2980b9")
         {
-            return $@"
-        @page {{
+            var sb = new System.Text.StringBuilder();
+            sb.Append(@"
+        @page {
             margin: 2cm 2cm 3cm 2cm;
             size: A4;
-        }}
-        body {{ 
+        }
+        body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             margin: 0;
             padding: 0;
             line-height: 1.6;
             color: #2c3e50;
             background-color: #fff;
-        }}
-        .container {{
+        }
+        .container {
             padding: 0 40px 80px 40px;
-        }}
-        .report-frame {{
+        }
+        .report-frame {
             border: 1px solid #e1e8ed;
             border-radius: 25px;
             margin: 0 0 50px 0;
@@ -98,59 +99,67 @@ namespace HR.Web.Services
             background: #fff;
             box-shadow: 0 5px 15px rgba(0,0,0,0.03);
             overflow: hidden;
-            border-top: 5px solid {themeColor};
+            border-top: 5px solid ");
+            sb.Append(themeColor);
+            sb.Append(@";
             page-break-inside: avoid;
             display: block;
             width: 100%;
-        }}
-        .report-header-box {{
+        }
+        .report-header-box {
             text-align: center;
-            background: linear-gradient(135deg, {themeColor} 0%, {secondaryColor} 100%);
+            background: linear-gradient(135deg, ");
+            sb.Append(themeColor);
+            sb.Append(@" 0%, ");
+            sb.Append(secondaryColor);
+            sb.Append(@" 100%);
             color: white;
             padding: 40px 20px;
             border-radius: 0 0 20px 20px;
             margin-bottom: 30px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }}
-        .report-header-box h1 {{
+        }
+        .report-header-box h1 {
             margin: 0;
             font-size: 32px;
             font-weight: 600;
             letter-spacing: 1px;
             text-transform: uppercase;
-        }}
-        .report-header-box p {{
+        }
+        .report-header-box p {
             margin: 10px 0 0 0;
             opacity: 0.9;
             font-size: 16px;
-        }}
-        .report-meta {{
+        }
+        .report-meta {
             display: table;
             width: 100%;
             background: #f8f9fa;
             padding: 20px;
             border-radius: 12px;
             margin: 20px 0;
-            border-left: 5px solid {themeColor};
+            border-left: 5px solid ");
+            sb.Append(themeColor);
+            sb.Append(@";
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }}
-        .meta-item {{
+        }
+        .meta-item {
             display: table-cell;
             width: 33%;
-        }}
-        .meta-label {{
+        }
+        .meta-label {
             font-size: 12px;
             color: #7f8c8d;
             text-transform: uppercase;
             font-weight: bold;
             display: block;
-        }}
-        .meta-value {{
+        }
+        .meta-value {
             font-size: 15px;
             color: #2c3e50;
             font-weight: 600;
-        }}
-        .report-table {{ 
+        }
+        .report-table { 
             border-collapse: separate;
             border-spacing: 0;
             width: 100%; 
@@ -159,9 +168,11 @@ namespace HR.Web.Services
             overflow: hidden;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
             border: 1px solid #e1e8ed;
-        }}
-        .report-table th {{ 
-            background-color: {themeColor};
+        }
+        .report-table th { 
+            background-color: ");
+            sb.Append(themeColor);
+            sb.Append(@";
             color: white !important;
             padding: 18px 15px;
             text-align: left;
@@ -170,35 +181,35 @@ namespace HR.Web.Services
             text-transform: uppercase !important;
             letter-spacing: 1px;
             border: none;
-        }}
-        .report-table td {{ 
+        }
+        .report-table td { 
             border-bottom: 1px solid #f1f4f6;
             padding: 15px;
             text-align: left;
             font-size: 14px;
             color: #444;
-        }}
-        .report-table tr:last-child td {{
+        }
+        .report-table tr:last-child td {
             border-bottom: none;
-        }}
-        .report-table tr:nth-child(even) {{ 
+        }
+        .report-table tr:nth-child(even) { 
             background-color: #fafbfc; 
-        }}
-        .report-table tr {{
+        }
+        .report-table tr {
             page-break-inside: avoid;
-        }}
-        .status-badge {{
+        }
+        .status-badge {
             padding: 6px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             display: inline-block;
-        }}
-        .badge-success {{ background: #d4edda; color: #155724; }}
-        .badge-warning {{ background: #fff3cd; color: #856404; }}
-        .badge-danger {{ background: #f8d7da; color: #721c24; }}
-        .report-footer {{ 
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .report-footer { 
             width: 100%;
             text-align: center;
             font-size: 11px;
@@ -208,12 +219,12 @@ namespace HR.Web.Services
             border-radius: 0 0 25px 25px;
             background: #fcfcfc;
             border: 1px solid #e1e8ed;
-        }}
-        .page-number:after {{
+        }
+        .page-number:after {
             content: ""Page "" counter(page);
-        }}
-        @media print {{
-            .page-break {{ 
+        }
+        @media print {
+            .page-break { 
                 display: block; 
                 page-break-before: always; 
                 margin: 40px 0;
@@ -221,27 +232,27 @@ namespace HR.Web.Services
                 border: 1px solid #e1e8ed;
                 border-radius: 0 0 25px 25px;
                 background: #fff;
-            }}
-            .report-footer {{
+            }
+            .report-footer {
                 position: fixed;
                 bottom: 0;
                 border-radius: 0 0 25px 25px;
-            }}
-        }}
-        .pagination-info {{
+            }
+        }
+        .pagination-info {
             text-align: right;
             font-size: 12px;
             color: #7f8c8d;
             margin-bottom: 5px;
             font-weight: 600;
-        }}
-        .stats-grid {{
+        }
+        .stats-grid {
             display: table;
             width: 100%;
             border-spacing: 20px;
             margin: 10px -20px;
-        }}
-        .stat-card-cell {{
+        }
+        .stat-card-cell {
             display: table-cell;
             background: white;
             padding: 20px;
@@ -249,67 +260,70 @@ namespace HR.Web.Services
             text-align: center;
             border: 1px solid #ecf0f1;
             width: 25%;
-        }}
-        .stat-value {{
+        }
+        .stat-value {
             font-size: 28px;
             font-weight: 700;
-            color: {themeColor};
+            color: ");
+            sb.Append(themeColor);
+            sb.Append(@";
             display: block;
-        }}
-        .stat-label {{
+        }
+        .stat-label {
             font-size: 12px;
             color: #7f8c8d;
             text-transform: uppercase;
             font-weight: bold;
-        }}
-";
+        }
+");
+            return sb.ToString();
         }
 
         private string GetReportHeader(string title, string subtitle, string themeColor = "#3498db", string secondaryColor = "#2980b9")
         {
-            return $@"
+            return string.Format(@"
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{title}</title>
-    <style>{GetReportStyles(themeColor, secondaryColor)}</style>
+    <title>{0}</title>
+    <style>{1}</style>
 </head>
 <body>
-    <div class='container'>";
+    <div class='container'>", title, GetReportStyles(themeColor, secondaryColor));
         }
 
         private string GetReportMeta(string generatedBy, string reportCode)
         {
-            return $@"
+            return string.Format(@"
         <div class='report-meta'>
             <div class='meta-item'>
                 <span class='meta-label'>Generated By</span>
-                <span class='meta-value'>{generatedBy}</span>
+                <span class='meta-value'>{0}</span>
             </div>
             <div class='meta-item'>
                 <span class='meta-label'>Date generated</span>
-                <span class='meta-value'>{DateTime.Now:MMMM dd, yyyy HH:mm}</span>
+                <span class='meta-value'>{1:MMMM dd, yyyy HH:mm}</span>
             </div>
             <div class='meta-item'>
                 <span class='meta-label'>Report ID</span>
-                <span class='meta-value'>{reportCode}</span>
+                <span class='meta-value'>{2}</span>
             </div>
-        </div>";
+        </div>", generatedBy, DateTime.Now, reportCode);
         }
 
         private string GetPageFooter()
         {
-            return $@"
+            return string.Format(@"
         <div class='report-footer'>
             <p><strong>Recruitment Management System</strong></p>
             <p>This is a system-generated confidential document.</p>
-            <p>&copy; {DateTime.Now.Year} Nanosoft Technologies. All rights reserved.</p>
-        </div>";
+            <p>&copy; {0} Nanosoft Technologies. All rights reserved.</p>
+        </div>", DateTime.Now.Year);
         }
 
         private string GetReportFooter()
         {
-            return $@"
+            return @"
     </div>
 </body>
 </html>";
@@ -322,7 +336,7 @@ namespace HR.Web.Services
                 writer.WriteLine("ID,FullName,Email,Phone");
                 foreach (var candidate in candidates)
                 {
-                    writer.WriteLine($"{candidate.Id},{candidate.FullName},{candidate.Email},{candidate.Phone}");
+                    writer.WriteLine(string.Format("{0},{1},{2},{3}", candidate.Id, candidate.FullName, candidate.Email, candidate.Phone));
                 }
             }
         }
@@ -352,21 +366,21 @@ namespace HR.Web.Services
                                 <p>Detailed analysis of applicant profiles</p>
                             </div>";
                     html += GetReportMeta(generatedBy, "RPT-CAND-" + DateTime.Now.ToString("yyyyMMdd"));
-                    html += $@"
+                    html += string.Format(@"
                         <div class='stats-grid'>
                             <div class='stat-card-cell'>
-                                <span class='stat-value'>{total}</span>
+                                <span class='stat-value'>{0}</span>
                                 <span class='stat-label'>Total Candidates</span>
                             </div>
                             <div class='stat-card-cell'>
-                                <span class='stat-value'>{candidates.Count(c => !string.IsNullOrEmpty(c.Email))}</span>
+                                <span class='stat-value'>{1}</span>
                                 <span class='stat-label'>With Email</span>
                             </div>
-                        </div>";
+                        </div>", total, candidates.Count(c => !string.IsNullOrEmpty(c.Email)));
                 }
                 else
                 {
-                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                    html += string.Format(@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {0} (Continued)</div>", pageNum);
                 }
 
                 html += @"<div style='padding: 0 40px 40px 40px;'>
@@ -383,13 +397,13 @@ namespace HR.Web.Services
 
                 foreach (var c in pageItems)
                 {
-                    html += $@"
+                    html += string.Format(@"
                     <tr>
-                        <td><strong>#{c.Id}</strong></td>
-                        <td>{c.FullName}</td>
-                        <td>{c.Email}</td>
-                        <td>{c.Phone}</td>
-                    </tr>";
+                        <td><strong>#{0}</strong></td>
+                        <td>{1}</td>
+                        <td>{2}</td>
+                        <td>{3}</td>
+                    </tr>", c.Id, c.FullName, c.Email, c.Phone);
                 }
 
                 html += "</tbody></table>" + GetPageFooter() + "</div></div>";
@@ -414,7 +428,7 @@ namespace HR.Web.Services
                 writer.WriteLine("ID,Applicant,Position,Status,AppliedDate,Score");
                 foreach (var app in applications)
                 {
-                    writer.WriteLine($"{app.Id},{app.Applicant.FullName},{app.Position.Title},{app.Status},{app.AppliedOn:yyyy-MM-dd},{app.Score}");
+                    writer.WriteLine(string.Format("{0},{1},{2},{3},{4:yyyy-MM-dd},{5}", app.Id, app.Applicant.FullName, app.Position.Title, app.Status, app.AppliedOn, app.Score));
                 }
             }
         }
@@ -444,25 +458,25 @@ namespace HR.Web.Services
                                 <p>Track job application statuses and performance</p>
                             </div>";
                     html += GetReportMeta(generatedBy, "RPT-APP-" + DateTime.Now.ToString("yyyyMMdd"));
-                    html += $@"
+                    html += string.Format(@"
                         <div class='stats-grid'>
                             <div class='stat-card-cell'>
-                                <span class='stat-value' style='color:#e74c3c'>{total}</span>
+                                <span class='stat-value' style='color:#e74c3c'>{0}</span>
                                 <span class='stat-label'>Total Apps</span>
                             </div>
                             <div class='stat-card-cell'>
-                                <span class='stat-value' style='color:#e74c3c'>{applications.Count(a => a.Status == "Approved")}</span>
+                                <span class='stat-value' style='color:#e74c3c'>{1}</span>
                                 <span class='stat-label'>Approved</span>
                             </div>
                             <div class='stat-card-cell'>
-                                <span class='stat-value' style='color:#e74c3c'>{applications.Count(a => a.Status == "Pending")}</span>
+                                <span class='stat-value' style='color:#e74c3c'>{2}</span>
                                 <span class='stat-label'>Pending</span>
                             </div>
-                        </div>";
+                        </div>", total, applications.Count(a => a.Status == "Approved"), applications.Count(a => a.Status == "Pending"));
                 }
                 else
                 {
-                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                    html += string.Format(@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {0} (Continued)</div>", pageNum);
                 }
 
                 html += @"<div style='padding: 0 40px 40px 40px;'>
@@ -485,15 +499,15 @@ namespace HR.Web.Services
                     if (a.Status == "Approved") badge = "badge-success";
                     else if (a.Status == "Rejected") badge = "badge-danger";
 
-                    html += $@"
+                    html += string.Format(@"
                     <tr>
-                        <td><strong>#{a.Id}</strong></td>
-                        <td>{(a.Applicant != null ? a.Applicant.FullName : "N/A")}</td>
-                        <td>{(a.Position != null ? a.Position.Title : "N/A")}</td>
-                        <td><span class='status-badge {badge}'>{a.Status}</span></td>
-                        <td>{a.AppliedOn:yyyy-MM-dd}</td>
-                        <td>{a.Score}</td>
-                    </tr>";
+                        <td><strong>#{0}</strong></td>
+                        <td>{1}</td>
+                        <td>{2}</td>
+                        <td><span class='status-badge {3}'>{4}</span></td>
+                        <td>{5:yyyy-MM-dd}</td>
+                        <td>{6}</td>
+                    </tr>", a.Id, (a.Applicant != null ? a.Applicant.FullName : "N/A"), (a.Position != null ? a.Position.Title : "N/A"), badge, a.Status, a.AppliedOn, a.Score);
                 }
 
                 html += "</tbody></table>" + GetPageFooter() + "</div></div>";
@@ -518,7 +532,7 @@ namespace HR.Web.Services
                 writer.WriteLine("ID,ApplicationID,InterviewerID,ScheduledDate,Mode,Notes");
                 foreach (var interview in interviews)
                 {
-                    writer.WriteLine($"{interview.Id},{interview.ApplicationId},{interview.InterviewerId},{interview.ScheduledAt:yyyy-MM-dd HH:mm},{interview.Mode},{interview.Notes}");
+                    writer.WriteLine(string.Format("{0},{1},{2},{3:yyyy-MM-dd HH:mm},{4},{5}", interview.Id, interview.ApplicationId, interview.InterviewerId, interview.ScheduledAt, interview.Mode, interview.Notes));
                 }
             }
         }
@@ -548,21 +562,21 @@ namespace HR.Web.Services
                                 <p>Scheduled candidate assessments and feedback</p>
                             </div>";
                     html += GetReportMeta(generatedBy, "RPT-INT-" + DateTime.Now.ToString("yyyyMMdd"));
-                    html += $@"
+                    html += string.Format(@"
                         <div class='stats-grid'>
                             <div class='stat-card-cell'>
-                                <span class='stat-value' style='color:#9b59b6'>{total}</span>
+                                <span class='stat-value' style='color:#9b59b6'>{0}</span>
                                 <span class='stat-label'>Total Interviews</span>
                             </div>
                             <div class='stat-card-cell'>
-                                <span class='stat-value' style='color:#9b59b6'>{interviews.Count(i => i.ScheduledAt > DateTime.Now)}</span>
+                                <span class='stat-value' style='color:#9b59b6'>{1}</span>
                                 <span class='stat-label'>Upcoming</span>
                             </div>
-                        </div>";
+                        </div>", total, interviews.Count(i => i.ScheduledAt > DateTime.Now));
                 }
                 else
                 {
-                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                    html += string.Format(@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {0} (Continued)</div>", pageNum);
                 }
 
                 html += @"<div style='padding: 0 40px 40px 40px;'>
@@ -580,14 +594,14 @@ namespace HR.Web.Services
 
                 foreach (var i in pageItems)
                 {
-                    html += $@"
+                    html += string.Format(@"
                     <tr>
-                        <td><strong>#{i.Id}</strong></td>
-                        <td>#{i.ApplicationId}</td>
-                        <td>{i.ScheduledAt:yyyy-MM-dd HH:mm}</td>
-                        <td>{i.Mode}</td>
-                        <td>{i.Notes}</td>
-                    </tr>";
+                        <td><strong>#{0}</strong></td>
+                        <td>#{1}</td>
+                        <td>{2:yyyy-MM-dd HH:mm}</td>
+                        <td>{3}</td>
+                        <td>{4}</td>
+                    </tr>", i.Id, i.ApplicationId, i.ScheduledAt, i.Mode, i.Notes);
                 }
 
                 html += "</tbody></table>" + GetPageFooter() + "</div></div>";
@@ -612,7 +626,7 @@ namespace HR.Web.Services
                 writer.WriteLine("ID,Name,Description,PositionCount");
                 foreach (var dept in departments)
                 {
-                    writer.WriteLine($"{dept.Id},{dept.Name},{dept.Description},{dept.Positions?.Count ?? 0}");
+                    writer.WriteLine(string.Format("{0},{1},{2},{3}", dept.Id, dept.Name, dept.Description, dept.Positions != null ? dept.Positions.Count : 0));
                 }
             }
         }
@@ -645,7 +659,7 @@ namespace HR.Web.Services
                 }
                 else
                 {
-                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                    html += string.Format(@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {0} (Continued)</div>", pageNum);
                 }
 
                 html += @"<div style='padding: 0 40px 40px 40px;'>
@@ -662,13 +676,13 @@ namespace HR.Web.Services
 
                 foreach (var d in pageItems)
                 {
-                    html += $@"
+                    html += string.Format(@"
                     <tr>
-                        <td><strong>#{d.Id}</strong></td>
-                        <td>{d.Name}</td>
-                        <td>{d.Description}</td>
-                        <td>{d.Positions?.Count ?? 0}</td>
-                    </tr>";
+                        <td><strong>#{0}</strong></td>
+                        <td>{1}</td>
+                        <td>{2}</td>
+                        <td>{3}</td>
+                    </tr>", d.Id, d.Name, d.Description, d.Positions != null ? d.Positions.Count : 0);
                 }
 
                 html += "</tbody></table>" + GetPageFooter() + "</div></div>";
@@ -693,7 +707,8 @@ namespace HR.Web.Services
                 writer.WriteLine("ID,Title,Department,SalaryMin,SalaryMax,Currency,Location,ApplicationsCount");
                 foreach (var position in positions)
                 {
-                    writer.WriteLine($"{position.Id},{position.Title},{position.Department?.Name},{position.SalaryMin},{position.SalaryMax},{position.Currency},{position.Location},{position.Applications?.Count ?? 0}");
+                    writer.WriteLine(string.Format("{0},{1},{2},{3},{4},{5},{6},{7}", 
+                        position.Id, position.Title, position.Department != null ? position.Department.Name : "", position.SalaryMin, position.SalaryMax, position.Currency, position.Location, position.Applications != null ? position.Applications.Count : 0));
                 }
             }
         }
@@ -726,7 +741,7 @@ namespace HR.Web.Services
                 }
                 else
                 {
-                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                    html += string.Format(@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {0} (Continued)</div>", pageNum);
                 }
 
                 html += @"<div style='padding: 0 40px 40px 40px;'>
@@ -744,14 +759,14 @@ namespace HR.Web.Services
 
                 foreach (var p in pageItems)
                 {
-                    html += $@"
+                    html += string.Format(@"
                     <tr>
-                        <td><strong>#{p.Id}</strong></td>
-                        <td>{p.Title}</td>
-                        <td>{(p.Department != null ? p.Department.Name : "N/A")}</td>
-                        <td>{(p.Currency ?? "KES")} {p.SalaryMin:N0} - {p.SalaryMax:N0}</td>
-                        <td>{p.Location}</td>
-                    </tr>";
+                        <td><strong>#{0}</strong></td>
+                        <td>{1}</td>
+                        <td>{2}</td>
+                        <td>{3} {4:N0} - {5:N0}</td>
+                        <td>{6}</td>
+                    </tr>", p.Id, p.Title, (p.Department != null ? p.Department.Name : "N/A"), (p.Currency ?? "KES"), p.SalaryMin, p.SalaryMax, p.Location);
                 }
 
                 html += "</tbody></table>" + GetPageFooter() + "</div></div>";
@@ -776,7 +791,7 @@ namespace HR.Web.Services
                 writer.WriteLine("ID,Username,Action,Controller,Timestamp,IPAddress");
                 foreach (var log in auditLogs)
                 {
-                    writer.WriteLine($"{log.Id},{log.Username},{log.Action},{log.Controller},{log.Timestamp:yyyy-MM-dd HH:mm},{log.IPAddress}");
+                    writer.WriteLine(string.Format("{0},{1},{2},{3},{4:yyyy-MM-dd HH:mm},{5}", log.Id, log.Username, log.Action, log.Controller, log.Timestamp, log.IPAddress));
                 }
             }
         }
@@ -809,7 +824,7 @@ namespace HR.Web.Services
                 }
                 else
                 {
-                    html += $@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {pageNum} (Continued)</div>";
+                    html += string.Format(@"<div class='pagination-info' style='padding: 20px 40px 0 0;'>Page {0} (Continued)</div>", pageNum);
                 }
 
                 html += @"<div style='padding: 0 40px 40px 40px;'>
@@ -827,14 +842,14 @@ namespace HR.Web.Services
 
                 foreach (var l in pageItems)
                 {
-                    html += $@"
+                    html += string.Format(@"
                     <tr>
-                        <td>{l.Timestamp:yyyy-MM-dd HH:mm}</td>
-                        <td><strong>{l.Username}</strong></td>
-                        <td>{l.Action}</td>
-                        <td>{l.Controller}</td>
-                        <td>{l.IPAddress}</td>
-                    </tr>";
+                        <td>{0:yyyy-MM-dd HH:mm}</td>
+                        <td><strong>{1}</strong></td>
+                        <td>{2}</td>
+                        <td>{3}</td>
+                        <td>{4}</td>
+                    </tr>", l.Timestamp, l.Username, l.Action, l.Controller, l.IPAddress);
                 }
 
                 html += "</tbody></table>" + GetPageFooter() + "</div></div>";

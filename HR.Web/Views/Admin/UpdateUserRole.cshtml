@@ -4,16 +4,17 @@
     ViewBag.Title = "Update User Role";
 }
 
-<div class="container-fluid">
+<div class="container-fluid py-5" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); min-height: 100vh;">
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-user-edit"></i> Update User Role
+        <div class="col-md-6 col-lg-5">
+            <div class="glass-card rounded-lg shadow-lg border-0 overflow-hidden animate-fade-in">
+                <div class="card-header bg-white border-bottom p-4">
+                    <h3 class="card-title mb-0 font-weight-bold text-dark">
+                        <i class="fas fa-user-shield text-primary mr-3"></i>Authority Management
                     </h3>
+                    <p class="text-muted small mb-0 mt-2">Adjust system permissions for <span class="text-primary font-weight-bold">@Model.UserName</span></p>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4 p-md-5">
                     @using (Html.BeginForm())
                     {
                         @Html.AntiForgeryToken()
@@ -22,61 +23,69 @@
                         @Html.HiddenFor(m => m.Email)
                         @Html.HiddenFor(m => m.CurrentRole)
 
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Warning:</strong> Changing user roles will affect their access permissions immediately.
-                        </div>
-
-                        <div class="form-group">
-                            <label for="UserName">Username</label>
-                            @Html.TextBox("UserName", Model.UserName, new { @class = "form-control", @readonly = "readonly" })
-                        </div>
-
-                        <div class="form-group">
-                            <label for="Email">Email</label>
-                            @Html.TextBox("Email", Model.Email, new { @class = "form-control", @readonly = "readonly" })
-                        </div>
-
-                        <div class="form-group">
-                            <label for="CurrentRole">Current Role</label>
-                            <div>
-                                <span class="badge badge-@(Model.CurrentRole == "Admin" ? "danger" : Model.CurrentRole == "HR" ? "warning" : "primary")">
-                                    @Model.CurrentRole
-                                </span>
+                        <div class="alert alert-modern alert-warning mb-4 shadow-sm border-0">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-exclamation-triangle fa-2x mr-3 opacity-5"></i>
+                                <div>
+                                    <strong class="d-block">Security Protocol</strong>
+                                    <span class="small">Modifying roles impacts access levels across all modules immediately.</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="NewRole">New Role</label>
-                            @Html.DropDownListFor(m => m.NewRole, 
-                                new SelectList(new[] { 
-                                    new { Value = "Client", Text = "Client - Basic Access" },
-                                    new { Value = "Admin", Text = "Admin - Full System Access" }
-                                }, "Value", "Text", Model.NewRole), 
-                                new { @class = "form-control" })
-                            @Html.ValidationMessageFor(m => m.NewRole, "", new { @class = "text-danger" })
+                        <div class="form-row mb-4">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="text-uppercase small font-weight-bold text-muted mb-2">Subject Username</label>
+                                <div class="p-3 bg-light rounded border-0 font-weight-medium">
+                                    <i class="fas fa-user mr-2 text-muted"></i>@Model.UserName
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-uppercase small font-weight-bold text-muted mb-2">Current Authority</label>
+                                <div class="p-3 bg-light rounded border-0">
+                                    <span class="badge badge-pill px-3 py-2 @(Model.CurrentRole == "Admin" ? "badge-soft-danger" : "badge-soft-primary")">
+                                        @Model.CurrentRole
+                                    </span>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="Reason">Reason for Change (Optional)</label>
-                            @Html.TextAreaFor(m => m.Reason, new { @class = "form-control", rows = 3, placeholder = "Enter reason for role change..." })
+                        <div class="form-group mb-4">
+                            <label class="text-uppercase small font-weight-bold text-muted mb-2">Target Role Specification</label>
+                            <div class="input-group input-group-lg shadow-sm rounded-lg overflow-hidden border">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text bg-white border-0"><i class="fas fa-id-badge text-primary"></i></span>
+                                </div>
+                                @Html.DropDownListFor(m => m.NewRole, 
+                                    new SelectList(new[] { 
+                                        new { Value = "Client", Text = "Standard Access (Client)" },
+                                        new { Value = "Admin", Text = "Elevated Control (Admin)" }
+                                    }, "Value", "Text", Model.NewRole), 
+                                    new { @class = "form-control border-0 custom-select-lg font-weight-bold" })
+                            </div>
+                            @Html.ValidationMessageFor(m => m.NewRole, "", new { @class = "text-danger small mt-1" })
                         </div>
 
-                        <div class="form-group">
-                            <div class="custom-control custom-checkbox">
+                        <div class="form-group mb-4">
+                            <label class="text-uppercase small font-weight-bold text-muted mb-2">Justification for Change</label>
+                            @Html.TextAreaFor(m => m.Reason, new { @class = "form-control border shadow-sm rounded-lg p-3", rows = 3, placeholder = "Document the requirement for this transition..." })
+                        </div>
+
+                        <div class="form-group mb-5">
+                            <div class="custom-control custom-checkbox custom-checkbox-lg">
                                 <input type="checkbox" class="custom-control-input" id="confirmChange" required>
-                                <label class="custom-control-label" for="confirmChange">
-                                    I confirm that I want to change this user's role
+                                <label class="custom-control-label font-weight-medium text-dark" for="confirmChange">
+                                    Verify authentication for role migration
                                 </label>
                             </div>
                         </div>
 
-                        <div class="form-group text-center">
-                            <a href="@Url.Action("UserManagement")" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Cancel
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="@Url.Action("UserManagement")" class="btn btn-glass-secondary rounded-pill px-4 transition-all">
+                                <i class="fas fa-times mr-2"></i> Cancel
                             </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Update Role
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5 shadow animate-hover">
+                                <i class="fas fa-check-circle mr-2"></i> Deploy Role
                             </button>
                         </div>
                     }
@@ -85,6 +94,73 @@
         </div>
     </div>
 </div>
+
+<style>
+    :root {
+        --primary: #0061f2;
+        --glass-bg: rgba(255, 255, 255, 0.9);
+        --glass-border: rgba(255, 255, 255, 0.5);
+    }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid var(--glass-border);
+    }
+
+    .badge-soft-primary { background: #e0f0ff; color: #0061f2; }
+    .badge-soft-danger { background: #fee4e2; color: #b42318; }
+
+    .alert-modern {
+        border-left: 5px solid #f4a100;
+    }
+
+    .custom-checkbox-lg .custom-control-label::before {
+        width: 1.5rem;
+        height: 1.5rem;
+        left: -1.75rem;
+        top: 0;
+    }
+
+    .custom-checkbox-lg .custom-control-label::after {
+        width: 1.5rem;
+        height: 1.5rem;
+        left: -1.75rem;
+        top: 0;
+    }
+
+    .custom-checkbox-lg .custom-control-label {
+        padding-left: 0.5rem;
+        padding-top: 0.25rem;
+    }
+
+    .btn-glass-secondary {
+        background: rgba(108, 117, 125, 0.1);
+        border: 1px solid rgba(108, 117, 125, 0.2);
+        color: #495057;
+    }
+
+    .btn-glass-secondary:hover {
+        background: rgba(108, 117, 125, 0.2);
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-hover:hover {
+        transform: scale(1.02);
+        transition: transform 0.2s;
+    }
+
+    .opacity-5 { opacity: 0.5; }
+</style>
 
 @section Scripts {
     <script>

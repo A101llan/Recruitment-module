@@ -123,7 +123,8 @@ namespace HR.Web.Services
             }
 
             // Score interest level (1-5 scale, directly convert to points)
-            if (!string.IsNullOrWhiteSpace(review.InterestLevel) && int.TryParse(review.InterestLevel, out int interestLevel))
+            int interestLevel;
+            if (!string.IsNullOrWhiteSpace(review.InterestLevel) && int.TryParse(review.InterestLevel, out interestLevel))
             {
                 score += interestLevel * 2; // 1=2pts, 2=4pts, 3=6pts, 4=8pts, 5=10pts (max 10)
             }
@@ -131,17 +132,20 @@ namespace HR.Web.Services
             // Score skill self-assessments (average them)
             decimal skillAvg = 0;
             int skillCount = 0;
-            if (!string.IsNullOrWhiteSpace(review.CommunicationSkills) && int.TryParse(review.CommunicationSkills, out int comm))
+            int comm;
+            if (!string.IsNullOrWhiteSpace(review.CommunicationSkills) && int.TryParse(review.CommunicationSkills, out comm))
             {
                 skillAvg += comm;
                 skillCount++;
             }
-            if (!string.IsNullOrWhiteSpace(review.ProblemSolvingSkills) && int.TryParse(review.ProblemSolvingSkills, out int problem))
+            int problem;
+            if (!string.IsNullOrWhiteSpace(review.ProblemSolvingSkills) && int.TryParse(review.ProblemSolvingSkills, out problem))
             {
                 skillAvg += problem;
                 skillCount++;
             }
-            if (!string.IsNullOrWhiteSpace(review.TeamworkSkills) && int.TryParse(review.TeamworkSkills, out int team))
+            int team;
+            if (!string.IsNullOrWhiteSpace(review.TeamworkSkills) && int.TryParse(review.TeamworkSkills, out team))
             {
                 skillAvg += team;
                 skillCount++;
@@ -158,7 +162,8 @@ namespace HR.Web.Services
             {
                 foreach (var answer in answers)
                 {
-                    if (!string.IsNullOrWhiteSpace(answer.AnswerText) && int.TryParse(answer.AnswerText, out int rating))
+                    int rating;
+                    if (!string.IsNullOrWhiteSpace(answer.AnswerText) && int.TryParse(answer.AnswerText, out rating))
                     {
                         dynamicScore += rating; // Direct 1-5 points per question
                     }
@@ -218,9 +223,10 @@ namespace HR.Web.Services
             decimal score = 0;
 
             // Score interest level directly (1-5 scale = 1-5 points)
-            if (!string.IsNullOrWhiteSpace(review.InterestLevel) && int.TryParse(review.InterestLevel, out int interestLevel))
+            int interestLevel2;
+            if (!string.IsNullOrWhiteSpace(review.InterestLevel) && int.TryParse(review.InterestLevel, out interestLevel2))
             {
-                score += interestLevel; // 1-5 points
+                score += interestLevel2; // 1-5 points
             }
 
             // Score number of interest reasons (more = more motivated)
@@ -263,19 +269,22 @@ namespace HR.Web.Services
             // Score skill self-assessments (higher self-ratings show confidence/professionalism)
             decimal skillAvg = 0;
             int skillCount = 0;
-            if (!string.IsNullOrWhiteSpace(review.CommunicationSkills) && int.TryParse(review.CommunicationSkills, out int comm))
+            int comm2;
+            if (!string.IsNullOrWhiteSpace(review.CommunicationSkills) && int.TryParse(review.CommunicationSkills, out comm2))
             {
-                skillAvg += comm;
+                skillAvg += comm2;
                 skillCount++;
             }
-            if (!string.IsNullOrWhiteSpace(review.ProblemSolvingSkills) && int.TryParse(review.ProblemSolvingSkills, out int problem))
+            int problem2;
+            if (!string.IsNullOrWhiteSpace(review.ProblemSolvingSkills) && int.TryParse(review.ProblemSolvingSkills, out problem2))
             {
-                skillAvg += problem;
+                skillAvg += problem2;
                 skillCount++;
             }
-            if (!string.IsNullOrWhiteSpace(review.TeamworkSkills) && int.TryParse(review.TeamworkSkills, out int team))
+            int team2;
+            if (!string.IsNullOrWhiteSpace(review.TeamworkSkills) && int.TryParse(review.TeamworkSkills, out team2))
             {
-                skillAvg += team;
+                skillAvg += team2;
                 skillCount++;
             }
             if (skillCount > 0)
@@ -313,7 +322,8 @@ namespace HR.Web.Services
             var parts = input.Split(new[] { ' ', '-', '+' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
-                if (int.TryParse(part, out int years))
+                int years;
+                if (int.TryParse(part, out years))
                 {
                     return years;
                 }

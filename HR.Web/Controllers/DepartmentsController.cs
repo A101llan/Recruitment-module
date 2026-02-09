@@ -2,16 +2,20 @@ using System.Linq;
 using System.Web.Mvc;
 using HR.Web.Data;
 using HR.Web.Models;
+using HR.Web.Services;
 
 namespace HR.Web.Controllers
 {
     public class DepartmentsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
+        private readonly TenantService _tenantService = new TenantService();
 
         public ActionResult Index()
         {
-            var items = _uow.Departments.GetAll();
+            var itemsQuery = _uow.Departments.GetAll().AsQueryable();
+            itemsQuery = _tenantService.ApplyTenantFilter(itemsQuery);
+            var items = itemsQuery.ToList();
             return View(items);
         }
 
@@ -40,6 +44,16 @@ namespace HR.Web.Controllers
             {
                 return View(model);
             }
+            
+            // Assign current user's company
+            var companyId = _tenantService.GetCurrentUserCompanyId();
+            if (!companyId.HasValue)
+            {
+                ModelState.AddModelError("", "No company assigned to your account.");
+                return View(model);
+            }
+            model.CompanyId = companyId.Value;
+            
             _uow.Departments.Add(model);
             _uow.Complete();
             return RedirectToAction("Index");

@@ -11,6 +11,7 @@ namespace HR.Web.Data
         {
         }
 
+        public DbSet<Company> Companies { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Department> Departments { get; set; }
         public DbSet<Position> Positions { get; set; }
@@ -27,6 +28,8 @@ namespace HR.Web.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Report> Reports { get; set; }
         public DbSet<PasswordReset> PasswordResets { get; set; }
+        public DbSet<LicenseTransaction> LicenseTransactions { get; set; }
+        public DbSet<ImpersonationRequest> ImpersonationRequests { get; set; }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {

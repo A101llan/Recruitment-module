@@ -8,27 +8,46 @@ namespace HR.Web.Services
 {
     public class GeneratedQuestion
     {
+        public GeneratedQuestion()
+        {
+            Options = new List<QuestionOption>();
+            IsRequired = true;
+        }
+
         public string Text { get; set; }
         public string Type { get; set; }
         public string Category { get; set; }
-        public List<QuestionOption> Options { get; set; } = new List<QuestionOption>();
-        public bool IsRequired { get; set; } = true;
+        public List<QuestionOption> Options { get; set; }
+        public bool IsRequired { get; set; }
     }
 
     public class QuestionTemplate
     {
+        public QuestionTemplate()
+        {
+            Questions = new List<GeneratedQuestion>();
+            ScoringWeights = new Dictionary<string, decimal>();
+        }
+
         public string Name { get; set; }
         public string Description { get; set; }
-        public List<GeneratedQuestion> Questions { get; set; } = new List<GeneratedQuestion>();
-        public Dictionary<string, decimal> ScoringWeights { get; set; } = new Dictionary<string, decimal>();
+        public List<GeneratedQuestion> Questions { get; set; }
+        public Dictionary<string, decimal> ScoringWeights { get; set; }
     }
 
     public class ValidationResult
     {
+        public ValidationResult()
+        {
+            Warnings = new List<string>();
+            BiasedTerms = new List<string>();
+            Suggestions = new List<string>();
+        }
+
         public bool IsValid { get; set; }
-        public List<string> Warnings { get; set; } = new List<string>();
-        public List<string> BiasedTerms { get; set; } = new List<string>();
-        public List<string> Suggestions { get; set; } = new List<string>();
+        public List<string> Warnings { get; set; }
+        public List<string> BiasedTerms { get; set; }
+        public List<string> Suggestions { get; set; }
     }
 
     public class QuestionnaireService
@@ -122,7 +141,7 @@ namespace HR.Web.Services
                 if (lowerQuestion.Contains(term))
                 {
                     result.BiasedTerms.Add(term);
-                    result.Warnings.Add($"Potentially biased term detected: '{term}'");
+                    result.Warnings.Add(string.Format("Potentially biased term detected: '{0}'", term));
                 }
             }
 
@@ -137,7 +156,7 @@ namespace HR.Web.Services
             {
                 if (lowerQuestion.Contains(flag))
                 {
-                    result.Warnings.Add($"Potentially inappropriate content: '{flag}'");
+                    result.Warnings.Add(string.Format("Potentially inappropriate content: '{0}'", flag));
                 }
             }
 
@@ -178,13 +197,14 @@ namespace HR.Web.Services
         public List<QuestionOption> SuggestPoints(string question, List<string> options, string difficulty = "intermediate")
         {
             var questionOptions = new List<QuestionOption>();
-            var basePoints = difficulty.ToLower() switch
+            int basePoints;
+            switch (difficulty.ToLower())
             {
-                "easy" => 2,
-                "intermediate" => 3,
-                "hard" => 4,
-                _ => 3
-            };
+                case "easy": basePoints = 2; break;
+                case "intermediate": basePoints = 3; break;
+                case "hard": basePoints = 4; break;
+                default: basePoints = 3; break;
+            }
 
             for (int i = 0; i < options.Count; i++)
             {
@@ -201,14 +221,14 @@ namespace HR.Web.Services
 
         public QuestionTemplate GetTemplate(string templateType)
         {
-            return templateType.ToLower() switch
+            switch (templateType.ToLower())
             {
-                "senior-developer" => GetSeniorDeveloperTemplate(),
-                "junior-developer" => GetJuniorDeveloperTemplate(),
-                "team-lead" => GetTeamLeadTemplate(),
-                "project-manager" => GetProjectManagerTemplate(),
-                _ => throw new ArgumentException($"Unknown template type: {templateType}")
-            };
+                case "senior-developer": return GetSeniorDeveloperTemplate();
+                case "junior-developer": return GetJuniorDeveloperTemplate();
+                case "team-lead": return GetTeamLeadTemplate();
+                case "project-manager": return GetProjectManagerTemplate();
+                default: throw new ArgumentException(string.Format("Unknown template type: {0}", templateType));
+            }
         }
 
         private Dictionary<string, List<string>> ExtractKeywords(string text)
@@ -233,7 +253,7 @@ namespace HR.Web.Services
             {
                 new GeneratedQuestion
                 {
-                    Text = $"Describe your experience with {primaryTech}.",
+                    Text = string.Format("Describe your experience with {0}.", primaryTech),
                     Type = "Text",
                     Category = "technical"
                 },
@@ -251,7 +271,7 @@ namespace HR.Web.Services
                 },
                 new GeneratedQuestion
                 {
-                    Text = $"What interests you about the {jobTitle} role?",
+                    Text = string.Format("What interests you about the {0} role?", jobTitle),
                     Type = "Text",
                     Category = "motivation"
                 },

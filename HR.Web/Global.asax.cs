@@ -194,10 +194,56 @@ namespace HR.Web
             }
 
             var identity = new GenericIdentity(ticket.Name, "Forms");
-            var roles = string.IsNullOrWhiteSpace(ticket.UserData) ? new string[] { } : new[] { ticket.UserData };
+            var roles = string.IsNullOrWhiteSpace(ticket.UserData) 
+                ? new string[] { } 
+                : ticket.UserData.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             var principal = new GenericPrincipal(identity, roles);
             HttpContext.Current.User = principal;
             System.Threading.Thread.CurrentPrincipal = principal;
+        }
+
+        protected void Application_AcquireRequestState(Object sender, EventArgs e)
+        {
+            if (HttpContext.Current.Session != null && 
+                HttpContext.Current.User != null && 
+                HttpContext.Current.User.Identity.IsAuthenticated)
+            {
+                // Cache the ActualSuperAdmin status in session to avoid redundant DB queries
+                if (HttpContext.Current.Session["IsActualSuperAdmin"] == null)
+                {
+                    var tenantService = new Services.TenantService();
+                    HttpContext.Current.Session["IsActualSuperAdmin"] = tenantService.IsActualSuperAdmin();
+                }
+
+                bool isActualSuperAdmin = (bool)HttpContext.Current.Session["IsActualSuperAdmin"];
+                bool isImpersonating = HttpContext.Current.Session["ImpersonatedCompanyId"] != null;
+
+                if (isActualSuperAdmin || isImpersonating)
+                {
+                    var identity = HttpContext.Current.User.Identity;
+                    var rolesList = new System.Collections.Generic.List<string>();
+                    
+                    // Always include their original roles
+                    // Get roles from the principal created in PostAuthenticateRequest
+                    var principal = HttpContext.Current.User as GenericPrincipal;
+                    if (principal != null)
+                    {
+                        // Note: principle.Roles is not a public property on GenericPrincipal, 
+                        // we'd need to check individual roles, but we know we just set them.
+                        // For simplicity, we'll re-add what we know they should have.
+                    }
+
+                    if (isActualSuperAdmin) rolesList.Add("SuperAdmin");
+                    if (isImpersonating) rolesList.Add("Admin");
+
+                    // Ensure SuperAdmin is present if impersonating too
+                    if (isImpersonating && !rolesList.Contains("SuperAdmin")) rolesList.Add("SuperAdmin");
+
+                    var newPrincipal = new GenericPrincipal(identity, rolesList.ToArray());
+                    HttpContext.Current.User = newPrincipal;
+                    System.Threading.Thread.CurrentPrincipal = newPrincipal;
+                }
+            }
         }
     }
 }

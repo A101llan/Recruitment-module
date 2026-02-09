@@ -12,13 +12,16 @@ namespace HR.Web.Controllers
         private readonly UnitOfWork _uow = new UnitOfWork();
         private readonly IEmailService _email = new EmailService();
         private readonly AuditService _auditService = new AuditService();
+        private readonly TenantService _tenantService = new TenantService();
 
         public ActionResult Index()
         {
             // If the user is Admin or HR, show all interviews
             if (User != null && User.Identity != null && User.IsInRole("Admin"))
             {
-                var items = _uow.Interviews.GetAll(i => i.Application.Applicant, i => i.Application.Position, i => i.Interviewer);
+                var itemsQuery = _uow.Interviews.GetAll(i => i.Application.Applicant, i => i.Application.Position, i => i.Interviewer).AsQueryable();
+                itemsQuery = _tenantService.ApplyTenantFilter(itemsQuery);
+                var items = itemsQuery.ToList();
                 return View(items);
             }
             // Otherwise, show only interviews for the logged-in applicant
@@ -28,8 +31,10 @@ namespace HR.Web.Controllers
                 var applicant = _uow.Applicants.GetAll().FirstOrDefault(a => a.Email == user.Email);
                 if (applicant != null)
                 {
-                    var items = _uow.Interviews.GetAll(i => i.Application.Applicant, i => i.Application.Position, i => i.Interviewer)
-                        .Where(i => i.Application.ApplicantId == applicant.Id);
+                    var itemsQuery = _uow.Interviews.GetAll(i => i.Application.Applicant, i => i.Application.Position, i => i.Interviewer)
+                        .Where(i => i.Application.ApplicantId == applicant.Id).AsQueryable();
+                    itemsQuery = _tenantService.ApplyTenantFilter(itemsQuery);
+                    var items = itemsQuery.ToList();
                     return View(items);
                 }
             }

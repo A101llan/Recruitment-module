@@ -37,14 +37,14 @@ namespace HR.Web.Controllers
                 // Test response without ReportService
                 return Json(new { 
                     success = true, 
-                    message = $"Test report for {reportType}",
-                    fileName = $"test_{reportType}.csv",
+                    message = string.Format("Test report for {0}", reportType),
+                    fileName = string.Format("test_{0}.csv", reportType),
                     filePath = "/Reports/test.csv"
                 });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
+                return Json(new { success = false, message = "Error: " + ex.Message });
             }
         }
 

@@ -5,9 +5,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Web.Models
 {
-    public class Application
+    public class Application : ITenantEntity
     {
         public int Id { get; set; }
+
+        [Required]
+        public int? CompanyId { get; set; }
+        public virtual Company Company { get; set; }
 
         [ForeignKey("Applicant")]
         public int ApplicantId { get; set; }

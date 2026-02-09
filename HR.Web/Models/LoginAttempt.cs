@@ -3,9 +3,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HR.Web.Models
 {
-    public class LoginAttempt
+    public class LoginAttempt : ITenantEntity
     {
         public int Id { get; set; }
+
+        public int? CompanyId { get; set; }
+        public virtual Company Company { get; set; }
 
         [Required, StringLength(100)]
         public string Username { get; set; }

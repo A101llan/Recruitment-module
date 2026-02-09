@@ -294,6 +294,11 @@ namespace HR.Web.Controllers
         public List<PositionQuestion> AssignedQuestions { get; set; }
         public List<string> QuestionCategories { get; set; }
         public List<string> QuestionTypes { get; set; }
-        public List<int> SelectedQuestionIds { get; set; } = new List<int>();
+        public List<int> SelectedQuestionIds { get; set; }
+
+        public QuestionnaireBuilderViewModel()
+        {
+            SelectedQuestionIds = new List<int>();
+        }
     }
 }

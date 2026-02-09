@@ -147,8 +147,12 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="App_Start\FilterConfig.cs" />
+    <Compile Include="Filters\LicenseCheckAttribute.cs" />
+    <Compile Include="Filters\NoCacheAttribute.cs" />
     <Compile Include="App_Start\BundleConfig.cs" />
     <Compile Include="Models\User.cs" />
+    <Compile Include="Models\Company.cs" />
+    <Compile Include="Models\ITenantEntity.cs" />
     <Compile Include="Models\Department.cs" />
     <Compile Include="Models\Position.cs" />
     <Compile Include="Models\RegisterViewModel.cs" />
@@ -156,10 +160,12 @@
     <Compile Include="Models\ForgotPasswordViewModel.cs" />
     <Compile Include="Models\ResetPasswordViewModel.cs" />
     <Compile Include="Models\PasswordReset.cs" />
+    <Compile Include="Models\ImpersonationRequest.cs" />
     <Compile Include="Models\Applicant.cs" />
     <Compile Include="Models\LoginAttempt.cs" />
     <Compile Include="Models\AuditLog.cs" />
     <Compile Include="Models\Report.cs" />
+    <Compile Include="Models\LicenseTransaction.cs" />
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\Application.cs" />
     <Compile Include="Models\Interview.cs" />
@@ -180,6 +186,7 @@
     <Compile Include="Data\Repository.cs" />
     <Compile Include="Data\UnitOfWork.cs" />
     <Compile Include="Services\StorageService.cs" />
+    <Compile Include="Services\TenantService.cs" />
     <Compile Include="Services\EmailService.cs" />
     <Compile Include="Services\CandidateEvaluationService.cs" />
     <Compile Include="Services\DynamicQuestionService.cs" />
@@ -192,7 +199,8 @@
     <Compile Include="Controllers\AdminController.cs" />
     <Compile Include="Controllers\AdminController.MCP.cs" />
     <Compile Include="Controllers\AdminController.Scoring.cs" />
-    <Compile Include="Controllers\TestController.cs" />
+    <Compile Include="Controllers\CompaniesController.cs" />
+    <Compile Include="Controllers\LicensesController.cs" />
     <Compile Include="Controllers\QuestionnaireController.cs" />
     <Compile Include="Controllers\DashboardController.cs" />
     <Compile Include="Controllers\PositionsController.cs" />
@@ -203,7 +211,8 @@
     <Compile Include="Controllers\DepartmentsController.cs" />
     <Compile Include="Controllers\AccountController.cs" />
     <Compile Include="Controllers\ReportGeneratorController.cs" />
-    <Compile Include="Controllers\SimpleReportsController.cs" />
+
+    <Compile Include="Controllers\AdminController.UserManagement.cs" />
     <Compile Include="Controllers\ReportsController.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -243,6 +252,12 @@
     <Content Include="Views\Account\ChangePassword.cshtml" />
     <Content Include="Views\Account\ForgotPassword.cshtml" />
     <Content Include="Views\Account\ResetPassword.cshtml" />
+    <Content Include="Views\Companies\Index.cshtml" />
+    <Content Include="Views\Companies\CreateCompany.cshtml" />
+    <Content Include="Views\Companies\EditCompany.cshtml" />
+    <Content Include="Views\Companies\CompanyDetails.cshtml" />
+    <Content Include="Views\Licenses\Index.cshtml" />
+    <Content Include="Views\Positions\CompanyList.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\Resumes\" />
@@ -250,9 +265,20 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <Content Include="Views\Admin\Questions.cshtml" />
+    <Content Include="Views\Admin\QuestionsWithMCP.cshtml" />
+    <Content Include="Views\Admin\GenerateQuestions.cshtml" />
+    <Content Include="Views\Admin\SecurityLogs.cshtml" />
+    <Content Include="Views\Admin\UserManagement.cshtml" />
+    <Content Include="Views\Admin\UpdateUserRole.cshtml" />
+    <Content Include="Views\Admin\EnhancedCandidateRankings.cshtml" />
+    <Content Include="Views\Admin\PositionQuestions.cshtml" />
     <Content Include="Views\Admin\CandidateRankings.cshtml" />
     <Content Include="Views\Admin\EditQuestion.cshtml" />
-    <Content Include="Views\Admin\Questions.cshtml" />
+    <Content Include="Views\Admin\GlobalUserManagement.cshtml" />
+    <Content Include="Views\Admin\_GlobalUserList.cshtml" />
+    <Content Include="Views\Admin\ApplicationScoreDetails.cshtml" />
+    <Content Include="Views\Admin\ScoringStatistics.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Content\css\bootstrap.min.css" />

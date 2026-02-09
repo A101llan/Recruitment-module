@@ -160,7 +160,7 @@ namespace HR.Web.Services
             var defaultOption = options.FirstOrDefault(o => 
                 o.Text.Equals(answerText, StringComparison.OrdinalIgnoreCase));
 
-            return defaultOption?.Points ?? 0;
+            return defaultOption != null ? defaultOption.Points : 0;
         }
 
         /// <summary>
@@ -201,7 +201,8 @@ namespace HR.Web.Services
             }
 
             // Existing rating logic as fallback
-            if (int.TryParse(answerText, out int rating))
+            int rating;
+            if (int.TryParse(answerText, out rating))
             {
                 // Convert rating to points (1-5 scale -> 0-10 points)
                 return Math.Max(0, Math.Min(10, rating * 2));
@@ -248,7 +249,8 @@ namespace HR.Web.Services
             }
 
             // Existing number logic as fallback
-            if (decimal.TryParse(answerText, out decimal number))
+            decimal number;
+            if (decimal.TryParse(answerText, out number))
             {
                 // For years of experience: 0-10 points based on experience level
                 if (question.Text.ToLower().Contains("year") && question.Text.ToLower().Contains("experience"))
@@ -302,9 +304,9 @@ namespace HR.Web.Services
             var lowerText = answerText.ToLower();
 
             // DEBUG: Log basic info
-            System.Diagnostics.Debug.WriteLine($"=== ENHANCED TEXT SCORING DEBUG ===");
-            System.Diagnostics.Debug.WriteLine($"Answer: {answerText.Substring(0, Math.Min(100, answerText.Length))}...");
-            System.Diagnostics.Debug.WriteLine($"Length: {answerText.Length}");
+            System.Diagnostics.Debug.WriteLine("=== ENHANCED TEXT SCORING DEBUG ===");
+            System.Diagnostics.Debug.WriteLine(string.Format("Answer: {0}...", answerText.Substring(0, Math.Min(100, answerText.Length))));
+            System.Diagnostics.Debug.WriteLine(string.Format("Length: {0}", answerText.Length));
 
             // 1. Enhanced length scoring with context awareness
             score += CalculateLengthScore(answerText);
@@ -331,8 +333,8 @@ namespace HR.Web.Services
             score = ApplyQualityAdjustments(score, answerText, lowerText);
 
             var finalScore = Math.Max(0, score); // Removed cap - unlimited points per question
-            System.Diagnostics.Debug.WriteLine($"Final enhanced score: {finalScore}");
-            System.Diagnostics.Debug.WriteLine($"=== END ENHANCED TEXT SCORING DEBUG ===");
+            System.Diagnostics.Debug.WriteLine(string.Format("Final enhanced score: {0}", finalScore));
+            System.Diagnostics.Debug.WriteLine("=== END ENHANCED TEXT SCORING DEBUG ===");
 
             return finalScore;
         }
@@ -355,7 +357,7 @@ namespace HR.Web.Services
             else if (answerText.Length < 800) score += 8.5m;
             else score += 9m; // Diminishing returns for very long answers
 
-            System.Diagnostics.Debug.WriteLine($"Enhanced length score: {score}");
+            System.Diagnostics.Debug.WriteLine(string.Format("Enhanced length score: {0}", score));
             return score;
         }
 
@@ -392,7 +394,7 @@ namespace HR.Web.Services
             var techMatches = words.Count(w => techKeywords.Contains(w));
             score += Math.Min(2m, techMatches * 0.5m);
 
-            System.Diagnostics.Debug.WriteLine($"Keyword extraction score: {score} (Industry: {industryMatches}, Actions: {actionMatches}, Tech: {techMatches})");
+            System.Diagnostics.Debug.WriteLine(string.Format("Keyword extraction score: {0} (Industry: {1}, Actions: {2}, Tech: {3})", score, industryMatches, actionMatches, techMatches));
             return score;
         }
 
@@ -443,7 +445,7 @@ namespace HR.Web.Services
                 System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
             score += Math.Min(1.5m, resultCount * 0.4m);
 
-            System.Diagnostics.Debug.WriteLine($"Answer strength score: {score} (Quantifiable: {quantifiableCount}, Examples: {exampleCount}, Results: {resultCount})");
+            System.Diagnostics.Debug.WriteLine(string.Format("Answer strength score: {0} (Quantifiable: {1}, Examples: {2}, Results: {3})", score, quantifiableCount, exampleCount, resultCount));
             return score;
         }
 
@@ -479,7 +481,7 @@ namespace HR.Web.Services
                 System.Text.RegularExpressions.Regex.IsMatch(lowerText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
             score += Math.Min(1.5m, leadershipCount * 0.4m);
 
-            System.Diagnostics.Debug.WriteLine($"Professional communication score: {score} (Professional: {professionalCount}, Leadership: {leadershipCount})");
+            System.Diagnostics.Debug.WriteLine(string.Format("Professional communication score: {0} (Professional: {1}, Leadership: {2})", score, professionalCount, leadershipCount));
             return score;
         }
 
@@ -505,7 +507,7 @@ namespace HR.Web.Services
             // Question type specific relevance
             score += CalculateQuestionTypeRelevance(question, answerText, lowerText);
 
-            System.Diagnostics.Debug.WriteLine($"Contextual relevance score: {score} (Direct: {directMatches}, Semantic: {semanticMatches})");
+            System.Diagnostics.Debug.WriteLine(string.Format("Contextual relevance score: {0} (Direct: {1}, Semantic: {2})", score, directMatches, semanticMatches));
             return score;
         }
 
@@ -536,7 +538,7 @@ namespace HR.Web.Services
             var programmingMatches = programmingTerms.Count(term => lowerText.Contains(term));
             score += Math.Min(1.5m, programmingMatches * 0.2m);
 
-            System.Diagnostics.Debug.WriteLine($"Technical indicators score: {score} (Technical: {technicalMatches}, Programming: {programmingMatches})");
+            System.Diagnostics.Debug.WriteLine(string.Format("Technical indicators score: {0} (Technical: {1}, Programming: {2})", score, technicalMatches, programmingMatches));
             return score;
         }
 
@@ -567,7 +569,7 @@ namespace HR.Web.Services
             var transitionCount = transitionWords.Count(word => lowerText.Contains(word));
             score += Math.Min(0.5m, transitionCount * 0.1m);
 
-            System.Diagnostics.Debug.WriteLine($"Structure coherence score: {score} (Avg words/sentence: {avgWordsPerSentence:F1}, Paragraphs: {paragraphs.Length})");
+            System.Diagnostics.Debug.WriteLine(string.Format("Structure coherence score: {0} (Avg words/sentence: {1:F1}, Paragraphs: {2})", score, avgWordsPerSentence, paragraphs.Length));
             return score;
         }
 
@@ -941,7 +943,7 @@ namespace HR.Web.Services
                     QuestionText = positionQuestion.Question.Text,
                     QuestionType = positionQuestion.Question.Type,
                     Order = positionQuestion.Order,
-                    Answer = answer?.AnswerText ?? "Not answered",
+                    Answer = answer != null ? answer.AnswerText : null ?? "Not answered",
                     Score = score,
                     MaxScore = maxScore,
                     Percentage = maxScore > 0 ? (score / maxScore) * 100 : 0
@@ -971,8 +973,8 @@ namespace HR.Web.Services
                 rankings.Add(new CandidateRanking
                 {
                     ApplicationId = application.Id,
-                    CandidateName = application.Applicant?.FullName ?? "Unknown",
-                    CandidateEmail = application.Applicant?.Email ?? "",
+                    CandidateName = application.Applicant != null ? application.Applicant.FullName : null ?? "Unknown",
+                    CandidateEmail = application.Applicant != null ? application.Applicant.Email : null ?? "",
                     TotalScore = percentage, // This is now percentage out of 100
                     MaxScore = 100, // Always 100 for percentage system
                     Percentage = percentage, // Same as TotalScore now

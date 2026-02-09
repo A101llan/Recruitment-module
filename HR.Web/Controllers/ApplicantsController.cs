@@ -12,12 +12,15 @@ namespace HR.Web.Controllers
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
         private readonly AuditService _auditService = new AuditService();
+        private readonly TenantService _tenantService = new TenantService();
 
         public ActionResult Index(string sortOrder)
         {
             ViewBag.ProficiencySortParam = string.IsNullOrEmpty(sortOrder) ? "proficiency_desc" : "";
             
-            var items = _uow.Applicants.GetAll(a => a.Applications).ToList();
+            var itemsQuery = _uow.Applicants.GetAll(a => a.Applications).AsQueryable();
+            itemsQuery = _tenantService.ApplyTenantFilter(itemsQuery);
+            var items = itemsQuery.ToList();
             
             // Sort by proficiency (from latest application's WorkExperienceLevel)
             switch (sortOrder)
@@ -33,8 +36,10 @@ namespace HR.Web.Controllers
                     break;
             }
             
-            // Get interviewers for booking
-            ViewBag.Interviewers = _uow.Users.GetAll().Where(u => u.Role == "Admin").ToList();
+            // Get interviewers for booking (filtered by tenant)
+            var interviewersQuery = _uow.Users.GetAll().Where(u => u.Role == "Admin").AsQueryable();
+            interviewersQuery = _tenantService.ApplyTenantFilter(interviewersQuery);
+            ViewBag.Interviewers = interviewersQuery.ToList();
             
             // Get existing interview application IDs
             var interviewedAppIds = _uow.Interviews.GetAll().Select(i => i.ApplicationId).ToList();
@@ -103,7 +108,7 @@ namespace HR.Web.Controllers
             }
             
             ViewBag.AllApplications = applications;
-            ViewBag.SelectedApplicationId = selectedApp?.Id;
+            ViewBag.SelectedApplicationId = selectedApp != null ? selectedApp.Id : (int?)null;
             
             return View(applicant);
         }
@@ -170,9 +175,9 @@ namespace HR.Web.Controllers
                 // Get old values for audit
                 var oldApplicant = _uow.Applicants.Get(model.Id);
                 var oldValues = new { 
-                    FullName = oldApplicant?.FullName, 
-                    Email = oldApplicant?.Email, 
-                    Phone = oldApplicant?.Phone 
+                    FullName = oldApplicant != null ? oldApplicant.FullName : null, 
+                    Email = oldApplicant != null ? oldApplicant.Email : null, 
+                    Phone = oldApplicant != null ? oldApplicant.Phone : null 
                 };
                 
                 _uow.Applicants.Update(model);
