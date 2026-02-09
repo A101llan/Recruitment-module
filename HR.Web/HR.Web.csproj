@@ -177,6 +177,7 @@
     <Compile Include="Models\PositionQuestionOption.cs" />
     <Compile Include="Models\ApplicationAnswer.cs" />
     <Compile Include="Models\ApplicationReviewViewModel.cs" />
+    <Compile Include="Models\PositionQuestionOptionVM.cs" />
     <Compile Include="ViewModels\CandidateRankingsViewModel.cs" />
     <Compile Include="ViewModels\GenerateQuestionsViewModel.cs" />
     <Compile Include="ViewModels\PositionQuestionViewModel.cs" />
@@ -191,6 +192,8 @@
     <Compile Include="Services\CandidateEvaluationService.cs" />
     <Compile Include="Services\DynamicQuestionService.cs" />
     <Compile Include="Services\MCPService.cs" />
+    <Compile Include="Services\MLQuestionnaireService.cs" />
+    <Compile Include="Services\QuestionnaireService.cs" />
     <Compile Include="Services\ScoringService.cs" />
     <Compile Include="Services\SecurityService.cs" />
     <Compile Include="Services\AuditService.cs" />
@@ -211,7 +214,7 @@
     <Compile Include="Controllers\DepartmentsController.cs" />
     <Compile Include="Controllers\AccountController.cs" />
     <Compile Include="Controllers\ReportGeneratorController.cs" />
-
+    <Compile Include="Controllers\MLController.cs" />
     <Compile Include="Controllers\AdminController.UserManagement.cs" />
     <Compile Include="Controllers\ReportsController.cs" />
   </ItemGroup>
@@ -249,6 +252,8 @@
     <Content Include="Views\Departments\Details.cshtml" />
     <Content Include="Views\Account\Login.cshtml" />
     <Content Include="Views\Account\Register.cshtml" />
+    <Content Include="Views\Account\LicenseExpired.cshtml" />
+    <Content Include="Views\Account\Index.cshtml" />
     <Content Include="Views\Account\ChangePassword.cshtml" />
     <Content Include="Views\Account\ForgotPassword.cshtml" />
     <Content Include="Views\Account\ResetPassword.cshtml" />
@@ -282,6 +287,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Content\css\bootstrap.min.css" />
+    <Content Include="Content\css\font-awesome.css" />
     <Content Include="Content\css\font-awesome.min.css" />
     <Content Include="Content\images\company-logo.png" />
     <Content Include="Scripts\jquery-3.6.0.min.js" />
