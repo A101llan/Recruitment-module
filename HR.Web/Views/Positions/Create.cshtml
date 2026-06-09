@@ -165,8 +165,8 @@
     var questions = ViewBag.QuestionList as IEnumerable<HR.Web.Models.Question>;
     var selectedQuestionWeights = ViewBag.SelectedQuestionWeights as System.Collections.Generic.Dictionary<int, decimal>
         ?? new System.Collections.Generic.Dictionary<int, decimal>();
-    var selectedQuestionStages = ViewBag.SelectedQuestionStages as System.Collections.Generic.Dictionary<int, int>
-        ?? new System.Collections.Generic.Dictionary<int, int>();
+    var selectedQuestionStages = ViewBag.SelectedQuestionStages as System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>
+        ?? new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>();
     var passMarkValue = Model != null ? (int)Math.Round(Model.PassMark, MidpointRounding.AwayFromZero) : 50;
     passMarkValue = Math.Max(0, Math.Min(100, passMarkValue));
     Html.EnableClientValidation(false);
@@ -250,7 +250,7 @@
                 </div>
                 <div class="form-group mb-3">
                     @Html.LabelFor(m => m.ExpiryDate, "Position Expiry Date", htmlAttributes: new { @class = "font-weight-bold w-100" })
-                    @Html.TextBoxFor(m => m.ExpiryDate, "{0:yyyy-MM-dd}", new { @class = "form-control mx-auto", type = "date", style = "max-width: 350px;" })
+                    @Html.TextBoxFor(m => m.ExpiryDate, "{0:yyyy-MM-dd}", new { @class = "form-control mx-auto", type = "date", style = "max-width: 350px;", min = DateTime.UtcNow.ToString("yyyy-MM-dd") })
                     <small class="form-text text-muted">This position will be automatically moved to Closed on the selected date.</small>
                     @Html.ValidationMessageFor(m => m.ExpiryDate, "", new { @class = "text-danger" })
                 </div>
@@ -307,7 +307,7 @@
                     <div id="questionnaireStageLegendRow" class="mb-3 d-none">
                         <div class="small font-weight-bold mb-2" style="color:#0d2c4a;">Questionnaire stage</div>
                         <div id="questionnaireStageLegend" class="d-flex flex-wrap align-items-stretch" role="tablist" aria-label="Questionnaire stages"></div>
-                        <small class="form-text text-muted d-block mt-2">Choose a stage above, then tick or untick questions for that questionnaire only. Weights below apply to all selected questions across stages.</small>
+                        <small class="form-text text-muted d-block mt-2">Choose a stage above, then tick questions for that stage. The same question can appear in more than one stage. Weights below apply once per question across all stages.</small>
                     </div>
                     @if (questions != null && questions.Any())
                     {
@@ -339,7 +339,7 @@
                                                            data-question-id="@q.Id"
                                                            data-question-text="@q.Text"
                                                            data-initial-weight="@(selectedQuestionWeights.ContainsKey(q.Id) ? selectedQuestionWeights[q.Id] : 0m)"
-                                                           data-initial-stage="@(selectedQuestionStages.ContainsKey(q.Id) ? selectedQuestionStages[q.Id] : 1)" />
+                                                           data-initial-stages="@(selectedQuestionStages.ContainsKey(q.Id) ? string.Join(",", selectedQuestionStages[q.Id]) : "1")" />
                                                     <label class="form-check-label" for="q_@q.Id">
                                                         <strong>Question:</strong> @q.Text
                                                         <span class="badge bg-secondary ms-2">@q.Type</span>

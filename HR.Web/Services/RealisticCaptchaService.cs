@@ -142,7 +142,7 @@ namespace HR.Web.Services
                 return 0;
             }
 
-            using (var rng = RandomNumberGenerator.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
                 var bytes = new byte[4];
                 rng.GetBytes(bytes);

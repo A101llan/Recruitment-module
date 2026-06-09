@@ -5,7 +5,7 @@ using System.Web;
 using System.Security.Cryptography;
 using HR.Web.Data;
 using HR.Web.Models;
-using Google.Authenticator;
+using HR.Web.Helpers;
 using QRCoder;
 
 namespace HR.Web.Services
@@ -120,7 +120,7 @@ namespace HR.Web.Services
         public string GenerateSecureToken()
         {
             var bytes = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
                 rng.GetBytes(bytes);
             }
@@ -134,7 +134,7 @@ namespace HR.Web.Services
         public string GenerateMfaSecret()
         {
             var bytes = new byte[10];
-            using (var rng = RandomNumberGenerator.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
                 rng.GetBytes(bytes);
             }
@@ -157,14 +157,7 @@ namespace HR.Web.Services
 
             var accountName = username;
             var sharedSecret = secret;
-            var authenticator = new TwoFactorAuthenticator();
-            var setupInfo = authenticator.GenerateSetupCode(HR.Web.Helpers.AppConfig.ProductName, accountName, sharedSecret, false, 3);
-            
-            // Format: otpauth://totp/Issuer:Account?secret=Secret&issuer=Issuer
-            string otpAuthUrl = string.Format("otpauth://totp/{0}:{1}?secret={2}&issuer={0}", 
-                HttpUtility.UrlEncode(HR.Web.Helpers.AppConfig.ProductName), 
-                HttpUtility.UrlEncode(accountName), 
-                sharedSecret);
+            string otpAuthUrl = TotpHelper.GenerateSetupUri(HR.Web.Helpers.AppConfig.ProductName, accountName, sharedSecret);
 
             using (var qrGenerator = new QRCodeGenerator())
             using (var qrCodeData = qrGenerator.CreateQrCode(otpAuthUrl, QRCodeGenerator.ECCLevel.Q))
@@ -186,14 +179,13 @@ namespace HR.Web.Services
                 return false;
             }
 
-            var authenticator = new TwoFactorAuthenticator();
-            return authenticator.ValidateTwoFactorPIN(secret, code);
+            return TotpHelper.ValidatePin(secret, code, 2);
         }
 
         public string GenerateTemporaryCode()
         {
             var bytes = new byte[4];
-            using (var rng = RandomNumberGenerator.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
                 rng.GetBytes(bytes);
             }

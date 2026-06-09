@@ -1,20 +1,18 @@
 #Requires -Version 5.0
 <#
 .SYNOPSIS
-  1) Reminds you to run EF6 Update-Database (primary path for schema).
-  2) Optionally runs VerifyDatabaseSchema.sql and optional idempotent SQL via sqlcmd.
+  DEPRECATED wrapper — use SQL-only schema workflow instead of EF Update-Database.
+
+.DESCRIPTION
+  This script now only runs VerifyDatabaseSchema.sql via sqlcmd when -Database is supplied.
+  For full schema deploy use:
+    1. Infrastructure\Database\HR_CREATE_DATABASE_COMPLETE.sql
+    2. HR.Web\Scripts\Apply-MigrationsSql.ps1
+    3. HR.Web\Migrations\Verify-ModelColumns.sql
+  See Docs\IIS_DEPLOYMENT_GUIDE.md
 
 .EXAMPLE
-  .\Apply-DatabaseUpdates.ps1
-  (prints Package Manager Console instructions only)
-
-.EXAMPLE
-  .\Apply-DatabaseUpdates.ps1 -ServerInstance ".\SQLEXPRESS" -Database "HrRecruitment" -WindowsAuth
-  (runs verify script; requires sqlcmd on PATH)
-
-.EXAMPLE
-  Same + -ApplyOptionalSql
-  (also runs Migrations\202605050000013_AddCompanyHrCcEmails.sql if present)
+  .\Apply-DatabaseUpdates.ps1 -ServerInstance ".\SQLEXPRESS" -Database "HR_Local" -WindowsAuth
 #>
 param(
     [string] $ServerInstance = "localhost",
@@ -29,29 +27,23 @@ $ErrorActionPreference = "Stop"
 $hrWebRoot = Split-Path $PSScriptRoot -Parent
 $migrations = Join-Path $hrWebRoot "Migrations"
 $verifyScript = Join-Path $PSScriptRoot "VerifyDatabaseSchema.sql"
-$hrCcSql = Join-Path $migrations "202605050000013_AddCompanyHrCcEmails.sql"
 
-Write-Host "=== HR.Web database updates ===" -ForegroundColor Cyan
+Write-Host "=== HR.Web database updates (SQL-only) ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Primary (recommended): Package Manager Console in Visual Studio" -ForegroundColor Yellow
-Write-Host "  Default project: HR.Web"
-Write-Host "  Startup project: HR.Web"
-Write-Host "  Command:        Update-Database"
-Write-Host ""
-Write-Host "This applies all compiled EF6 migrations (AutomaticMigrationsEnabled = false)."
-Write-Host "Rebuild solution first so HR.Web.dll includes every migration class."
+Write-Host "EF Update-Database is deprecated. Deploy schema with:" -ForegroundColor Yellow
+Write-Host "  1. Infrastructure\Database\HR_CREATE_DATABASE_COMPLETE.sql"
+Write-Host "  2. HR.Web\Scripts\Apply-MigrationsSql.ps1"
+Write-Host "  3. HR.Web\Migrations\Verify-ModelColumns.sql"
 Write-Host ""
 
 if ([string]::IsNullOrWhiteSpace($Database)) {
-    Write-Host "No -Database supplied; skipping sqlcmd steps." -ForegroundColor DarkGray
-    Write-Host "To verify columns with VerifyDatabaseSchema.sql, run:" -ForegroundColor Gray
-    Write-Host "  .\Apply-DatabaseUpdates.ps1 -ServerInstance `"YOUR_SERVER`" -Database `"YOUR_DB`" -WindowsAuth"
+    Write-Host "No -Database supplied; nothing to run." -ForegroundColor DarkGray
     exit 0
 }
 
 $sqlcmd = Get-Command sqlcmd.exe -ErrorAction SilentlyContinue
 if (-not $sqlcmd) {
-    Write-Warning "sqlcmd.exe not found on PATH. Install SQL Server Command Line Tools or run Scripts\VerifyDatabaseSchema.sql in SSMS manually."
+    Write-Warning "sqlcmd.exe not found on PATH. Run Verify-ModelColumns.sql in SSMS manually."
     exit 1
 }
 
@@ -82,13 +74,16 @@ function Invoke-HrSqlFile {
 Invoke-HrSqlFile -Path $verifyScript
 
 if ($ApplyOptionalSql) {
-    if (-not (Test-Path $hrCcSql)) {
-        Write-Warning "Optional script not found: $hrCcSql"
-    }
-    else {
-        Invoke-HrSqlFile -Path $hrCcSql
+    Write-Host "Apply-MigrationsSql.ps1 applies all incremental HR.Web\Migrations\*.sql files." -ForegroundColor Yellow
+    $applySql = Join-Path $PSScriptRoot "Apply-MigrationsSql.ps1"
+    if (Test-Path $applySql) {
+        & $applySql -ServerInstance $ServerInstance -Database $Database @(
+            if ($WindowsAuth) { "-WindowsAuth" }
+            if ($UserName) { "-UserName"; $UserName }
+            if ($Password) { "-Password"; $Password }
+        )
     }
 }
 
 Write-Host ""
-Write-Host "Done. If verification reported missing columns, run Update-Database, then verify again." -ForegroundColor Cyan
+Write-Host "Done. For missing columns, run Apply-MigrationsSql.ps1 or regenerate HR_CREATE_DATABASE_COMPLETE.sql." -ForegroundColor Cyan

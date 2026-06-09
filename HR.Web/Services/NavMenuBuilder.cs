@@ -123,7 +123,9 @@ namespace HR.Web.Services
                 ImpersonatedCompanyName = isImpersonating
                     ? (session["ImpersonatedCompanyName"] as string ?? tenantContext?.Name ?? "Tenant")
                     : null,
-                StopImpersonatingUrl = ParseRelativePath(url.Action("StopImpersonating", "Companies")),
+                StopImpersonatingUrl = isImpersonating
+                    ? ParseRelativePath(url.RouteUrl("Default", new { controller = "Companies", action = "StopImpersonating" }))
+                    : ParseRelativePath(url.Action("StopImpersonating", "Companies")),
                 UseGroupedMenus = isAuthenticated && !isClientUser,
                 Groups = new List<NavMenuGroupModel>()
             };
@@ -140,7 +142,7 @@ namespace HR.Web.Services
 
             if (isClientUser)
             {
-                AddClientFlatItems(model, url, tenantToken, currentController, canViewPositions, canViewApplications);
+                AddClientFlatItems(model, url, tenantToken, currentController, canViewPositions, canViewApplications, canViewInterviews, canViewDepartments);
             }
             else
             {
@@ -319,7 +321,9 @@ namespace HR.Web.Services
             string tenantToken,
             string currentController,
             bool canViewPositions,
-            bool canViewApplications)
+            bool canViewApplications,
+            bool canViewInterviews,
+            bool canViewDepartments)
         {
             var flat = new List<NavMenuItemModel>();
             if (canViewPositions)
@@ -341,6 +345,28 @@ namespace HR.Web.Services
                     Url = ParseRelativePath(url.Action("Index", "Applications", new { tenant = tenantToken })),
                     IconClass = "fas fa-file-alt",
                     IsActive = string.Equals(currentController, "Applications", StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            if (canViewInterviews)
+            {
+                flat.Add(new NavMenuItemModel
+                {
+                    Label = "Interviews",
+                    Url = ParseRelativePath(url.Action("Index", "Interviews", new { tenant = tenantToken })),
+                    IconClass = "fas fa-comments",
+                    IsActive = string.Equals(currentController, "Interviews", StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            if (canViewDepartments)
+            {
+                flat.Add(new NavMenuItemModel
+                {
+                    Label = "Departments",
+                    Url = ParseRelativePath(url.Action("Index", "Departments", new { tenant = tenantToken })),
+                    IconClass = "fas fa-building",
+                    IsActive = string.Equals(currentController, "Departments", StringComparison.OrdinalIgnoreCase)
                 });
             }
 

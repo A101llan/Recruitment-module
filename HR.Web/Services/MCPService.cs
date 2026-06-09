@@ -17,7 +17,7 @@ namespace HR.Web.Services
         public async Task<MCPResult> CallToolAsync(string toolName, object parameters)
         {
             // Return a default result for all tool calls
-            await Task.Delay(100).ConfigureAwait(false); // Simulate some processing time
+            System.Threading.Thread.Sleep(100); // Simulate processing (net40-compatible)
             
             // Generate realistic score based on answer content
             var score = 5m; // Default middle score

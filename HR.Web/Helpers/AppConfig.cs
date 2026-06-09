@@ -11,6 +11,9 @@ namespace HR.Web.Helpers
         public const string ProductNameDefault = "NanoHireHub";
         public const string PublisherNameDefault = "Nanosoft Technologies";
 
+        /// <summary>Branding on the one-time company admin credential download file.</summary>
+        public const string CredentialsFileBrandName = "Nano Hire Hub";
+
         public static string ProductName
         {
             get { return GetAppSetting("ProductName", ProductNameDefault); }
@@ -35,6 +38,18 @@ namespace HR.Web.Helpers
         public static bool IsDevelopment
         {
             get { return !IsProduction; }
+        }
+
+        /// <summary>True when AppEnvironment is Remote/Dev (local or VPN testing with production-like error handling).</summary>
+        public static bool IsRemoteDevelopment
+        {
+            get
+            {
+                return string.Equals(
+                    GetAppSetting("AppEnvironment", "Production"),
+                    "Remote/Dev",
+                    StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         private static string GetAppSetting(string key, string defaultValue)

@@ -261,12 +261,15 @@ namespace HR.Web.Services
                 .Where(pq => pq.PositionId == positionId)
                 .ToList();
 
-            var existingQuestionIds = new HashSet<int>(existing.Select(pq => pq.QuestionId));
+            var existingAssignments = new HashSet<string>(
+                existing.Select(pq => BuildQuestionStageKey(pq.QuestionId, pq.StageNumber)));
             var nextOrder = existing.Any() ? existing.Max(pq => pq.Order) + 1 : 1;
 
             foreach (var row in templateRows)
             {
-                if (append && existingQuestionIds.Contains(row.QuestionId))
+                var stageNumber = row.StageNumber <= 0 ? 1 : row.StageNumber;
+                var assignmentKey = BuildQuestionStageKey(row.QuestionId, stageNumber);
+                if (append && existingAssignments.Contains(assignmentKey))
                 {
                     continue;
                 }
@@ -283,8 +286,9 @@ namespace HR.Web.Services
                     Order = nextOrder++,
                     Weight = row.Weight,
                     IsRequired = row.IsRequired,
-                    StageNumber = row.StageNumber <= 0 ? 1 : row.StageNumber
+                    StageNumber = stageNumber
                 });
+                existingAssignments.Add(assignmentKey);
             }
 
             _uow.Complete();
@@ -323,11 +327,15 @@ namespace HR.Web.Services
             model.Name = template.Name;
             model.Description = template.Description;
             model.StageCount = template.StageCount;
-            model.SelectedQuestionIds = rows.Select(r => r.QuestionId).ToList();
-            model.SelectedQuestionWeights = rows.ToDictionary(r => r.QuestionId, r => r.Weight ?? 0m);
-            model.SelectedQuestionStages = rows.ToDictionary(
-                r => r.QuestionId,
-                r => r.StageNumber <= 0 ? 1 : r.StageNumber);
+            model.SelectedQuestionIds = rows.Select(r => r.QuestionId).Distinct().ToList();
+            model.SelectedQuestionWeights = rows
+                .GroupBy(r => r.QuestionId)
+                .ToDictionary(g => g.Key, g => g.First().Weight ?? 0m);
+            model.SelectedQuestionStages = rows
+                .GroupBy(r => r.QuestionId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IList<int>)g.Select(r => r.StageNumber <= 0 ? 1 : r.StageNumber).Distinct().OrderBy(s => s).ToList());
 
             return model;
         }
@@ -395,7 +403,8 @@ namespace HR.Web.Services
                 .Where(a => a != null && a.QuestionId > 0)
                 .OrderBy(a => a.Order <= 0 ? int.MaxValue : a.Order)
                 .ThenBy(a => a.QuestionId)
-                .GroupBy(a => a.QuestionId)
+                .ThenBy(a => a.StageNumber)
+                .GroupBy(a => new { a.QuestionId, a.StageNumber })
                 .Select(g => g.First())
                 .ToList();
 
@@ -497,6 +506,11 @@ namespace HR.Web.Services
             rounded[rounded.Count - 1] += difference;
 
             return rounded;
+        }
+
+        private static string BuildQuestionStageKey(int questionId, int stageNumber)
+        {
+            return questionId + ":" + stageNumber;
         }
     }
 }

@@ -47,38 +47,6 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index", "Positions");
         }
 
-        private void LogPositionQuestions(Position position)
-        {
-            if (position == null)
-            {
-                return;
-            }
-
-            var scopedPosition = position;
-            System.Diagnostics.Debug.WriteLine(string.Format("=== Position {0} Questions ===", scopedPosition.Title));
-            foreach (var pq in scopedPosition.PositionQuestions)
-            {
-                if (pq?.Question == null)
-                {
-                    continue;
-                }
-
-                System.Diagnostics.Debug.WriteLine(string.Format("Question: {0} (Type: {1})", pq.Question.Text, pq.Question.Type));
-                var optionCount = pq.Question.QuestionOptions != null ? pq.Question.QuestionOptions.Count() : 0;
-                System.Diagnostics.Debug.WriteLine(string.Format("Options count: {0}", optionCount));
-                if (pq.Question.QuestionOptions == null)
-                {
-                    continue;
-                }
-
-                foreach (var option in pq.Question.QuestionOptions)
-                {
-                    System.Diagnostics.Debug.WriteLine(string.Format("  - Option: {0} (Points: {1})", option.Text, option.Points));
-                }
-            }
-            System.Diagnostics.Debug.WriteLine("=== End Questions ===");
-        }
-
         private void PopulateApplicantViewBag(int? companyId)
         {
             if (!companyId.HasValue)
@@ -308,58 +276,10 @@ namespace HR.Web.Controllers
             return answers;
         }
 
-        private bool TrySaveResumeForQuestionnaire(HttpPostedFileBase resume, out string resumePath, out string errorMessage)
-        {
-            resumePath = null;
-            errorMessage = null;
-
-            System.Diagnostics.Debug.WriteLine("=== DEBUG: Resume Upload ===");
-            System.Diagnostics.Debug.WriteLine(string.Format("Resume is null: {0}", resume == null));
-            if (resume != null)
-            {
-                System.Diagnostics.Debug.WriteLine(string.Format("Resume ContentLength: {0}", resume.ContentLength));
-                System.Diagnostics.Debug.WriteLine(string.Format("Resume FileName: {0}", resume.FileName));
-            }
-            System.Diagnostics.Debug.WriteLine("=== END DEBUG ===");
-
-            if (resume == null || resume.ContentLength <= 0)
-            {
-                // Resume/CV upload is optional.
-                return true;
-            }
-
-            if (resume.ContentLength > 5 * 1024 * 1024)
-            {
-                errorMessage = "Resume file size must be less than 5MB.";
-                return false;
-            }
-
-            var fileExtension = System.IO.Path.GetExtension(resume.FileName).ToLower();
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
-            if (!allowedExtensions.Contains(fileExtension))
-            {
-                errorMessage = "Only PDF, DOC, and DOCX files are allowed.";
-                return false;
-            }
-
-            try
-            {
-                resumePath = _storage.SaveResume(resume);
-                System.Diagnostics.Debug.WriteLine("Resume saved to: " + resumePath);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                errorMessage = "Error uploading resume: " + ex.Message;
-                return false;
-            }
-        }
-
-        private void StoreQuestionnaireSession(int positionId, List<QuestionAnswerViewModel> questionAnswers, string resumePath, int activeQuestionnaireStage, bool acceptLegalTerms)
+        private void StoreQuestionnaireSession(int positionId, List<QuestionAnswerViewModel> questionAnswers, int activeQuestionnaireStage, bool acceptLegalTerms)
         {
             Session["QuestionnaireAnswers"] = questionAnswers;
             Session["PositionId"] = positionId;
-            Session["ResumePath"] = resumePath;
             Session["QuestionnaireActiveStage"] = activeQuestionnaireStage;
             Session["LegalTermsAcceptedForApplication"] = acceptLegalTerms;
         }
@@ -442,9 +362,6 @@ namespace HR.Web.Controllers
             {
                 !string.IsNullOrWhiteSpace(checkedProfile.Location),
                 checkedProfile.TotalYearsExperience.HasValue,
-                !string.IsNullOrWhiteSpace(checkedProfile.MostRecentCompany),
-                !string.IsNullOrWhiteSpace(checkedProfile.MostRecentTitle),
-                checkedProfile.MostRecentStartDate.HasValue,
                 !string.IsNullOrWhiteSpace(checkedProfile.EmploymentType),
                 !string.IsNullOrWhiteSpace(checkedProfile.EducationDegree),
                 !string.IsNullOrWhiteSpace(checkedProfile.EducationInstitution),
@@ -483,7 +400,7 @@ namespace HR.Web.Controllers
                 .Any(a => a.ApplicantId == applicantId && a.PositionId == positionId);
         }
 
-        private Application CreateApplicationFromQuestionnaire(ApplicationReviewViewModel model, Position position, int applicantId)
+        private Application CreateApplicationFromQuestionnaire(ApplicationReviewViewModel model, Position position, int applicantId, string coverLetter)
         {
             if (model == null || position == null)
             {
@@ -492,7 +409,6 @@ namespace HR.Web.Controllers
 
             var reviewModel = model;
             var targetPosition = position;
-            var resumePath = Session["ResumePath"] as string;
             var application = new Application
             {
                 ApplicantId = applicantId,
@@ -501,7 +417,7 @@ namespace HR.Web.Controllers
                 Status = "Interviewing",
                 AppliedOn = DateTime.UtcNow,
                 WorkExperienceLevel = reviewModel.YearsInRole ?? "Not specified",
-                ResumePath = resumePath ?? reviewModel.ResumePath,
+                CoverLetter = coverLetter,
                 CurrentStage = 1,
                 LastCompletedQuestionnaireStage = 0,
                 PendingQuestionnaireStage = null
@@ -571,24 +487,15 @@ namespace HR.Web.Controllers
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== STARTING QUESTIONNAIRE SCORING ===");
-                System.Diagnostics.Debug.WriteLine("Application ID: " + application.Id);
-
                 var score = _scoringService.CalculateApplicationScore(application);
-                System.Diagnostics.Debug.WriteLine("QUESTIONNAIRE SCORE: " + score);
-                System.Diagnostics.Debug.WriteLine("SETTING APPLICATION SCORE TO: " + score);
 
                 application.Score = score;
                 application.ScoreReason = "Questionnaire score calculated from responses.";
                 _uow.Applications.Update(application);
                 _uow.Complete();
-
-                System.Diagnostics.Debug.WriteLine("QUESTIONNAIRE SCORE SAVED TO DATABASE");
-                System.Diagnostics.Debug.WriteLine("===============================");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine("Error scoring application: " + ex.Message);
             }
         }
 
@@ -596,7 +503,6 @@ namespace HR.Web.Controllers
         {
             Session.Remove("QuestionnaireAnswers");
             Session.Remove("PositionId");
-            Session.Remove("ResumePath");
             Session.Remove("QuestionnaireActiveStage");
             Session.Remove("LegalTermsAcceptedForApplication");
         }
@@ -607,6 +513,11 @@ namespace HR.Web.Controllers
                    User.IsInRole("SuperAdmin") ||
                    user.Role == "Admin" ||
                    user.Role == "SuperAdmin";
+        }
+
+        private bool CanViewApplicationScores(User user)
+        {
+            return IsManagementUser(user);
         }
 
         private List<Application> BuildManagementApplicationsView()
@@ -751,6 +662,85 @@ namespace HR.Web.Controllers
             return null;
         }
 
+        private object GetApplicationFlowRouteValues(int positionId)
+        {
+            if (HttpContext?.Request?.RequestContext?.RouteData?.Values == null)
+            {
+                return new { positionId = positionId };
+            }
+
+            var tenant = HttpContext.Request.RequestContext.RouteData.Values["tenant"] as string;
+            if (string.IsNullOrWhiteSpace(tenant))
+            {
+                return new { positionId = positionId };
+            }
+
+            return new { tenant = tenant, positionId = positionId };
+        }
+
+        private void NormalizePortfolioUrlField(ApplicantProfileViewModel model)
+        {
+            if (model == null)
+            {
+                return;
+            }
+
+            ModelState.Remove("PortfolioUrl");
+            var raw = (Request["PortfolioUrl"] ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                model.PortfolioUrl = null;
+                return;
+            }
+
+            Uri parsed;
+            if (Uri.TryCreate(raw, UriKind.Absolute, out parsed))
+            {
+                model.PortfolioUrl = parsed;
+                return;
+            }
+
+            ModelState.AddModelError("PortfolioUrl", "Enter a valid URL starting with https://, or leave blank.");
+        }
+
+        private void NormalizeOptionalEmploymentHistoryFields(ApplicantProfileViewModel model)
+        {
+            if (model == null)
+            {
+                return;
+            }
+
+            model.MostRecentCompany = TrimProfileText(model.MostRecentCompany);
+            model.MostRecentTitle = TrimProfileText(model.MostRecentTitle);
+            model.SecondMostRecentCompany = TrimProfileText(model.SecondMostRecentCompany);
+            model.SecondMostRecentTitle = TrimProfileText(model.SecondMostRecentTitle);
+
+            foreach (var field in new[]
+            {
+                "MostRecentCompany",
+                "MostRecentTitle",
+                "MostRecentStartDate",
+                "MostRecentEndDate",
+                "SecondMostRecentCompany",
+                "SecondMostRecentTitle",
+                "SecondMostRecentStartDate",
+                "SecondMostRecentEndDate"
+            })
+            {
+                ModelState.Remove(field);
+            }
+        }
+
+        private static string TrimProfileText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return value.Trim();
+        }
+
         private void NormalizeSelectableProfileFields(ApplicantProfileViewModel model)
         {
             if (model == null)
@@ -787,12 +777,13 @@ namespace HR.Web.Controllers
         {
             var selectedValue = (Request[selectFieldName] ?? string.Empty).Trim();
             var customValue = (Request[customFieldName] ?? string.Empty).Trim();
+            ModelState.Remove(modelPropertyName);
+
             if (string.IsNullOrWhiteSpace(selectedValue))
             {
+                ModelState.AddModelError(modelPropertyName, requiredMessage);
                 return;
             }
-
-            ModelState.Remove(modelPropertyName);
 
             var resolvedValue = string.Equals(selectedValue, "__custom__", StringComparison.OrdinalIgnoreCase)
                 ? customValue
@@ -996,13 +987,20 @@ namespace HR.Web.Controllers
                 return RedirectToAction("Index", "Positions");
             }
 
-            var application = CreateApplicationFromQuestionnaire(reviewModel, position, applicant.Id);
+            var coverLetter = GetPendingCoverLetter(reviewModel.PositionId);
+            if (string.IsNullOrWhiteSpace(coverLetter))
+            {
+                return RedirectToCoverLetter(reviewModel.PositionId);
+            }
+
+            var application = CreateApplicationFromQuestionnaire(reviewModel, position, applicant.Id, coverLetter);
             var questionAnswers = ResolveQuestionnaireAnswers(reviewModel.PositionId, form);
             SaveApplicationAnswers(application.Id, questionAnswers, 1);
             application.LastCompletedQuestionnaireStage = 1;
             application.PendingQuestionnaireStage = null;
             _uow.Applications.Update(application);
             _uow.Complete();
+            ClearPendingCoverLetter();
             ScoreQuestionnaireApplication(application);
             return null;
         }

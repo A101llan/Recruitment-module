@@ -1,5 +1,5 @@
 /*
-  Compares dbo tables to HR.Web entity scalar columns (EF6 default plural table names).
+  Compares dbo tables to HR.Web entity scalar columns (EF5 default plural table names).
   Run: sqlcmd -S <server> -d <database> -E -i Verify-ModelColumns.sql
   Exit: missing count printed; use -b and check ERRORLEVEL if you script CI.
 */
@@ -14,7 +14,7 @@ DECLARE @Expected TABLE (
 -- Applications
 INSERT @Expected (Tbl, Col) VALUES
 (N'Applications', N'Id'), (N'Applications', N'CompanyId'), (N'Applications', N'ApplicantId'), (N'Applications', N'PositionId'),
-(N'Applications', N'Status'), (N'Applications', N'AppliedOn'), (N'Applications', N'ResumePath'), (N'Applications', N'WorkExperienceLevel'),
+(N'Applications', N'Status'), (N'Applications', N'AppliedOn'), (N'Applications', N'WorkExperienceLevel'),
 (N'Applications', N'Score'), (N'Applications', N'ScoreReason'), (N'Applications', N'CurrentStage'), (N'Applications', N'PendingQuestionnaireStage'),
 (N'Applications', N'LastCompletedQuestionnaireStage'), (N'Applications', N'QuestionnaireInvitedOn'), (N'Applications', N'LastQuestionnaireScore'),
 (N'Applications', N'CoverLetter'), (N'Applications', N'FailedCandidateEmailSentAt');
@@ -34,12 +34,14 @@ INSERT @Expected (Tbl, Col) VALUES
 (N'Users', N'DateOfBirth'), (N'Users', N'PasswordHash'), (N'Users', N'RequirePasswordChange'), (N'Users', N'LastPasswordChange'),
 (N'Users', N'PasswordChangeExpiry'), (N'Users', N'AccessToken'), (N'Users', N'RefreshToken'), (N'Users', N'TokenExpiry'),
 (N'Users', N'TwoFactorSecret'), (N'Users', N'IsTwoFactorEnabled'), (N'Users', N'MfaMethod'), (N'Users', N'TwoFactorCode'),
-(N'Users', N'TwoFactorExpiry'), (N'Users', N'IsEmailVerified'), (N'Users', N'EmailVerificationCode'), (N'Users', N'EmailVerificationExpiry');
+(N'Users', N'TwoFactorExpiry'), (N'Users', N'IsEmailVerified'), (N'Users', N'EmailVerificationCode'), (N'Users', N'EmailVerificationExpiry'),
+(N'Users', N'PrivacyAcceptedAt'), (N'Users', N'TermsAcceptedAt'), (N'Users', N'PrivacyVersion'), (N'Users', N'TermsVersion');
 
 -- Applicants
 INSERT @Expected (Tbl, Col) VALUES
 (N'Applicants', N'Id'), (N'Applicants', N'CompanyId'), (N'Applicants', N'FullName'), (N'Applicants', N'Email'),
-(N'Applicants', N'Phone'), (N'Applicants', N'DateOfBirth'), (N'Applicants', N'IsEmailVerified');
+(N'Applicants', N'Phone'), (N'Applicants', N'IsEmailVerified'),
+(N'Applicants', N'PrivacyAcceptedAt'), (N'Applicants', N'TermsAcceptedAt'), (N'Applicants', N'PrivacyVersion'), (N'Applicants', N'TermsVersion');
 
 -- Companies
 INSERT @Expected (Tbl, Col) VALUES
@@ -136,6 +138,28 @@ INSERT @Expected (Tbl, Col) VALUES
 (N'TemporaryCredentials', N'Id'), (N'TemporaryCredentials', N'Token'), (N'TemporaryCredentials', N'EncryptedData'),
 (N'TemporaryCredentials', N'ExpiryDate'), (N'TemporaryCredentials', N'IsUsed'), (N'TemporaryCredentials', N'CreatedDate'),
 (N'TemporaryCredentials', N'CredentialType');
+
+-- QuestionnaireTemplates
+INSERT @Expected (Tbl, Col) VALUES
+(N'QuestionnaireTemplates', N'Id'), (N'QuestionnaireTemplates', N'CompanyId'), (N'QuestionnaireTemplates', N'Name'),
+(N'QuestionnaireTemplates', N'Description'), (N'QuestionnaireTemplates', N'StageCount'), (N'QuestionnaireTemplates', N'IsActive'),
+(N'QuestionnaireTemplates', N'CreatedOn'), (N'QuestionnaireTemplates', N'UpdatedOn');
+INSERT @Expected (Tbl, Col) VALUES
+(N'QuestionnaireTemplateQuestions', N'Id'), (N'QuestionnaireTemplateQuestions', N'TemplateId'),
+(N'QuestionnaireTemplateQuestions', N'QuestionId'), (N'QuestionnaireTemplateQuestions', N'Order'),
+(N'QuestionnaireTemplateQuestions', N'Weight'), (N'QuestionnaireTemplateQuestions', N'IsRequired'),
+(N'QuestionnaireTemplateQuestions', N'StageNumber');
+
+-- Image classification (MCP admin feature)
+INSERT @Expected (Tbl, Col) VALUES
+(N'ImageClassifications', N'Id'), (N'ImageClassifications', N'OriginalFileName'), (N'ImageClassifications', N'SavedFileName'),
+(N'ImageClassifications', N'ImagePath'), (N'ImageClassifications', N'Description'), (N'ImageClassifications', N'UploadedAt'),
+(N'ImageClassifications', N'ProcessedAt'), (N'ImageClassifications', N'Success'), (N'ImageClassifications', N'ErrorMessage'),
+(N'ImageClassifications', N'UploadedByUserId'), (N'ImageClassifications', N'TenantId');
+INSERT @Expected (Tbl, Col) VALUES
+(N'ImageDetections', N'Id'), (N'ImageDetections', N'ObjectType'), (N'ImageDetections', N'Confidence'),
+(N'ImageDetections', N'BoundingBoxX'), (N'ImageDetections', N'BoundingBoxY'), (N'ImageDetections', N'BoundingBoxWidth'),
+(N'ImageDetections', N'BoundingBoxHeight'), (N'ImageDetections', N'DetectedAt'), (N'ImageDetections', N'ImageClassificationId');
 
 -- Tables that should exist
 DECLARE @MissingTables TABLE (Tbl SYSNAME NOT NULL);

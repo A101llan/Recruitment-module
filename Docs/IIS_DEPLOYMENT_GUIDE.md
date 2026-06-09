@@ -3,55 +3,111 @@
 Follow these steps to host the Nanosoft HR Recruitment Module on your Windows Server.
 
 ## 1. Prerequisites
-*   **Windows Server** with IIS enabled.
-*   **.NET Framework 4.7** Runtime installed.
-*   **SQL Server** (Express or full) for the database.
+
+- **Windows Server** with IIS enabled.
+- **.NET Framework 4.0** Runtime and **ASP.NET 4.0** registered (`aspnet_regiis -i` on legacy servers if needed).
+- **SQL Server** (Express or full) for the database.
 
 ## 2. Prepare the Application Files
-1.  Build the project in **Release** mode in Visual Studio or via CLI:
-    ```powershell
-    msbuild HR.sln /p:Configuration=Release /p:DeployOnBuild=true
-    ```
-2.  Copy the contents of the `HR.Web` folder (specifically the `bin`, `Views`, `Content`, `Scripts` folders and `Web.config`) to your server destination (e.g., `C:\inetpub\wwwroot\Recruitment`).
+
+1. From the repository root, build Release and sync the IIS package:
+  ```powershell
+    .\tools\dev\Sync-Publish.ps1
+  ```
+    This writes `Publish\` with Release binaries (`HR.Web\bin\Release\`), strips dev scripts/views, and sets `Publish\Web.config` to **Production** (`AppEnvironment`, `debug="false"`, `customErrors mode="On"`).
+2. Copy the contents of `Publish\` to your server (e.g., `C:\inetpub\wwwroot\Recruitment`).
 
 ## 3. Configure IIS
-1.  **Open IIS Manager** (`inetmgr`).
-2.  **Create Application Pool**:
-    *   Right-click "Application Pools" -> "Add Application Pool".
-    *   Name: `Recruitment_Pool`.
-    *   .NET CLR Version: `.NET CLR Version v4.0.30319`.
-    *   Managed Pipeline Mode: `Integrated`.
-3.  **Create Website**:
-    *   Right-click "Sites" -> "Add Website".
-    *   Site Name: `Recruitment Portal`.
-    *   Application Pool: Select `Recruitment_Pool`.
-    *   Physical Path: `C:\inetpub\wwwroot\Recruitment` (or wherever you copied the files).
-    *   Binding: Set your IP and Port (e.g., Port 80).
+
+1. **Open IIS Manager** (`inetmgr`).
+2. **Create Application Pool**:
+  - Right-click "Application Pools" -> "Add Application Pool".
+  - Name: `Recruitment_Pool`.
+  - .NET CLR Version: `.NET CLR Version v4.0.30319`.
+  - Managed Pipeline Mode: `Integrated`.
+3. **Create Website**:
+  - Right-click "Sites" -> "Add Website".
+  - Site Name: `Recruitment Portal`.
+  - Application Pool: Select `Recruitment_Pool`.
+  - Physical Path: `C:\inetpub\wwwroot\Recruitment` (or wherever you copied the files).
+  - Binding: Set your IP and Port (e.g., Port **5002**).
 
 ## 4. Set Permissions (Crucial)
+
 The IIS user must have permission to manage files in certain directories:
-1.  Right-click the following folders in File Explorer -> **Properties** -> **Security**:
-    *   `App_Data` (For logs and temporary storage)
-    *   `App_Data\Resumes` (For candidate uploads)
-    *   `Reports` (For generated CSV/PDFs)
-2.  Click **Edit** -> **Add**.
-3.  Enter `IIS AppPool\HR_Recruitment_Pool` and check names.
-4.  Grant **Modify**, **Read**, and **Write** permissions.
+
+1. Right-click the following folders in File Explorer -> **Properties** -> **Security**:
+  - `Reports` (generated CSV/PDF exports)
+  - `Content\company-logos` (company logo uploads)
+2. Click **Edit** -> **Add**.
+3. Enter `IIS AppPool\Recruitment_Pool` and check names.
+4. Grant **Modify**, **Read**, and **Write** permissions.
 
 ## 5. Final Configuration
-1.  **Database**: Ensure you have run the `FULL_STAGING_DEPLOYMENT.sql` script.
-2.  **Web.config**: Update the connection string:
-    ```xml
-    <connectionStrings>
-        <add name="HrContext" connectionString="Data Source=YOUR_SERVER;Initial Catalog=HR_Local;User ID=sa;Password=YOUR_PASSWORD;MultipleActiveResultSets=True;" providerName="System.Data.SqlClient" />
-    </connectionStrings>
+
+### 5.1 Database (SQL-only — no EF migrations at deploy or app startup)
+
+Schema is created and updated **only** via SQL scripts. The application does not run `DbMigrator` or runtime schema patching.
+
+**Deploy order:**
+
+1. **Complete bootstrap** (empty database or fresh install):
+
+    **File:** `Infrastructure\Database\HR_CREATE_DATABASE_COMPLETE.sql`
+
+    **SSMS:** open that file and Execute.
+
+    **PowerShell (from repo root):**
+    ```powershell
+    .\tools\dev\Invoke-HostDatabaseScript.ps1 -ServerInstance "YOUR_SERVER" -WindowsAuth
     ```
-3.  **secrets.config**: Ensure your SMTP credentials (email and the 16-character app password) are entered correctly.
+
+    **sqlcmd:**
+    ```text
+    sqlcmd -S YOUR_SERVER -E -b -i Infrastructure\Database\HR_CREATE_DATABASE_COMPLETE.sql
+    ```
+
+2. **Incremental migrations** (existing databases that need new columns):
+
+    ```powershell
+    .\HR.Web\Scripts\Apply-MigrationsSql.ps1 -ServerInstance "YOUR_SERVER" -Database "HR_Local" -WindowsAuth
+    ```
+
+3. **Verify schema** — expect zero missing columns:
+
+    ```text
+    sqlcmd -S YOUR_SERVER -E -d HR_Local -b -i HR.Web\Migrations\Verify-ModelColumns.sql
+    ```
+
+4. **Deploy application** — copy `Publish\` to IIS. No database step on app start.
+
+After schema changes in source fragments, regenerate the complete script:
+`.\tools\dev\Build-CompleteDatabaseScript.ps1`
+
+Bootstrap login username is always `admin`.
+Bootstrap password is generated one-time by `Invoke-HostDatabaseScript.ps1` and printed in that script output (change immediately after first login).
+
+**Deprecated (do not use):** `Run-EfMigrate.ps1`, `Apply-DatabaseUpdates.ps1` (EF path), `tools\dev\Update-EfDatabase.ps1`, Package Manager `Update-Database`.
+
+### 5.2 Web.config
+
+Update the connection string:
+```xml
+  <connectionStrings>
+      <add name="HrContext" connectionString="Data Source=YOUR_SERVER;Initial Catalog=HR_Local;User ID=sa;Password=YOUR_PASSWORD;MultipleActiveResultSets=True;" providerName="System.Data.SqlClient" />
+  </connectionStrings>
+```
+
+### 5.3 secrets.config
+
+Ensure your SMTP credentials (email and the 16-character app password) are entered correctly.
 
 ## 6. Restart & Test
-1.  Restart the Website in IIS.
-2.  Browse to the URL (e.g., `http://localhost`).
-3.  Log in with `admin` / `Admin@123`.
+
+1. Restart the Website in IIS.
+2. Browse to the URL (e.g., `http://localhost:5002`).
+3. Log in with `admin` using the generated bootstrap password shown by the deployment script.
 
 ---
+
 *Generated by Antigravity AI for Nanosoft Technologies*

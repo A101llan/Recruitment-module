@@ -43,8 +43,6 @@ HR/
 │   │       └── _Layout.cshtml              # Master layout
 │   ├── Migrations/
 │   │   └── 202502020000000_AddPasswordChangeFields.cs  # DB migration
-│   ├── App_Data/
-│   │   └── Resumes/                       # Uploaded resume files
 │   ├── Reports/                           # Generated reports
 │   ├── Web.config                         # Application configuration
 │   └── Global.asax.cs                     # Application startup
@@ -87,7 +85,6 @@ HR/
 
 ### Application Management
 - **Application Submission**: Candidates apply for positions
-- **Resume Upload**: File attachment support
 - **Candidate Evaluation**: Scoring and assessment
 
 ### Questionnaire System
@@ -176,7 +173,7 @@ sqlcmd -S ".\SQLEXPRESS" -i grant_permissions.sql
 ### 4. Run Application
 - Press F5 in Visual Studio
 - Or use `dotnet run` in the HR.Web directory
-- Application runs on `http://localhost:8080`
+- Application runs on `http://localhost:5002`
 
 ## 🔍 Development Notes
 
@@ -193,8 +190,8 @@ sqlcmd -S ".\SQLEXPRESS" -i grant_permissions.sql
 - Razor view engine for server-side rendering
 
 ### Backend Technologies
-- ASP.NET MVC 5
-- Entity Framework 6
+- ASP.NET MVC 4 (.NET Framework 4.0)
+- Entity Framework 5
 - SQL Server for data storage
 - PowerShell for automation scripts
 
@@ -229,5 +226,5 @@ This project is proprietary software for Nanosoft Technologies recruitment manag
 
 **Last Updated**: February 2026
 **Version**: 2.0
-**Framework**: ASP.NET MVC 5
+**Framework**: ASP.NET MVC 4 (.NET Framework 4.0)
 **Database**: SQL Server Express

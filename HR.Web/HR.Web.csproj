@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\EntityFramework.6.4.4\build\EntityFramework.props" Condition="Exists('..\packages\EntityFramework.6.4.4\build\EntityFramework.props')" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\WebApplications\Microsoft.WebApplication.targets" Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\WebApplications\Microsoft.WebApplication.targets')" />
   <!-- Fallback import for environments where $(VisualStudioVersion) web targets are missing -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v15.0\WebApplications\Microsoft.WebApplication.targets" Condition="!Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\WebApplications\Microsoft.WebApplication.targets') AND Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v15.0\WebApplications\Microsoft.WebApplication.targets')" />
@@ -20,7 +19,8 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>HR.Web</RootNamespace>
     <AssemblyName>HR.Web</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <ResolveAssemblyReferenceIgnoreTargetFrameworkAttributeVersionChecks>true</ResolveAssemblyReferenceIgnoreTargetFrameworkAttributeVersionChecks>
     <UseIISExpress>true</UseIISExpress>
     <IISUrl>http://localhost:5002/</IISUrl>
     <IISExpressPort>5002</IISExpressPort>
@@ -48,7 +48,8 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\</OutputPath>
+    <!-- Keep Release output separate so F5/Debug builds in bin\ are not overwritten -->
+    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -57,92 +58,72 @@
     <Reference Include="Antlr3.Runtime, Version=3.4.1.9004, Culture=neutral, PublicKeyToken=eb42632606e9261f, processorArchitecture=MSIL">
       <HintPath>..\packages\Antlr.3.4.1.9004\lib\Antlr3.Runtime.dll</HintPath>
     </Reference>
-    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-      <HintPath>..\packages\EntityFramework.6.4.4\lib\net45\EntityFramework.dll</HintPath>
-    </Reference>
-    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-      <HintPath>..\packages\EntityFramework.6.4.4\lib\net45\EntityFramework.SqlServer.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.AspNet.Identity.Core, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.Identity.Core.2.2.4\lib\net45\Microsoft.AspNet.Identity.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.AspNet.Identity.Owin, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.Identity.Owin.2.2.4\lib\net45\Microsoft.AspNet.Identity.Owin.dll</HintPath>
+    <Reference Include="EntityFramework">
+      <HintPath>..\packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll</HintPath>
+      <Private>True</Private>
+      <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="Microsoft.AspNet.Web.Optimization, Version=1.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>false</SpecificVersion>
       <HintPath>..\packages\Microsoft.AspNet.Web.Optimization.1.1.3\lib\net40\System.Web.Optimization.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.Owin, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Owin.4.2.2\lib\net45\Microsoft.Owin.dll</HintPath>
+    <Reference Include="Microsoft.Threading.Tasks, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Owin.Host.SystemWeb, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Owin.Host.SystemWeb.4.2.2\lib\net45\Microsoft.Owin.Host.SystemWeb.dll</HintPath>
+    <Reference Include="Microsoft.Threading.Tasks.Extensions, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.Extensions.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Owin.Security, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
-      <HintPath>..\packages\Microsoft.Owin.Security.4.2.2\lib\net45\Microsoft.Owin.Security.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Microsoft.Owin.Security.Cookies, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
-      <HintPath>..\packages\Microsoft.Owin.Security.Cookies.4.2.2\lib\net45\Microsoft.Owin.Security.Cookies.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Microsoft.Owin.Security.OAuth, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
-      <HintPath>..\packages\Microsoft.Owin.Security.OAuth.4.2.2\lib\net45\Microsoft.Owin.Security.OAuth.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Microsoft.Threading.Tasks.Extensions.Desktop, Version=1.0.168.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.Extensions.Desktop.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Web.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Web.Infrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
+      <HintPath>..\packages\Newtonsoft.Json.6.0.8\lib\net40\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Oracle.ManagedDataAccess, Version=4.122.1.0, Culture=neutral, PublicKeyToken=89b483f429c47342, processorArchitecture=MSIL">
-      <HintPath>..\packages\Oracle.ManagedDataAccess.12.2.1100\lib\net40\Oracle.ManagedDataAccess.dll</HintPath>
+    <Reference Include="System.IO, Version=2.6.10.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.1.1.10\lib\net40\System.IO.dll</HintPath>
     </Reference>
-    <Reference Include="Oracle.ManagedDataAccess.EntityFramework, Version=6.122.1.0, Culture=neutral, PublicKeyToken=89b483f429c47342, processorArchitecture=MSIL">
-      <HintPath>..\packages\Oracle.ManagedDataAccess.EntityFramework.12.2.1100\lib\net45\Oracle.ManagedDataAccess.EntityFramework.dll</HintPath>
+    <Reference Include="System.Runtime, Version=2.6.10.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.1.1.10\lib\net40\System.Runtime.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.Helpers.dll</HintPath>
+    <Reference Include="System.Threading.Tasks, Version=2.6.10.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.1.1.10\lib\net40\System.Threading.Tasks.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.Mvc, Version=5.2.9.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.Mvc.5.2.9\lib\net45\System.Web.Mvc.dll</HintPath>
+    <Reference Include="System.Web.Helpers, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.2.0.30506.0\lib\net40\System.Web.Helpers.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+    <Reference Include="System.Web.Mvc">
+      <HintPath>..\packages\Microsoft.AspNet.Mvc.4.0.40804.0\lib\net40\System.Web.Mvc.dll</HintPath>
+      <Private>True</Private>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="System.Web.Razor, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>false</SpecificVersion>
-      <HintPath>..\packages\Microsoft.AspNet.Razor.3.2.9\lib\net45\System.Web.Razor.dll</HintPath>
+      <HintPath>..\packages\Microsoft.AspNet.Razor.2.0.30506.0\lib\net40\System.Web.Razor.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.WebPages, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.WebPages.dll</HintPath>
+    <Reference Include="System.Web.WebPages, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.2.0.30506.0\lib\net40\System.Web.WebPages.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.WebPages.Deployment, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
+    <Reference Include="System.Web.WebPages.Deployment, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.2.0.30506.0\lib\net40\System.Web.WebPages.Deployment.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.WebPages.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.2.9\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
+    <Reference Include="System.Web.WebPages.Razor, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.2.0.30506.0\lib\net40\System.Web.WebPages.Razor.dll</HintPath>
     </Reference>
     <Reference Include="WebGrease, Version=1.6.5135.21930, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>false</SpecificVersion>
       <HintPath>..\packages\WebGrease.1.6.0\lib\WebGrease.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Owin, Version=1.0.0.0, Culture=neutral, PublicKeyToken=f0ebd12fd5e55cc5, processorArchitecture=MSIL">
-      <HintPath>..\packages\Owin.1.0\lib\net40\Owin.dll</HintPath>
-    </Reference>
+    <Reference Include="System.Data.Entity" />
     <Reference Include="System" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Web.Providers, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.AspNet.Providers.Core.2.0.0\lib\net40\System.Web.Providers.dll</HintPath>
-    </Reference>
-    <Reference Include="Google.Authenticator">
-      <HintPath>..\packages\GoogleAuthenticator.3.1.0\lib\net462\Google.Authenticator.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="QRCoder">
       <HintPath>..\packages\QRCoder.1.4.3\lib\net40\QRCoder.dll</HintPath>
       <Private>True</Private>
@@ -184,31 +165,36 @@
     <Compile Include="Models\LicenseTransaction.cs" />
     <Compile Include="Models\SystemSetting.cs" />
     <Compile Include="Models\AdminCredentialsViewModel.cs" />
-    <Compile Include="Migrations\202503090000000_AddImageClassification.cs" />
-    <Compile Include="Migrations\202401270000000_AddPasswordHashToUser.cs" />
-    <Compile Include="Migrations\202401270000001_AddSecurityTables.cs" />
-    <Compile Include="Migrations\202401290000000_AddReportEntity.cs" />
-    <Compile Include="Migrations\202401300000000_AddLocationToPosition.cs" />
-    <Compile Include="Migrations\202502020000000_AddPasswordChangeFields.cs" />
-    <Compile Include="Migrations\202604220000000_AddWeightToPositionQuestion.cs" />
-    <Compile Include="Migrations\202604220000001_AddRoleDefinitionsAndPermissions.cs" />
-    <Compile Include="Migrations\202604230000001_AddPositionTypeAndApplicantProfile.cs" />
-    <Compile Include="Migrations\202604230000002_AddMultipleChoiceToQuestions.cs" />
-    <Compile Include="Migrations\202604230000003_AddPassMarkToPosition.cs" />
-    <Compile Include="Migrations\202604230000004_AddPositionExpiryDate.cs" />
-    <Compile Include="Migrations\202604250000001_AddCoverLetterToApplications.cs" />
-    <Compile Include="Migrations\202604250000006_AddDateOfBirthToUsersAndApplicants.cs" />
-    <Compile Include="Migrations\202604250000007_AddCompanyLogoPathToCompanies.cs" />
-    <Compile Include="Migrations\202604280000008_AddIsPanelistToUsers.cs" />
-    <Compile Include="Migrations\202604300000009_AddApplicationStages.cs" />
-    <Compile Include="Migrations\202604300000010_AddHasSecondaryStageToPosition.cs" />
-    <Compile Include="Migrations\202604300000011_QuestionnaireMultiStage.cs" />
-    <Compile Include="Migrations\202605051000000_AddPassMarksByStageJsonToPosition.cs" />
-    <Compile Include="Migrations\202605052000000_AddFailedCandidateEmailSentAtToApplications.cs" />
-    <Compile Include="Migrations\202605140000014_AddLegalAcceptanceTracking.cs" />
-    <Compile Include="Migrations\202605240000015_AddQuestionnaireTemplates.cs" />
-    <Compile Include="Migrations\AddPasswordResetTable.cs" />
-    <Compile Include="Migrations\Configuration.cs" />
+    <None Include="Migrations\202503090000000_AddImageClassification.cs" />
+    <None Include="Migrations\202401270000000_AddPasswordHashToUser.cs" />
+    <None Include="Migrations\202401270000001_AddSecurityTables.cs" />
+    <None Include="Migrations\202401290000000_AddReportEntity.cs" />
+    <None Include="Migrations\202401300000000_AddLocationToPosition.cs" />
+    <None Include="Migrations\202502020000000_AddPasswordChangeFields.cs" />
+    <None Include="Migrations\202604220000000_AddWeightToPositionQuestion.cs" />
+    <None Include="Migrations\202604220000001_AddRoleDefinitionsAndPermissions.cs" />
+    <None Include="Migrations\202604230000001_AddPositionTypeAndApplicantProfile.cs" />
+    <None Include="Migrations\202604230000002_AddMultipleChoiceToQuestions.cs" />
+    <None Include="Migrations\202604230000003_AddPassMarkToPosition.cs" />
+    <None Include="Migrations\202604230000004_AddPositionExpiryDate.cs" />
+    <None Include="Migrations\202604250000001_AddCoverLetterToApplications.cs" />
+    <None Include="Migrations\202604250000006_AddDateOfBirthToUsersAndApplicants.cs" />
+    <None Include="Migrations\202604250000007_AddCompanyLogoPathToCompanies.cs" />
+    <None Include="Migrations\202604280000008_AddIsPanelistToUsers.cs" />
+    <None Include="Migrations\202604300000009_AddApplicationStages.cs" />
+    <None Include="Migrations\202604300000010_AddHasSecondaryStageToPosition.cs" />
+    <None Include="Migrations\202604300000011_QuestionnaireMultiStage.cs" />
+    <None Include="Migrations\202605051000000_AddPassMarksByStageJsonToPosition.cs" />
+    <None Include="Migrations\202605052000000_AddFailedCandidateEmailSentAtToApplications.cs" />
+    <None Include="Migrations\202605140000014_AddLegalAcceptanceTracking.cs" />
+    <None Include="Migrations\202605240000015_AddQuestionnaireTemplates.cs" />
+    <None Include="Migrations\202605260439187_ModelSyncCheckpoint20260526.cs" />
+    <None Include="Migrations\202605260439187_ModelSyncCheckpoint20260526.Designer.cs" />
+    <None Include="Migrations\202605260439187_ModelSyncCheckpoint20260526.resx" />
+    <None Include="Migrations\202605290000000_DropResumePathFromApplications.cs" />
+    <None Include="Migrations\202605290000000_DropResumePathFromApplications.sql" />
+    <None Include="Migrations\AddPasswordResetTable.cs" />
+    <None Include="Migrations\Configuration.cs" />
     <Compile Include="Models\Application.cs" />
     <Compile Include="Models\Interview.cs" />
     <Compile Include="Models\Onboarding.cs" />
@@ -237,11 +223,10 @@
     <Compile Include="ViewModels\CoverLetterViewModel.cs" />
     <Compile Include="ViewModels\EmailTemplateManagementViewModel.cs" />
     <Compile Include="ViewModels\HrCcEmailsPageViewModel.cs" />
+    <Compile Include="Data\DbSetExtensions.cs" />
     <Compile Include="Data\HrContext.cs" />
     <Compile Include="Data\Repository.cs" />
     <Compile Include="Data\UnitOfWork.cs" />
-    <Compile Include="Data\DatabaseSchemaEnsure.cs" />
-    <Compile Include="Services\StorageService.cs" />
     <Compile Include="Services\TenantService.cs" />
     <Compile Include="Services\RoleModuleCatalog.cs" />
     <Compile Include="Services\RolePermissionService.cs" />
@@ -265,6 +250,10 @@
     <Compile Include="Services\EmailTemplateCatalog.cs" />
     <Compile Include="Services\EmailTemplateService.cs" />
     <Compile Include="Services\PanelistRoleTemplateSeeder.cs" />
+    <Compile Include="Helpers\RequestFormHelper.cs" />
+    <Compile Include="Helpers\Pbkdf2Helper.cs" />
+    <Compile Include="Helpers\Net40DataAnnotations.cs" />
+    <Compile Include="Helpers\TotpHelper.cs" />
     <Compile Include="Helpers\PasswordHelper.cs" />
     <Compile Include="Helpers\TenantRouteConstraint.cs" />
     <Compile Include="Helpers\TenantFilterAttribute.cs" />
@@ -276,6 +265,7 @@
     <Compile Include="Helpers\EmailTemplateTokenChipSerializer.cs" />
     <Compile Include="Helpers\LegalPolicyHelper.cs" />
     <Compile Include="Helpers\LegalConsentSession.cs" />
+    <Compile Include="Helpers\QuestionStagePayloadHelper.cs" />
     <Compile Include="Helpers\AppConfig.cs" />
     <Compile Include="Helpers\UserAgentFingerprint.cs" />
     <Compile Include="Helpers\CompanyLogoHelper.cs" />
@@ -287,6 +277,7 @@
     <Compile Include="Filters\FreshPortalSecurityAttribute.cs" />
     <Compile Include="Filters\AntiForgeryExceptionFilterAttribute.cs" />
     <Compile Include="Filters\AuditLogAttribute.cs" />
+    <Compile Include="Filters\ImpersonationExpiryFilterAttribute.cs" />
     <Compile Include="Controllers\AdminController.cs" />
     <Compile Include="Controllers\AdminController.MCP.cs" />
     <Compile Include="Controllers\AdminController.MCP.Helpers.cs" />
@@ -307,11 +298,13 @@
     <Compile Include="Controllers\PositionsController.cs" />
     <Compile Include="Controllers\PositionsController.Operations.cs" />
     <Compile Include="Controllers\ApplicationsController.cs" />
+    <Compile Include="Controllers\ApplicationsController.CoverLetter.cs" />
     <Compile Include="Controllers\ApplicationsController.FailedCandidateEmail.cs" />
     <Compile Include="Controllers\ApplicationsController.Helpers.cs" />
     <Compile Include="Controllers\ApplicationsController.QuestionnaireInvite.cs" />
     <Compile Include="Controllers\ApplicationsController.LinkedInImport.cs" />
     <Compile Include="Controllers\InterviewsController.cs" />
+    <Compile Include="Controllers\InterviewsController.CandidateEmail.cs" />
     <Compile Include="Controllers\OnboardingsController.cs" />
     <Compile Include="Controllers\ApplicantsController.cs" />
     <Compile Include="Controllers\DepartmentsController.cs" />
@@ -334,7 +327,13 @@
   <ItemGroup>
     <Content Include="Global.asax" />
     <Content Include="Web.config" />
+    <Content Include="secrets.config" Condition="Exists('secrets.config')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
     <Content Include="Views\Web.config">
@@ -379,6 +378,9 @@
     <Content Include="Views\Home\Index.cshtml" Condition="'$(Configuration)' == 'Debug'" />
     <Content Include="Views\Home\Privacy.cshtml" />
     <Content Include="Views\Home\Terms.cshtml" />
+    <Content Include="Views\Error\Index.cshtml" />
+    <Content Include="Views\Error\NotFound.cshtml" />
+    <Content Include="Views\Error\Forbidden.cshtml" />
     <Content Include="Views\Companies\Index.cshtml" />
     <Content Include="Views\Companies\CreateCompany.cshtml" />
     <Content Include="Views\Companies\EditCompany.cshtml" />
@@ -402,7 +404,6 @@
     <Content Include="Views\Shared\_CaptchaPartial.cshtml" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="App_Data\Resumes\" />
     <Folder Include="Content\images\" />
   </ItemGroup>
   <ItemGroup>
@@ -445,6 +446,7 @@
     <None Include="Migrations\202605050000013_AddCompanyHrCcEmails.sql" />
     <None Include="Migrations\202605051000000_AddPassMarksByStageJsonToPosition.sql" />
     <None Include="Migrations\202605140000014_AddLegalAcceptanceTracking.sql" />
+    <None Include="Migrations\202605240000015_AddQuestionnaireTemplates.sql" />
     <None Include="Migrations\202605052000000_AddFailedCandidateEmailSentAtToApplications.sql" />
     <None Include="Migrations\Verify-ModelColumns.sql" />
     <None Include="Scripts\Audit-ApplicantProfiles.sql" />
@@ -484,6 +486,10 @@
     <Content Include="Content\webfonts\fa-brands-400.woff" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets" Condition="Exists('..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" />
+  <Target Name="EnsureBclBuildImported" BeforeTargets="BeforeBuild" Condition="'$(BclBuildImported)' == ''">
+    <Error Condition="!Exists('..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" Text="This project references NuGet package(s) that are missing. Run NuGet restore." />
+  </Target>
   <ProjectExtensions>
     <VisualStudio>
       <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
@@ -493,14 +499,6 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\EntityFramework.6.4.4\build\EntityFramework.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.4.4\build\EntityFramework.props'))" />
-    <Error Condition="!Exists('..\packages\EntityFramework.6.4.4\build\EntityFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.4.4\build\EntityFramework.targets'))" />
-  </Target>
-  <Import Project="..\packages\EntityFramework.6.4.4\build\EntityFramework.targets" Condition="Exists('..\packages\EntityFramework.6.4.4\build\EntityFramework.targets')" />
   <!-- Production: exclude dev docs, test scripts, and runtime log files from bin / publish -->
   <ItemGroup>
     <Content Remove="**\*.md" />

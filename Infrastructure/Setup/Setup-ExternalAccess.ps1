@@ -16,19 +16,19 @@ Write-Host "`nPrimary IP: $primaryIP" -ForegroundColor Cyan
 
 # Step 2: Configure Firewall Rule
 Write-Host "`nStep 2: Configuring Windows Firewall..." -ForegroundColor Yellow
-$firewallRule = Get-NetFirewallRule -DisplayName "HR App - Port 8080" -ErrorAction SilentlyContinue
+$firewallRule = Get-NetFirewallRule -DisplayName "HR App - Port 5002" -ErrorAction SilentlyContinue
 if ($firewallRule) {
     Write-Host "Firewall rule already exists. Removing old rule..." -ForegroundColor Gray
-    Remove-NetFirewallRule -DisplayName "HR App - Port 8080" -ErrorAction SilentlyContinue
+    Remove-NetFirewallRule -DisplayName "HR App - Port 5002" -ErrorAction SilentlyContinue
 }
 
 try {
-    New-NetFirewallRule -DisplayName "HR App - Port 8080" `
+    New-NetFirewallRule -DisplayName "HR App - Port 5002" `
         -Direction Inbound `
-        -LocalPort 8080 `
+        -LocalPort 5002 `
         -Protocol TCP `
         -Action Allow `
-        -Description "Allow inbound traffic on port 8080 for HR Application" | Out-Null
+        -Description "Allow inbound traffic on port 5002 for HR Application" | Out-Null
     Write-Host "✓ Firewall rule created successfully" -ForegroundColor Green
 } catch {
     Write-Host "✗ Failed to create firewall rule: $($_.Exception.Message)" -ForegroundColor Red
@@ -36,20 +36,20 @@ try {
 }
 
 # Step 3: Configure URL ACL (requires Administrator)
-Write-Host "`nStep 3: Configuring URL ACL for port 8080..." -ForegroundColor Yellow
+Write-Host "`nStep 3: Configuring URL ACL for port 5002..." -ForegroundColor Yellow
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if ($isAdmin) {
     # Remove existing reservation if it exists
-    $existingReservation = netsh http show urlacl | Select-String "8080"
+    $existingReservation = netsh http show urlacl | Select-String "5002"
     if ($existingReservation) {
         Write-Host "Removing existing URL reservation..." -ForegroundColor Gray
-        netsh http delete urlacl url=http://*:8080/ 2>&1 | Out-Null
+        netsh http delete urlacl url=http://*:5002/ 2>&1 | Out-Null
     }
     
     # Add new reservation
     try {
-        netsh http add urlacl url=http://*:8080/ user=Everyone 2>&1 | Out-Null
+        netsh http add urlacl url=http://*:5002/ user=Everyone 2>&1 | Out-Null
         Write-Host "✓ URL ACL configured successfully" -ForegroundColor Green
     } catch {
         Write-Host "✗ Failed to configure URL ACL: $($_.Exception.Message)" -ForegroundColor Red
@@ -57,7 +57,7 @@ if ($isAdmin) {
 } else {
     Write-Host "⚠ Skipping URL ACL configuration (requires Administrator privileges)" -ForegroundColor Yellow
     Write-Host "  Run this command as Administrator:" -ForegroundColor Gray
-    Write-Host "    netsh http add urlacl url=http://*:8080/ user=Everyone" -ForegroundColor White
+    Write-Host "    netsh http add urlacl url=http://*:5002/ user=Everyone" -ForegroundColor White
 }
 
 # Step 4: Update Web.config with external URL
@@ -65,7 +65,7 @@ Write-Host "`nStep 4: Updating Web.config..." -ForegroundColor Yellow
 $webConfigPath = "HR.Web\Web.config"
 if (Test-Path $webConfigPath) {
     [xml]$webConfig = Get-Content $webConfigPath
-    $externalUrl = "http://$primaryIP`:8080"
+    $externalUrl = "http://$primaryIP`:5002"
     
     $appSettings = $webConfig.configuration.appSettings
     $externalBaseUrl = $appSettings.add | Where-Object { $_.key -eq "ExternalBaseUrl" }
@@ -92,8 +92,8 @@ if (Test-Path $webConfigPath) {
 Write-Host "`n=== Setup Complete ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Application URLs:" -ForegroundColor Yellow
-Write-Host "  Local:    http://localhost:8080" -ForegroundColor Cyan
-Write-Host "  External: http://$primaryIP`:8080" -ForegroundColor Cyan
+Write-Host "  Local:    http://localhost:5002" -ForegroundColor Cyan
+Write-Host "  External: http://$primaryIP`:5002" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "To start the application, run:" -ForegroundColor Yellow
 Write-Host "  cd `"$PWD`"" -ForegroundColor White
@@ -102,4 +102,4 @@ Write-Host "  `$configPath = (Resolve-Path `"applicationhost-custom.config`").Pa
 Write-Host "  Start-Process `$iisPath -ArgumentList `/config:`"`$configPath`"`,`"/site:WebSite1`" -NoNewWindow" -ForegroundColor White
 Write-Host ""
 Write-Host "Note: If you need to access from outside your local network," -ForegroundColor Yellow
-Write-Host "      configure port forwarding on your router for port 8080." -ForegroundColor Yellow
+Write-Host "      configure port forwarding on your router for port 5002." -ForegroundColor Yellow

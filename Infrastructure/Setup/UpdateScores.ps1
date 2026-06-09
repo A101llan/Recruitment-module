@@ -5,9 +5,8 @@ using namespace HR.Web.Data
 using namespace HR.Web.Services
 using namespace HR.Web.Models
 
-Add-Type -Path "c:\Users\allan\Documents\Examples\HR\HR.Web\bin\HR.Web.dll"
-Add-Type -Path "c:\Users\allan\Documents\Examples\HR\packages\EntityFramework.6.4.4\lib\net45\EntityFramework.dll"
-Add-Type -Path "c:\Users\allan\Documents\Examples\HR\packages\EntityFramework.6.4.4\lib\net45\EntityFramework.SqlServer.dll"
+Add-Type -Path "c:\Users\allan\Documents\Examples\Recruitment\HR.Web\bin\Debug\HR.Web.dll"
+Add-Type -Path "c:\Users\allan\Documents\Examples\Recruitment\packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll"
 
 Write-Host "=== HR Scoring System - Enhanced Algorithm Score Update ===" -ForegroundColor Green
 

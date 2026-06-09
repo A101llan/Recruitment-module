@@ -105,9 +105,18 @@ GO
 -- 4. Seed SuperAdmin user
 IF NOT EXISTS (SELECT * FROM Users WHERE Role = 'SuperAdmin')
 BEGIN
-    -- Using a placeholder hash for 'SuperAdmin123!' 
-    INSERT INTO Users (UserName, Email, Role, PasswordHash, RequirePasswordChange, CompanyId)
-    VALUES ('superadmin', 'superadmin@system.com', 'SuperAdmin', '100000.vIK3+WvQ1B9L8g9f7u2rUA==.z0R1wJ6X8k3mN5pQ9vL2A==', 0, NULL);
-    PRINT 'SuperAdmin user seeded.';
+    DECLARE @BootstrapPasswordHash NVARCHAR(500) = N'$(BOOTSTRAP_ADMIN_PASSWORD_HASH)';
+    IF @BootstrapPasswordHash IS NULL
+       OR LTRIM(RTRIM(@BootstrapPasswordHash)) = N''
+       OR @BootstrapPasswordHash LIKE N'$(%'
+    BEGIN
+        PRINT 'Skipped SuperAdmin seed in MultiTenantMigration (missing BOOTSTRAP_ADMIN_PASSWORD_HASH).';
+    END
+    ELSE
+    BEGIN
+        INSERT INTO Users (UserName, Email, Role, PasswordHash, RequirePasswordChange, CompanyId)
+        VALUES ('superadmin', 'superadmin@system.com', 'SuperAdmin', @BootstrapPasswordHash, 1, NULL);
+        PRINT 'SuperAdmin user seeded with deployment-provided password hash.';
+    END
 END
 GO

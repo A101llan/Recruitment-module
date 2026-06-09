@@ -24,9 +24,6 @@ namespace HR.Web.Models
 
         public DateTime AppliedOn { get; set; }
 
-        [StringLength(255)]
-        public string ResumePath { get; set; }
-
         [StringLength(30)]
         public string WorkExperienceLevel { get; set; } // No experience, Less than 1 year, etc.
 

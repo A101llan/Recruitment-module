@@ -33,7 +33,7 @@ namespace HR.Web.ViewModels
         public IList<Question> AvailableQuestions { get; set; }
         public IList<int> SelectedQuestionIds { get; set; }
         public IDictionary<int, decimal> SelectedQuestionWeights { get; set; }
-        public IDictionary<int, int> SelectedQuestionStages { get; set; }
+        public IDictionary<int, IList<int>> SelectedQuestionStages { get; set; }
 
         public QuestionnaireTemplateEditViewModel()
         {
@@ -41,7 +41,7 @@ namespace HR.Web.ViewModels
             AvailableQuestions = new List<Question>();
             SelectedQuestionIds = new List<int>();
             SelectedQuestionWeights = new Dictionary<int, decimal>();
-            SelectedQuestionStages = new Dictionary<int, int>();
+            SelectedQuestionStages = new Dictionary<int, IList<int>>();
         }
     }
 

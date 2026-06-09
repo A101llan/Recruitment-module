@@ -384,7 +384,6 @@ namespace HR.Web.Controllers
                 {
                     var message = string.Format("Property: {0} Error: {1}", validationError.PropertyName, validationError.ErrorMessage);
                     errorMessages.Add(message);
-                    System.Diagnostics.Debug.WriteLine(message);
                 }
             }
 

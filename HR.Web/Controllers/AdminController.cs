@@ -261,8 +261,6 @@ namespace HR.Web.Controllers
                     wasSuccessful: false, errorMessage: ex.Message);
                 
                 TempData["Error"] = "Error deleting question: " + ex.Message;
-                // Log the full exception for debugging
-                System.Diagnostics.Debug.WriteLine("DeleteQuestion Error: " + ex.ToString());
             }
             
             return RedirectToAction("Questions");
@@ -499,8 +497,8 @@ namespace HR.Web.Controllers
         {
             if (model != null)
             {
-                model.Password = Request.Unvalidated.Form["Password"];
-                model.ConfirmPassword = Request.Unvalidated.Form["ConfirmPassword"];
+                model.Password = Request.Form["Password"];
+                model.ConfirmPassword = Request.Form["ConfirmPassword"];
             }
 
             return HandleCreateUser(model);

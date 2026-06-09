@@ -5,7 +5,6 @@ exclude_paths:
   - "Publish/**"
   - "**/bin/**"
   - "**/obj/**"
-  - "HR.Web/App_Data/**"
   - "HR.Web/Scripts/**/*.min.js"
   - "**/*.md"
   # HR schema/migration SQL — not Oracle RAC_* tables; Semgrep_codacy.generic.sql.rac-table-access is inapplicable
@@ -13,7 +12,6 @@ exclude_paths:
   - "Infrastructure/**/*.sql"
   - "HR.Web/Migrations/**"
   - "HR.Web/Scripts/*.sql"
-  - "HR.Web/Data/DatabaseSchemaEnsure.cs"
   # Standalone dev hash utility (not part of HR.Web assembly)
   - "Infrastructure/Setup/**"
   # Dev/setup PowerShell — SecureString warnings are false positives for local tooling

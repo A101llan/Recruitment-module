@@ -379,8 +379,9 @@ namespace HR.Web.Controllers
             if (_tenantService.IsImpersonating())
             {
                 companyId = _tenantService.GetImpersonatedCompanyId();
+                var actorName = GetCompaniesActorName();
                 _auditService.LogAction(
-                    GetCompaniesActorName(),
+                    actorName,
                     "IMPERSONATION_STOP",
                     "Companies",
                     companyId.ToString(),
@@ -388,41 +389,49 @@ namespace HR.Web.Controllers
                     null
                 );
 
-                // Ensure the specific request is expired so it can never be reused
-                // Clean up any 'Active' or 'Approved' requests for this user/company to prevent auto-login loops
-                if (companyId.HasValue)
-                {
-                    var relatedRequests = _uow.ImpersonationRequests.GetAll()
-                        .Where(r => r.CompanyId == companyId.Value && 
-                               r.RequestedBy == GetCompaniesActorName() && 
-                               (r.Status == ImpersonationRequestStatus.Active || r.Status == ImpersonationRequestStatus.Approved))
-                        .ToList();
-                    
-                    foreach(var r in relatedRequests)
-                    {
-                        r.Status = ImpersonationRequestStatus.Expired;
-                        _uow.ImpersonationRequests.Update(r);
-                    }
-                }
-
+                ExpireActiveImpersonationRequests(companyId, actorName, Session["ImpersonatedRequestId"] as int?);
                 _uow.Complete();
 
-                Session.Remove("ImpersonatedRequestId");
-                Session.Remove("ImpersonatedCompanyId");
-                Session.Remove("ImpersonationReason");
-                Session.Remove("ImpersonatedCompanyName");
-                Session.Remove("ImpersonationExpiry");
-                
+                ImpersonationSessionHelper.ClearSession(Session);
+
                 TempData["SuccessMessage"] = "Impersonation session closed. Access rights have been revoked.";
             }
 
-            // Redirect back to company details so they can see they've returned to SuperAdmin role
-            if (companyId.HasValue)
+            return Redirect(ImpersonationSessionHelper.BuildSuperAdminPostExpiryUrl(Url, companyId));
+        }
+
+        private void ExpireActiveImpersonationRequests(int? companyId, string actorName, int? sessionRequestId)
+        {
+            if (sessionRequestId.HasValue && sessionRequestId.Value > 0)
             {
-                return RedirectToAction("CompanyDetails", new { id = companyId.Value });
+                var sessionRequest = _uow.ImpersonationRequests.Get(sessionRequestId.Value);
+                if (sessionRequest != null &&
+                    (sessionRequest.Status == ImpersonationRequestStatus.Active ||
+                     sessionRequest.Status == ImpersonationRequestStatus.Approved))
+                {
+                    sessionRequest.Status = ImpersonationRequestStatus.Expired;
+                    _uow.ImpersonationRequests.Update(sessionRequest);
+                }
             }
 
-            return RedirectToAction("Index");
+            if (!companyId.HasValue || string.IsNullOrWhiteSpace(actorName))
+            {
+                return;
+            }
+
+            // EF cannot translate instance methods in LINQ; capture actor name locally first.
+            var relatedRequests = _uow.ImpersonationRequests.GetAll()
+                .Where(r =>
+                    r.CompanyId == companyId.Value &&
+                    r.RequestedBy == actorName &&
+                    (r.Status == ImpersonationRequestStatus.Active || r.Status == ImpersonationRequestStatus.Approved))
+                .ToList();
+
+            foreach (var request in relatedRequests)
+            {
+                request.Status = ImpersonationRequestStatus.Expired;
+                _uow.ImpersonationRequests.Update(request);
+            }
         }
 
 
@@ -624,7 +633,7 @@ namespace HR.Web.Controllers
             var max = uint.MaxValue - (uint.MaxValue % bound);
             uint value;
 
-            using (var rng = RandomNumberGenerator.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
                 do
                 {

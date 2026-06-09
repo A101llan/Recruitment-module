@@ -300,7 +300,7 @@ namespace HR.Web.Services
 
         private static void EnsureModernTls()
         {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
         }
     }
 

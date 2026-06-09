@@ -52,11 +52,9 @@ namespace HR.Web.Controllers
                 var validationError = ValidateQuestionGenerationRequest(request);
                 if (validationError != null)
                 {
-                    System.Diagnostics.Debug.WriteLine("Validation Error: " + validationError);
                     return Json(new { success = false, message = validationError });
                 }
 
-                System.Diagnostics.Debug.WriteLine("Input validation passed");
                 var result = GenerateQuestions(request);
                 return BuildQuestionGenerationResponse(result);
             }
@@ -170,22 +168,6 @@ namespace HR.Web.Controllers
 
         private static void LogQuestionGenerationRequest(QuestionGenerationRequestModel request)
         {
-            if (request == null)
-            {
-                return;
-            }
-
-            var generationRequest = request;
-            var debugMsg = string.Format(
-                "=== GenerateQuestions Debug ===\njobTitle: {0}\njobDescription length: {1}\ncount: {2}\nexperience: {3}\nquestionTypes: {4}\n",
-                generationRequest.JobTitle,
-                generationRequest.JobDescription != null ? generationRequest.JobDescription.Length : 0,
-                generationRequest.Count,
-                generationRequest.Experience,
-                generationRequest.QuestionTypes != null ? string.Join(", ", generationRequest.QuestionTypes) : "null");
-
-            System.Diagnostics.Debug.WriteLine(debugMsg);
-            System.Diagnostics.Trace.WriteLine(debugMsg);
         }
 
         private QuestionGenerationResult GenerateQuestions(QuestionGenerationRequestModel request)
@@ -204,9 +186,6 @@ namespace HR.Web.Controllers
                 experience: generationRequest.Experience,
                 questionCount: generationRequest.Count,
                 questionTypes: generationRequest.QuestionTypes);
-
-            System.Diagnostics.Debug.WriteLine(
-                string.Format("Question service returned: Success={0}, QuestionCount={1}", result.Success, result.Questions != null ? result.Questions.Count : 0));
 
             return result;
         }
@@ -383,7 +362,6 @@ namespace HR.Web.Controllers
             try
             {
                 var currentCompanyId = _tenantService.GetCurrentUserCompanyId();
-                System.Diagnostics.Debug.WriteLine("=== CreatePositionWithQuestions Debug ===");
 
                 var generatedQuestions = DeserializeGeneratedQuestions(questionsJson);
                 var department = FindDepartment(positionDepartment, currentCompanyId);

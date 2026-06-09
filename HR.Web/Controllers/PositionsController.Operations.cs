@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Data.Entity;
 using System.Linq;
 using System.Web.Mvc;
+using HR.Web.Helpers;
+using HR.Web.Data;
 using HR.Web.Models;
 using HR.Web.Services;
 
@@ -42,8 +44,6 @@ namespace HR.Web.Controllers
                 ModelState.AddModelError("", stageConfigError);
             }
 
-            LogPositionFormState("Create", positionModel);
-
             if (!ModelState.IsValid)
             {
                 return ReturnCreateValidationFailure(positionModel, selectedQuestions, questionWeights, stagesDict);
@@ -61,7 +61,6 @@ namespace HR.Web.Controllers
 
             LinkSelectedQuestionsToPosition(positionModel.Id, selectedQuestions, questionWeights, stagesDict);
             TempData["Message"] = "Position created successfully.";
-            Debug.WriteLine("[PositionsController.Create][POST] Redirecting to Index.");
             return RedirectToAction("Index");
         }
 
@@ -77,6 +76,7 @@ namespace HR.Web.Controllers
             AssignPositionCompany(positionModel);
             ValidatePositionDepartment(positionModel);
             ValidatePositionType(positionModel);
+            ValidatePositionExpiryDate(positionModel);
         }
 
         private void NormalizeOptionalSalaryFields(Position model)
@@ -155,6 +155,22 @@ namespace HR.Web.Controllers
             ClearModelStateErrors("IsTechnical");
         }
 
+        private void ValidatePositionExpiryDate(Position model)
+        {
+            if (model == null || !model.ExpiryDate.HasValue)
+            {
+                return;
+            }
+
+            if (model.ExpiryDate.Value.Date < DateTime.UtcNow.Date)
+            {
+                ModelState.AddModelError("ExpiryDate", "Position expiry date cannot be before today's date.");
+                return;
+            }
+
+            ClearModelStateErrors("ExpiryDate");
+        }
+
         private void ClearModelStateErrors(string key)
         {
             if (!ModelState.ContainsKey(key))
@@ -177,19 +193,7 @@ namespace HR.Web.Controllers
             }
         }
 
-        private void LogPositionFormState(string actionName, Position model)
-        {
-            Debug.WriteLine(
-                string.Format(
-                    "[PositionsController.{0}][POST] Title='{1}', DeptId={2}, CompanyId={3}",
-                    actionName,
-                    model != null ? model.Title : string.Empty,
-                    model != null ? model.DepartmentId : 0,
-                    model != null ? model.CompanyId : 0));
-            Debug.WriteLine("ModelState.IsValid = " + ModelState.IsValid);
-        }
-
-        private ActionResult ReturnCreateValidationFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages = null)
+        private ActionResult ReturnCreateValidationFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages = null)
         {
             if (model == null)
             {
@@ -197,36 +201,12 @@ namespace HR.Web.Controllers
             }
 
             var positionModel = model;
-            LogModelStateErrors("Create");
             var selectedIds = selectedQuestions != null ? selectedQuestions.ToList() : new List<int>();
             LoadPositionFormLookups(positionModel.DepartmentId, selectedIds, questionWeights, questionStages);
-            Debug.WriteLine("[PositionsController.Create][POST] Returning view due to invalid ModelState.");
             return View("Create", positionModel);
         }
 
-        private void LogModelStateErrors(string actionName)
-        {
-            foreach (var kvp in ModelState)
-            {
-                if (kvp.Value == null)
-                {
-                    continue;
-                }
-
-                foreach (var err in kvp.Value.Errors)
-                {
-                    Debug.WriteLine(
-                        string.Format(
-                            "[PositionsController.{0}][ModelError] Key='{1}', Error='{2}', Exception='{3}'",
-                            actionName,
-                            kvp.Key,
-                            err.ErrorMessage,
-                            err.Exception != null ? err.Exception.Message : string.Empty));
-                }
-            }
-        }
-
-        private void LoadPositionFormLookups(int selectedDepartmentId, IEnumerable<int> selectedQuestionIds, IDictionary<int, decimal> selectedQuestionWeights = null, IDictionary<int, int> selectedQuestionStages = null)
+        private void LoadPositionFormLookups(int selectedDepartmentId, IEnumerable<int> selectedQuestionIds, IDictionary<int, decimal> selectedQuestionWeights = null, IDictionary<int, HashSet<int>> selectedQuestionStages = null)
         {
             var departments = _uow.Departments.GetAll().AsQueryable();
             departments = _tenantService.ApplyTenantFilter(departments);
@@ -239,13 +219,11 @@ namespace HR.Web.Controllers
             ViewBag.SelectedQuestionWeights = selectedQuestionWeights != null
                 ? new Dictionary<int, decimal>(selectedQuestionWeights)
                 : new Dictionary<int, decimal>();
-            ViewBag.SelectedQuestionStages = selectedQuestionStages != null
-                ? new Dictionary<int, int>(selectedQuestionStages)
-                : new Dictionary<int, int>();
+            ViewBag.SelectedQuestionStages = QuestionStagePayloadHelper.ToOrderedLists(selectedQuestionStages);
             ViewBag.QuestionnaireTemplates = new QuestionnaireTemplateService().GetActiveTemplatesForCurrentTenant();
         }
 
-        private ActionResult TrySaveNewPosition(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages)
+        private ActionResult TrySaveNewPosition(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages)
         {
             if (model == null)
             {
@@ -256,10 +234,8 @@ namespace HR.Web.Controllers
             var positionModel = model;
             try
             {
-                Debug.WriteLine("[PositionsController.Create][POST] Adding position to UoW and saving...");
                 _uow.Positions.Add(positionModel);
                 _uow.Complete();
-                Debug.WriteLine("[PositionsController.Create][POST] Save succeeded. New Id=" + positionModel.Id);
 
                 _auditService.LogCreate(
                     GetCurrentActorName(),
@@ -287,7 +263,7 @@ namespace HR.Web.Controllers
             }
         }
 
-        private ActionResult ReturnCreateSaveFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages, Exception ex)
+        private ActionResult ReturnCreateSaveFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages, Exception ex)
         {
             if (model == null)
             {
@@ -296,7 +272,6 @@ namespace HR.Web.Controllers
             }
 
             var positionModel = model;
-            Debug.WriteLine("[PositionsController.Create][POST] Exception during save: " + ex);
             var message = ex.GetBaseException() != null ? ex.GetBaseException().Message : ex.Message;
 
             _auditService.LogAction(
@@ -310,11 +285,10 @@ namespace HR.Web.Controllers
             ModelState.AddModelError("", "Unable to save position: " + message);
             var selectedIds = selectedQuestions != null ? selectedQuestions.ToList() : new List<int>();
             LoadPositionFormLookups(positionModel.DepartmentId, selectedIds, questionWeights, questionStages);
-            Debug.WriteLine("[PositionsController.Create][POST] Returning view due to exception.");
             return View("Create", positionModel);
         }
 
-        private void LinkSelectedQuestionsToPosition(int positionId, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages)
+        private void LinkSelectedQuestionsToPosition(int positionId, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages)
         {
             if (selectedQuestions == null || selectedQuestions.Length == 0)
             {
@@ -323,34 +297,28 @@ namespace HR.Web.Controllers
 
             var selectedQuestionIds = selectedQuestions.Distinct().ToList();
             var normalizedWeights = NormalizeQuestionWeights(selectedQuestionIds, questionWeights);
+            var assignments = BuildQuestionStageAssignments(selectedQuestionIds, questionStages);
             var order = 1;
-            foreach (var questionId in selectedQuestionIds)
+            foreach (var assignment in assignments)
             {
                 decimal weight;
-                if (!normalizedWeights.TryGetValue(questionId, out weight))
+                if (!normalizedWeights.TryGetValue(assignment.QuestionId, out weight))
                 {
                     weight = 0m;
-                }
-
-                int stageNumber;
-                if (questionStages == null || !questionStages.TryGetValue(questionId, out stageNumber))
-                {
-                    stageNumber = 1;
                 }
 
                 _uow.PositionQuestions.Add(
                     new PositionQuestion
                     {
                         PositionId = positionId,
-                        QuestionId = questionId,
+                        QuestionId = assignment.QuestionId,
                         Order = order++,
                         Weight = weight,
-                        StageNumber = stageNumber
+                        StageNumber = assignment.StageNumber
                     });
             }
 
             _uow.Complete();
-            Debug.WriteLine("[PositionsController.Create][POST] Linked " + selectedQuestionIds.Count + " questions.");
             _auditService.LogAction(
                 GetCurrentActorName(),
                 "LINK_QUESTIONS",
@@ -385,8 +353,6 @@ namespace HR.Web.Controllers
                 ModelState.AddModelError("", stageConfigError);
             }
 
-            LogPositionFormState("Edit", positionModel);
-
             if (!ModelState.IsValid)
             {
                 return ReturnEditValidationFailure(positionModel, selectedQuestions, questionWeights, stagesDict);
@@ -417,7 +383,7 @@ namespace HR.Web.Controllers
             }
         }
 
-        private ActionResult ReturnEditValidationFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages = null)
+        private ActionResult ReturnEditValidationFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages = null)
         {
             if (model == null)
             {
@@ -425,10 +391,8 @@ namespace HR.Web.Controllers
             }
 
             var positionModel = model;
-            LogModelStateErrors("Edit");
             var selectedIds = selectedQuestions != null ? selectedQuestions.ToList() : new List<int>();
             LoadPositionFormLookups(positionModel.DepartmentId, selectedIds, questionWeights, questionStages);
-            Debug.WriteLine("[PositionsController.Edit][POST] Returning view due to invalid ModelState.");
             return View("Edit", positionModel);
         }
 
@@ -490,13 +454,11 @@ namespace HR.Web.Controllers
 
         private void PersistPositionUpdates(Position existingPosition, int positionId)
         {
-            Debug.WriteLine("[PositionsController.Edit][POST] Updating position and saving...");
             _uow.Positions.Update(existingPosition);
             _uow.Complete();
-            Debug.WriteLine("[PositionsController.Edit][POST] Save succeeded for position " + positionId);
         }
 
-        private void SyncPositionQuestions(int positionId, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages)
+        private void SyncPositionQuestions(int positionId, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages)
         {
             var existingPositionQuestions = _uow.PositionQuestions.GetAll()
                 .Where(pq => pq.PositionId == positionId)
@@ -507,50 +469,94 @@ namespace HR.Web.Controllers
                 : new List<int>();
             var selectedSet = new HashSet<int>(selectedQuestionIds);
             var normalizedWeights = NormalizeQuestionWeights(selectedQuestionIds, questionWeights);
+            var assignments = BuildQuestionStageAssignments(selectedQuestionIds, questionStages);
+            var desiredKeys = new HashSet<string>(
+                assignments.Select(a => BuildQuestionStageKey(a.QuestionId, a.StageNumber)));
 
-            foreach (var existingPositionQuestion in existingPositionQuestions.Where(pq => !selectedSet.Contains(pq.QuestionId)).ToList())
+            foreach (var existingPositionQuestion in existingPositionQuestions.ToList())
             {
-                _uow.PositionQuestions.Remove(existingPositionQuestion);
+                var key = BuildQuestionStageKey(existingPositionQuestion.QuestionId, existingPositionQuestion.StageNumber);
+                if (!selectedSet.Contains(existingPositionQuestion.QuestionId) || !desiredKeys.Contains(key))
+                {
+                    _uow.PositionQuestions.Remove(existingPositionQuestion);
+                }
             }
 
-            var existingByQuestionId = existingPositionQuestions
+            var existingByKey = existingPositionQuestions
                 .Where(pq => selectedSet.Contains(pq.QuestionId))
-                .ToDictionary(pq => pq.QuestionId, pq => pq);
+                .ToDictionary(pq => BuildQuestionStageKey(pq.QuestionId, pq.StageNumber), pq => pq);
 
-            for (var i = 0; i < selectedQuestionIds.Count; i++)
+            for (var i = 0; i < assignments.Count; i++)
             {
-                var questionId = selectedQuestionIds[i];
+                var assignment = assignments[i];
+                var key = BuildQuestionStageKey(assignment.QuestionId, assignment.StageNumber);
                 PositionQuestion positionQuestion;
-                if (!existingByQuestionId.TryGetValue(questionId, out positionQuestion))
+                if (!existingByKey.TryGetValue(key, out positionQuestion))
                 {
                     positionQuestion = new PositionQuestion
                     {
                         PositionId = positionId,
-                        QuestionId = questionId
+                        QuestionId = assignment.QuestionId,
+                        StageNumber = assignment.StageNumber
                     };
                     _uow.PositionQuestions.Add(positionQuestion);
+                    existingByKey[key] = positionQuestion;
                 }
 
                 decimal weight;
-                if (!normalizedWeights.TryGetValue(questionId, out weight))
+                if (!normalizedWeights.TryGetValue(assignment.QuestionId, out weight))
                 {
                     weight = 0m;
                 }
 
                 positionQuestion.Order = i + 1;
                 positionQuestion.Weight = weight;
-
-                int stageNumber;
-                if (questionStages == null || !questionStages.TryGetValue(questionId, out stageNumber))
-                {
-                    stageNumber = 1;
-                }
-
-                positionQuestion.StageNumber = stageNumber;
+                positionQuestion.StageNumber = assignment.StageNumber;
             }
 
             _uow.Complete();
-            Debug.WriteLine("[PositionsController.Edit][POST] Updated position questions.");
+        }
+
+        private static string BuildQuestionStageKey(int questionId, int stageNumber)
+        {
+            return questionId + ":" + stageNumber;
+        }
+
+        private static List<PositionQuestionStageAssignment> BuildQuestionStageAssignments(
+            IList<int> selectedQuestionIds,
+            IDictionary<int, HashSet<int>> questionStages)
+        {
+            var assignments = new List<PositionQuestionStageAssignment>();
+            if (selectedQuestionIds == null || selectedQuestionIds.Count == 0)
+            {
+                return assignments;
+            }
+
+            foreach (var questionId in selectedQuestionIds)
+            {
+                HashSet<int> stageSet;
+                if (questionStages == null || !questionStages.TryGetValue(questionId, out stageSet) || stageSet == null || !stageSet.Any())
+                {
+                    stageSet = new HashSet<int> { 1 };
+                }
+
+                foreach (var stageNumber in stageSet.Where(s => s > 0).OrderBy(s => s))
+                {
+                    assignments.Add(new PositionQuestionStageAssignment
+                    {
+                        QuestionId = questionId,
+                        StageNumber = stageNumber
+                    });
+                }
+            }
+
+            return assignments;
+        }
+
+        private sealed class PositionQuestionStageAssignment
+        {
+            public int QuestionId { get; set; }
+            public int StageNumber { get; set; }
         }
 
         private static IDictionary<int, decimal> NormalizeQuestionWeights(IList<int> selectedQuestionIds, IDictionary<int, decimal> questionWeights)
@@ -604,7 +610,7 @@ namespace HR.Web.Controllers
             return normalized;
         }
 
-        private ActionResult ReturnEditSaveFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, int> questionStages, Exception ex)
+        private ActionResult ReturnEditSaveFailure(Position model, int[] selectedQuestions, IDictionary<int, decimal> questionWeights, IDictionary<int, HashSet<int>> questionStages, Exception ex)
         {
             if (model == null)
             {
@@ -613,13 +619,11 @@ namespace HR.Web.Controllers
             }
 
             var positionModel = model;
-            Debug.WriteLine("[PositionsController.Edit][POST] Exception during save: " + ex);
             var msg = ex.GetBaseException() != null ? ex.GetBaseException().Message : ex.Message;
             ModelState.AddModelError("", "Unable to save position: " + msg);
 
             var selectedIds = selectedQuestions != null ? selectedQuestions.ToList() : new List<int>();
             LoadPositionFormLookups(positionModel.DepartmentId, selectedIds, questionWeights, questionStages);
-            Debug.WriteLine("[PositionsController.Edit][POST] Returning view due to exception.");
             return View("Edit", positionModel);
         }
 
@@ -640,7 +644,6 @@ namespace HR.Web.Controllers
             try
             {
                 var applications = GetPositionApplications(id);
-                LogPositionDeletionApplications(id, applications);
                 DeletePositionQuestions(id);
                 DeleteApplicationDependencies(applications.Select(a => a.Id).ToList());
                 DeleteApplications(applications);
@@ -663,16 +666,6 @@ namespace HR.Web.Controllers
         private List<Application> GetPositionApplications(int positionId)
         {
             return _uow.Context.Applications.Where(a => a.PositionId == positionId).ToList();
-        }
-
-        private static void LogPositionDeletionApplications(int positionId, IEnumerable<Application> applications)
-        {
-            var applicationList = applications.ToList();
-            Debug.WriteLine(string.Format("Found {0} applications for position {1}", applicationList.Count, positionId));
-            foreach (var app in applicationList)
-            {
-                Debug.WriteLine(string.Format("Application ID: {0}, Applicant: {1}", app.Id, app.ApplicantId));
-            }
         }
 
         private void DeletePositionQuestions(int positionId)
@@ -701,9 +694,6 @@ namespace HR.Web.Controllers
         {
             _uow.Context.Positions.Remove(position);
             _uow.Complete();
-
-            var remainingApps = _uow.Context.Applications.Where(a => a.PositionId == position.Id).ToList();
-            Debug.WriteLine(string.Format("Remaining applications after deletion: {0}", remainingApps.Count));
         }
 
         private void LogPositionDeletionSuccess(int positionId, string positionTitle, int applicationCount)

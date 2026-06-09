@@ -96,7 +96,6 @@ SELECT
     a.Id,
     a.Status,
     a.AppliedOn,
-    a.ResumePath,
     app.FullName AS ApplicantName,
     app.Email AS ApplicantEmail,
     p.Title AS PositionTitle,
@@ -367,10 +366,6 @@ LEFT JOIN Applications a ON aa.ApplicationId = a.Id
 WHERE a.Id IS NULL;
 
 -- Check for empty critical fields
-SELECT 'Applications with no resume' AS Issue, COUNT(*) AS Count
-FROM Applications
-WHERE ResumePath IS NULL OR ResumePath = '';
-
 SELECT 'Applicants with invalid email' AS Issue, COUNT(*) AS Count
 FROM Applicants
 WHERE Email NOT LIKE '%@%' OR Email IS NULL;

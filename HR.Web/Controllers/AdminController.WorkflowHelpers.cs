@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.Linq;
 using System.Web.Mvc;
 using HR.Web.Helpers;
+using HR.Web.Data;
 using HR.Web.Models;
 using HR.Web.ViewModels;
 using Newtonsoft.Json;

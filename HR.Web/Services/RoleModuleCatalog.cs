@@ -77,7 +77,7 @@ namespace HR.Web.Services
             "UpdateUserRole"
         };
 
-        private static readonly IReadOnlyList<RoleModuleDefinition> Modules = new List<RoleModuleDefinition>
+        private static readonly IList<RoleModuleDefinition> Modules = new List<RoleModuleDefinition>
         {
             new RoleModuleDefinition(Positions, "Positions", "View or manage job openings and their publication lifecycle.", "fa-sitemap"),
             new RoleModuleDefinition(Applications, "Applications", "Review incoming job applications and candidate progression.", "fa-file-alt"),
@@ -91,7 +91,7 @@ namespace HR.Web.Services
             new RoleModuleDefinition(Reports, "Reports & Analytics", "Access rankings, scoring insights, exports, and generated reports.", "fa-chart-bar")
         }.AsReadOnly();
 
-        public static IReadOnlyList<RoleModuleDefinition> All
+        public static IList<RoleModuleDefinition> All
         {
             get { return Modules; }
         }

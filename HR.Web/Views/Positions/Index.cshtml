@@ -308,7 +308,7 @@ else
                        data-url-edit="@Url.Action("Edit", "Positions", new { id = p.Id })"
                        data-url-delete="@Url.Action("Delete", "Positions", new { id = p.Id })"
                        data-url-question-weights="@string.Format("{0}#questionWeightPanel", Url.Action("Edit", "Positions", new { id = p.Id }))"
-                       data-url-apply="@(Request.IsAuthenticated ? Url.Action("Questionnaire", "Applications", new { positionId = p.Id }) : Url.Action("Register", "Account", new { returnUrl = Url.Action("Questionnaire", "Applications", new { positionId = p.Id }) }))"
+                       data-url-apply="@(Request.IsAuthenticated ? Url.Action("CoverLetter", "Applications", new { positionId = p.Id }) : Url.Action("Register", "Account", new { returnUrl = Url.Action("CoverLetter", "Applications", new { positionId = p.Id }) }))"
                        data-url-applications="@Url.Action("Index", "Applications", new { positionId = p.Id })#appsCards-@p.Id">
                         <div class="d-flex w-100 justify-content-between align-items-start mb-2">
                             <div class="flex-grow-1">

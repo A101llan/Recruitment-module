@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Text;
 using System.Web.Mvc;
 using HR.Web.Data;
 using HR.Web.Models;
@@ -50,7 +51,6 @@ namespace HR.Web.Controllers
             }
 
             var applications = GetApplicantApplications(id) ?? new List<Application>();
-            LogApplicantDetailsDebug(applicant, applications.Count);
 
             var selectedApp = SelectApplication(applications, selectedApplicationId);
             PopulateSelectedApplicationViewData(selectedApp);
@@ -79,33 +79,35 @@ namespace HR.Web.Controllers
 
         private List<Application> GetApplicantApplications(int applicantId)
         {
-            return _uow.Applications.GetAll(a => a.Applicant, a => a.Position)
-                .Where(a => a.ApplicantId == applicantId)
+            var appsQuery = _uow.Applications.GetAll(a => a.Applicant, a => a.Position)
+                .Where(a => a.ApplicantId == applicantId);
+            appsQuery = _tenantService.ApplyTenantFilter(appsQuery);
+            return appsQuery
                 .OrderByDescending(a => a.AppliedOn)
                 .ToList();
         }
 
         private static Application SelectApplication(IEnumerable<Application> applications, int? selectedApplicationId)
         {
-            var applicationList = applications ?? Enumerable.Empty<Application>();
+            var applicationList = (applications ?? Enumerable.Empty<Application>())
+                .Where(a => a != null)
+                .ToList();
+
+            if (!applicationList.Any())
+            {
+                return null;
+            }
+
             if (selectedApplicationId.HasValue)
             {
-                var selectedId = selectedApplicationId.Value;
-                return applicationList.FirstOrDefault(a => a != null && a.Id == selectedId);
+                var selected = applicationList.FirstOrDefault(a => a.Id == selectedApplicationId.Value);
+                if (selected != null)
+                {
+                    return selected;
+                }
             }
 
-            return applicationList.FirstOrDefault(a => a != null);
-        }
-
-        private static void LogApplicantDetailsDebug(Applicant applicant, int applicationCount)
-        {
-            if (applicant == null)
-            {
-                return;
-            }
-
-            System.Diagnostics.Debug.WriteLine("Found applicant: " + applicant.FullName + " (ID: " + applicant.Id + ")");
-            System.Diagnostics.Debug.WriteLine("Found " + applicationCount + " applications for applicant " + applicant.Id);
+            return applicationList.FirstOrDefault();
         }
 
         private void PopulateSelectedApplicationViewData(Application selectedApplication)
@@ -115,74 +117,45 @@ namespace HR.Web.Controllers
                 return;
             }
 
-            var answers = GetApplicationAnswers(selectedApplication.Id);
-            var answerScores = CalculateAnswerScores(selectedApplication, answers);
-
-            ViewBag.SelectedApplication = selectedApplication;
-            ViewBag.QuestionnaireAnswers = answers;
-            ViewBag.AnswerScores = answerScores;
-
-            System.Diagnostics.Debug.WriteLine("Found " + answers.Count + " answers for application " + selectedApplication.Id);
-        }
-
-        private List<ApplicationAnswer> GetApplicationAnswers(int applicationId)
-        {
-            return _uow.ApplicationAnswers.GetAll(aa => aa.Question)
-                .Where(aa => aa.ApplicationId == applicationId)
-                .ToList();
-        }
-
-        private Dictionary<int, decimal> CalculateAnswerScores(Application application, IEnumerable<ApplicationAnswer> answers)
-        {
-            if (application == null || answers == null)
+            if (!IsApplicationTenantAccessible(selectedApplication))
             {
-                return new Dictionary<int, decimal>();
-            }
-
-            var candidateService = new CandidateEvaluationService();
-            var positionTitle = ResolvePositionTitle(application);
-            var answerScores = new Dictionary<int, decimal>();
-
-            foreach (var answer in answers)
-            {
-                if (answer == null)
-                {
-                    continue;
-                }
-
-                LoadAnswerQuestion(answer);
-                answerScores[answer.Id] = candidateService.EvaluateIndividualAnswer(positionTitle, answer.AnswerText);
-            }
-
-            return answerScores;
-        }
-
-        private void LoadAnswerQuestion(ApplicationAnswer answer)
-        {
-            if (answer == null || answer.QuestionId <= 0 || answer.Question != null)
-            {
+                ViewBag.SelectedApplication = null;
+                ViewBag.QuestionnaireAnswers = new List<ApplicationAnswer>();
                 return;
             }
 
-            answer.Question = _uow.Questions.Get(answer.QuestionId);
+            var answers = GetApplicationAnswers(selectedApplication);
+
+            ViewBag.SelectedApplication = selectedApplication;
+            ViewBag.QuestionnaireAnswers = answers;
         }
 
-        private string ResolvePositionTitle(Application application)
+        private bool IsApplicationTenantAccessible(Application application)
         {
             if (application == null)
             {
-                return string.Empty;
+                return false;
             }
 
-            var scopedApplication = application;
-            var positionTitle = scopedApplication.Position != null ? scopedApplication.Position.Title : string.Empty;
-            if (!string.IsNullOrEmpty(positionTitle) || scopedApplication.PositionId <= 0)
+            var companyId = _tenantService.GetCurrentUserCompanyId();
+            if (!companyId.HasValue || _tenantService.IsSuperAdmin())
             {
-                return positionTitle;
+                return true;
             }
 
-            var position = _uow.Positions.Get(scopedApplication.PositionId);
-            return position != null ? position.Title : string.Empty;
+            return application.CompanyId == companyId.Value;
+        }
+
+        private List<ApplicationAnswer> GetApplicationAnswers(Application application)
+        {
+            if (application == null || !IsApplicationTenantAccessible(application))
+            {
+                return new List<ApplicationAnswer>();
+            }
+
+            return _uow.ApplicationAnswers.GetAll(aa => aa.Question)
+                .Where(aa => aa.ApplicationId == application.Id)
+                .ToList();
         }
 
         public ActionResult Create()
@@ -359,8 +332,10 @@ namespace HR.Web.Controllers
         {
             try
             {
-                // Do not delete if applicant still has applications (FK constraint)
-                var hasApplications = _uow.Applications.GetAll().Any(a => a.ApplicantId == id);
+                // Do not delete if applicant still has applications in this tenant (FK constraint)
+                var appsQuery = _uow.Applications.GetAll().Where(a => a.ApplicantId == id);
+                appsQuery = _tenantService.ApplyTenantFilter(appsQuery);
+                var hasApplications = appsQuery.Any();
                 if (hasApplications)
                 {
                     TempData["DeleteError"] = "Cannot delete applicant because applications still exist. Delete or reassign those applications first.";
@@ -410,45 +385,64 @@ namespace HR.Web.Controllers
             }
         }
 
-        public ActionResult DownloadCV(int id)
+        public ActionResult DownloadCoverLetter(int id)
         {
-            var application = _uow.Applications.Get(id);
-            if (application == null || string.IsNullOrEmpty(application.ResumePath))
+            var application = _uow.Applications.GetAll(a => a.Applicant, a => a.Position)
+                .FirstOrDefault(a => a.Id == id);
+            if (application == null || string.IsNullOrWhiteSpace(application.CoverLetter))
             {
                 return HttpNotFound();
             }
 
-            // Check tenant access
-            var companyId = _tenantService.GetCurrentUserCompanyId();
-            if (companyId.HasValue && application.CompanyId != companyId.Value && !_tenantService.IsSuperAdmin())
+            if (!IsApplicationTenantAccessible(application))
             {
-                 return new HttpStatusCodeResult(403, "Access Denied");
+                return new HttpStatusCodeResult(403, "Access Denied");
             }
 
             try
             {
-                var filePath = Server.MapPath(application.ResumePath);
-                if (!System.IO.File.Exists(filePath))
-                {
-                    return HttpNotFound();
-                }
+                var applicantName = application.Applicant != null
+                    ? application.Applicant.FullName
+                    : "Applicant";
+                var positionTitle = application.Position != null
+                    ? application.Position.Title
+                    : "Position";
+                var fileName = BuildCoverLetterDownloadFileName(applicantName, positionTitle, application.Id);
+                var fileBytes = Encoding.UTF8.GetBytes(application.CoverLetter);
 
-                var fileBytes = System.IO.File.ReadAllBytes(filePath);
-                var fileName = System.IO.Path.GetFileName(filePath);
-                
-                // Log CV download
-                _auditService.LogAction(GetApplicantsActorName(), "DOWNLOAD_CV", "Application", id.ToString(), 
+                _auditService.LogAction(GetApplicantsActorName(), "DOWNLOAD_COVER_LETTER", "Application", id.ToString(),
                     new { FileName = fileName, ApplicationId = id });
 
-                return File(fileBytes, System.Net.Mime.MediaTypeNames.Application.Octet, fileName);
+                return File(fileBytes, "text/plain", fileName);
             }
             catch (Exception ex)
             {
-                _auditService.LogAction(GetApplicantsActorName(), "DOWNLOAD_CV_ERROR", "Application", id.ToString(), 
+                _auditService.LogAction(GetApplicantsActorName(), "DOWNLOAD_COVER_LETTER_ERROR", "Application", id.ToString(),
                     wasSuccessful: false, errorMessage: ex.Message);
-                
+
                 return new HttpStatusCodeResult(500, "Error downloading file");
             }
+        }
+
+        private static string BuildCoverLetterDownloadFileName(string applicantName, string positionTitle, int applicationId)
+        {
+            var safeApplicant = SanitizeDownloadFileSegment(applicantName, "Applicant");
+            var safePosition = SanitizeDownloadFileSegment(positionTitle, "Position");
+            return string.Format("CoverLetter_{0}_{1}_{2}.txt", safeApplicant, safePosition, applicationId);
+        }
+
+        private static string SanitizeDownloadFileSegment(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            var chars = value.Trim()
+                .Select(c => char.IsLetterOrDigit(c) ? c : '_')
+                .ToArray();
+            var sanitized = new string(chars).Trim('_');
+            return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized;
         }
     }
 }

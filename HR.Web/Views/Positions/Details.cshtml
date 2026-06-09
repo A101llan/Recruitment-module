@@ -179,13 +179,13 @@
         {
             if (Request.IsAuthenticated)
             {
-                <a href="@Url.Action("Questionnaire", "Applications", new { positionId = Model.Id })" class="btn btn-blue">
+                <a href="@Url.Action("CoverLetter", "Applications", new { positionId = Model.Id })" class="btn btn-blue">
                     <i class="fas fa-paper-plane mr-1"></i> Apply Now
                 </a>
             }
             else
             {
-                <a href="@Url.Action("Register", "Account", new { returnUrl = Url.Action("Questionnaire", "Applications", new { positionId = Model.Id }) })" class="btn btn-blue">
+                <a href="@Url.Action("Register", "Account", new { returnUrl = Url.Action("CoverLetter", "Applications", new { positionId = Model.Id }) })" class="btn btn-blue">
                     <i class="fas fa-user-plus mr-1"></i> Sign In to Apply
                 </a>
             }

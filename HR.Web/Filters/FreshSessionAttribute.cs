@@ -38,7 +38,7 @@ namespace HR.Web.Filters
                 var routeValues = new System.Web.Routing.RouteValueDictionary(filterContext.RouteData.Values);
                 var query = HttpUtility.ParseQueryString(request.QueryString.ToString());
                 query.Remove("fresh");
-                foreach (string key in query.AllKeys ?? Array.Empty<string>())
+                foreach (string key in query.AllKeys ?? new string[0])
                 {
                     if (string.IsNullOrEmpty(key))
                     {

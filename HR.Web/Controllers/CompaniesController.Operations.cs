@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Entity.Validation;
+using System.Data.Entity;
 using System.Linq;
 using System.Text;
 using System.Web;
 using System.Web.Mvc;
 using HR.Web.Helpers;
+using HR.Web.Data;
 using HR.Web.Models;
 using Newtonsoft.Json;
 
@@ -199,7 +201,7 @@ namespace HR.Web.Controllers
             var credentials = new AdminCredentialsViewModel
             {
                 CompanyName = company.Name,
-                CompanyUrl = new Uri(ExternalUrlHelper.GetBaseUri(Request), company.Slug),
+                CompanyUrl = new Uri(ExternalUrlHelper.GetTenantPortalUrl(Request, company.Slug)),
                 AdminUsername = bundle.AdminUser.UserName,
                 AdminPassword = bundle.TempPassword
             };
@@ -227,10 +229,9 @@ namespace HR.Web.Controllers
                 : "CREDENTIALS_MISSING (User:False, Pwd:False)";
 
             TempData["SuccessMessage"] = string.Format(
-                "Company '{0}' created successfully! URL: <strong>{1}/{2}</strong><br/><small class='text-muted'>Status: {3}</small>",
+                "Company '{0}' created successfully! URL: <strong>{1}</strong><br/><small class='text-muted'>Status: {2}</small>",
                 company.Name,
-                ExternalUrlHelper.GetBaseUri(Request).ToString().TrimEnd('/'),
-                company.Slug,
+                ExternalUrlHelper.GetTenantPortalUrl(Request, company.Slug),
                 downloadStatus);
         }
 
@@ -342,6 +343,7 @@ namespace HR.Web.Controllers
 
         private CompanyDetailsViewModel BuildCompanyDetailsViewModel(Company company, int companyId)
         {
+            var actorName = GetCompaniesActorName();
             var users = _uow.Users.GetAll(u => u.RoleDefinition)
                 .Where(u => u.CompanyId == companyId)
                 .ToList();
@@ -353,6 +355,8 @@ namespace HR.Web.Controllers
             var userRoleDisplayNames = users.ToDictionary(
                 user => user.Id,
                 user => ResolveUserDisplayRole(user, roleNameById));
+
+            var impersonationState = LoadCompanyImpersonationState(companyId, actorName);
 
             return new CompanyDetailsViewModel
             {
@@ -369,21 +373,44 @@ namespace HR.Web.Controllers
                 RecentAuditLogs = _uow.AuditLogs.GetAll()
                     .Where(a => a.CompanyId == companyId)
                     .OrderByDescending(a => a.Timestamp)
+                    .Take(100)
                     .ToList(),
-                PendingImpersonationRequests = _uow.ImpersonationRequests.GetAll()
-                    .Where(r => r.CompanyId == companyId && r.Status == ImpersonationRequestStatus.Pending && r.RequestedBy == User.Identity.Name)
-                    .OrderByDescending(r => r.RequestDate)
-                    .ToList(),
-                ActiveApprovedRequest = _uow.ImpersonationRequests.GetAll()
-                    .FirstOrDefault(r =>
-                        r.CompanyId == companyId &&
-                        r.RequestedBy == User.Identity.Name &&
-                        (r.Status == ImpersonationRequestStatus.Approved || r.Status == ImpersonationRequestStatus.Active) &&
-                        (!r.ExpiryDate.HasValue || r.ExpiryDate > DateTime.Now)),
-                ActiveRejectedRequest = null,
+                PendingImpersonationRequests = impersonationState.Pending,
+                ActiveApprovedRequest = impersonationState.ActiveApproved,
+                ActiveRejectedRequest = impersonationState.ActiveRejected,
                 CompanyAdmins = _uow.Users.GetAll()
                     .Where(u => u.CompanyId == companyId && u.Role == "Admin")
                     .ToList()
+            };
+        }
+
+        private sealed class CompanyImpersonationState
+        {
+            public List<ImpersonationRequest> Pending { get; set; }
+            public ImpersonationRequest ActiveApproved { get; set; }
+            public ImpersonationRequest ActiveRejected { get; set; }
+        }
+
+        private CompanyImpersonationState LoadCompanyImpersonationState(int companyId, string actorName)
+        {
+            var now = DateTime.Now;
+            var requests = _uow.ImpersonationRequests.GetAll()
+                .Where(r => r.CompanyId == companyId && r.RequestedBy == actorName)
+                .ToList();
+
+            return new CompanyImpersonationState
+            {
+                Pending = requests
+                    .Where(r => r.Status == ImpersonationRequestStatus.Pending)
+                    .OrderByDescending(r => r.RequestDate)
+                    .ToList(),
+                ActiveApproved = requests.FirstOrDefault(r =>
+                    (r.Status == ImpersonationRequestStatus.Approved || r.Status == ImpersonationRequestStatus.Active) &&
+                    (!r.ExpiryDate.HasValue || r.ExpiryDate > now)),
+                ActiveRejected = requests
+                    .Where(r => r.Status == ImpersonationRequestStatus.Rejected)
+                    .OrderByDescending(r => r.DecisionDate ?? r.RequestDate)
+                    .FirstOrDefault()
             };
         }
 

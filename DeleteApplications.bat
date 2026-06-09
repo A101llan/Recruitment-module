@@ -16,8 +16,7 @@ if %ERRORLEVEL% EQU 0 (
     "$assemblyPath = 'C:\Users\allan\Documents\Examples\Recruitment\HR.Web\bin\Debug\HR.Web.dll'; ^
      $utilityPath = 'C:\Users\allan\Documents\Examples\Recruitment\HR.Web\bin\Debug\HR.Web.dll'; ^
      Add-Type -Path $assemblyPath; ^
-     Add-Type -Path 'C:\Users\allan\Documents\Examples\Recruitment\packages\EntityFramework.6.4.4\lib\net45\EntityFramework.dll'; ^
-     Add-Type -Path 'C:\Users\allan\Documents\Examples\Recruitment\packages\EntityFramework.6.4.4\lib\net45\EntityFramework.SqlServer.dll'; ^
+     Add-Type -Path 'C:\Users\allan\Documents\Examples\Recruitment\packages\EntityFramework.5.0.0\lib\net40\EntityFramework.dll'; ^
      [HR.Web.Utilities.ApplicationCleanup]::ListApplications(); ^
      Write-Host 'Do you want to delete all applications? (y/N): '; ^
      $response = Read-Host; ^

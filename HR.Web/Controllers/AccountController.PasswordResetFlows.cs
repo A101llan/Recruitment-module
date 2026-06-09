@@ -40,7 +40,6 @@ namespace HR.Web.Controllers
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine("No user found with email: " + model.Email);
                     AuditSvc.LogAction("GUEST", "PASSWORD_RESET_ATTEMPT", "Account", "", null, null, false, "Email not found: " + model.Email);
                 }
 
@@ -111,9 +110,6 @@ namespace HR.Web.Controllers
             var tenantToken = RouteData.Values["tenant"] as string;
             var resetUrl = Url.Action("ResetPassword", "Account", new { tenant = tenantToken, token = token }, Request.Url.Scheme);
             DevDiagnostics.LogOneTimeCode("PASSWORD RESET TOKEN", user.Email, token);
-            System.Diagnostics.Debug.WriteLine("=== PASSWORD RESET LINK ===");
-            System.Diagnostics.Debug.WriteLine("Reset URL: " + resetUrl);
-            System.Diagnostics.Debug.WriteLine("========================");
 
             if (EmailSvc != null)
             {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Web;
 using System.Web.Mvc;
 using System.Web.Security;
@@ -38,13 +39,7 @@ namespace HR.Web.Controllers
         }
 
         [AllowAnonymous]
-        public ActionResult Login(Uri returnUri)
-        {
-            return LoginCore(returnUri);
-        }
-
-        [AllowAnonymous]
-        public ActionResult Login(string returnUrl)
+        public ActionResult Login(string returnUrl = null)
         {
             return LoginCore(ParseReturnUriOrNull(returnUrl));
         }
@@ -73,11 +68,6 @@ namespace HR.Web.Controllers
             return View();
         }
 
-        private static Uri ParseReturnUriOrNull(Uri returnUri)
-        {
-            return returnUri;
-        }
-
         private Uri ParseReturnUriOrNull(string returnUrl)
         {
             LocalReturnUrlHelper.TryParseLocalReturnUri(returnUrl, Url, out var parsedUri);
@@ -91,7 +81,7 @@ namespace HR.Web.Controllers
         {
             _ = acceptLegalTerms;
             _ = legalRelationship;
-            var password = Request.Unvalidated.Form["password"] ?? string.Empty;
+            var password = Request.Form["password"] ?? string.Empty;
             return HandleLoginPost(
                 username ?? string.Empty,
                 password,
@@ -136,9 +126,9 @@ namespace HR.Web.Controllers
             }
 
             var passwordModel = model;
-            passwordModel.CurrentPassword = Request.Unvalidated.Form["OldPassword"];
-            passwordModel.NewPassword = Request.Unvalidated.Form["NewPassword"];
-            passwordModel.ConfirmNewPassword = Request.Unvalidated.Form["ConfirmPassword"];
+            passwordModel.CurrentPassword = Request.Form["OldPassword"];
+            passwordModel.NewPassword = Request.Form["NewPassword"];
+            passwordModel.ConfirmNewPassword = Request.Form["ConfirmPassword"];
 
             return HandleChangePassword(passwordModel);
         }
@@ -242,7 +232,7 @@ namespace HR.Web.Controllers
             try
             {
                 await EmailSvc.SendEmailVerificationOtpAsync(user.Email, otp);
-                System.Diagnostics.Debug.WriteLine(string.Format("--- [EMAIL VERIFICATION OTP] Sent to {0}: {1} ---", user.Email, otp));
+                DevDiagnostics.LogOneTimeCode("EMAIL VERIFICATION OTP", user.Email, otp);
                 
                 TempData["SuccessMessage"] = "Verification code sent to your email.";
                 return RedirectToAction("VerifyEmail");
@@ -286,15 +276,12 @@ namespace HR.Web.Controllers
             try
             {
                 await EmailSvc.SendEmailVerificationOtpAsync(user.Email, otp);
-                
-                // For development, also log it
-                System.Diagnostics.Debug.WriteLine(string.Format("--- [EMAIL VERIFICATION OTP] Sent to {0}: {1} ---", user.Email, otp));
+                DevDiagnostics.LogOneTimeCode("EMAIL VERIFICATION OTP", user.Email, otp);
                 
                 return Json(new { success = true, message = "Verification code sent to your email." });
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Failed to send verification email: " + ex.Message);
                 AuditSvc.LogAction(username, "EMAIL_VERIFICATION_SEND_FAIL", "Account", user.Id.ToString(), 
                     "Failed to send email verification OTP: " + ex.Message);
                 return Json(new { success = false, message = "Failed to send email. Please try again later." });
@@ -372,13 +359,7 @@ namespace HR.Web.Controllers
         }
 
         [AllowAnonymous]
-        public ActionResult Register(int? companyId = null, bool isSuperAdmin = false, Uri returnUri = null)
-        {
-            return HandleRegisterGet(companyId, isSuperAdmin, returnUri);
-        }
-
-        [AllowAnonymous]
-        public ActionResult Register(int? companyId, bool isSuperAdmin, string returnUrl)
+        public ActionResult Register(int? companyId = null, bool isSuperAdmin = false, string returnUrl = null)
         {
             return HandleRegisterGet(companyId, isSuperAdmin, ParseReturnUriOrNull(returnUrl));
         }
@@ -389,8 +370,8 @@ namespace HR.Web.Controllers
         {
             if (model != null)
             {
-                model.Password = Request.Unvalidated.Form["Password"];
-                model.ConfirmPassword = Request.Unvalidated.Form["ConfirmPassword"];
+                model.Password = Request.Form["Password"];
+                model.ConfirmPassword = Request.Form["ConfirmPassword"];
             }
 
             return HandleRegisterPost(model, isSuperAdmin, ParseRegisterReturnPath(returnUrl));
@@ -446,8 +427,8 @@ namespace HR.Web.Controllers
         {
             if (model != null)
             {
-                model.NewPassword = Request.Unvalidated.Form["NewPassword"];
-                model.ConfirmPassword = Request.Unvalidated.Form["ConfirmPassword"];
+                model.NewPassword = Request.Form["NewPassword"];
+                model.ConfirmPassword = Request.Form["ConfirmPassword"];
             }
 
             if (model == null)
@@ -554,6 +535,7 @@ namespace HR.Web.Controllers
 
         // MFA Verification
         [HttpGet]
+        [AllowAnonymous]
         public ActionResult VerifyMFA()
         {
             try 
@@ -597,6 +579,7 @@ namespace HR.Web.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public ActionResult VerifyMFA(string code)
         {
@@ -641,13 +624,21 @@ namespace HR.Web.Controllers
 
             var companyId = LegalConsentSession.TryReadCompanyId(Session);
             var lowerUsername = username.ToLower();
-            var userQuery = _uow.Context.Users.Where(u => u.UserName.ToLower() == lowerUsername);
+            var matches = _uow.Context.Users
+                .Where(u => u.UserName.ToLower() == lowerUsername)
+                .ToList();
+
             if (companyId.HasValue)
             {
-                userQuery = userQuery.Where(u => u.CompanyId == companyId.Value);
+                var tenantUser = matches.FirstOrDefault(u => u.CompanyId == companyId.Value);
+                if (tenantUser != null)
+                {
+                    return tenantUser;
+                }
             }
 
-            return userQuery.FirstOrDefault();
+            // Global SuperAdmin accounts have CompanyId IS NULL.
+            return matches.FirstOrDefault(u => !u.CompanyId.HasValue) ?? matches.FirstOrDefault();
         }
 
         private static bool UsesEmailMfa(User user)
@@ -708,19 +699,42 @@ namespace HR.Web.Controllers
             var recipientEmail = mfaUser.Email;
             DevDiagnostics.LogOneTimeCode("MFA CODE", recipientEmail, code);
 
-            try
+            QueueMfaEmailSend(recipientEmail.Trim(), code, mfaUser.UserName, mfaUser.Id.ToString());
+            return true;
+        }
+
+        private void QueueMfaEmailSend(string recipientEmail, string code, string username, string userId)
+        {
+            if (string.IsNullOrWhiteSpace(recipientEmail))
             {
-                EmailSvc.SendMfaCodeEmailAsync(recipientEmail.Trim(), code).GetAwaiter().GetResult();
-                return true;
+                return;
             }
-            catch (Exception ex)
+
+            ThreadPool.QueueUserWorkItem(_ =>
             {
-                DevDiagnostics.LogOneTimeCode("MFA CODE (email failed — use code above)", recipientEmail, code);
-                System.Diagnostics.Debug.WriteLine("--- [MFA EMAIL ERROR] Failed to send: " + ex.Message);
-                System.Diagnostics.Trace.WriteLine("--- [MFA EMAIL ERROR] Failed to send: " + ex.Message);
-                AuditSvc.LogAction(mfaUser.UserName, "MFA_EMAIL_SEND_FAILED", "Account", mfaUser.Id.ToString(), ex.Message);
-                return false;
-            }
+                try
+                {
+                    var emailService = new EmailService();
+                    emailService.SendMfaCodeEmailAsync(recipientEmail, code).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    DevDiagnostics.LogOneTimeCode("MFA CODE (email failed — use code above)", recipientEmail, code);
+                    System.Diagnostics.Trace.WriteLine("--- [MFA EMAIL ERROR] Failed to send: " + ex.Message);
+                    try
+                    {
+                        using (var uow = new UnitOfWork())
+                        {
+                            var audit = new AuditService();
+                            audit.LogAction(username, "MFA_EMAIL_SEND_FAILED", "Account", userId, ex.Message);
+                        }
+                    }
+                    catch
+                    {
+                        // Best-effort audit only.
+                    }
+                }
+            });
         }
 
         private string MaskContactInfo(string email)

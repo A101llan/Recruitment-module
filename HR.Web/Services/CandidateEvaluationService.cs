@@ -126,13 +126,6 @@ namespace HR.Web.Services
             CountStandardProfileFields(reviewData, ref totalFields, ref completedFields);
             CountDynamicAnswerFields(answers, ref totalFields, ref completedFields);
 
-            if (!string.IsNullOrWhiteSpace(reviewData.ResumePath))
-            {
-                completedFields++;
-            }
-
-            totalFields++;
-
             if (totalFields <= 0)
             {
                 return 0;
@@ -510,16 +503,10 @@ namespace HR.Web.Services
             }
 
             var reviewData = review;
-            var score = ScoreResumeProvided(reviewData.ResumePath) +
-                        ScoreSkillAssessments(reviewData) +
+            var score = ScoreSkillAssessments(reviewData) +
                         ScoreDetailedAnswersBonus(reviewData, answers) +
                         ScoreCompleteDynamicAnswers(answers);
             return Math.Round(Math.Min(score, 10m), 2);
-        }
-
-        private static decimal ScoreResumeProvided(string resumePath)
-        {
-            return string.IsNullOrWhiteSpace(resumePath) ? 0 : 5;
         }
 
         private static decimal ScoreSkillAssessments(ApplicationReviewViewModel review)

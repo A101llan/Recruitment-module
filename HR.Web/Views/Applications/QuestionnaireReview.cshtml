@@ -3,7 +3,6 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewBag.Title = "Review Application";
     ViewBag.SuppressPageHero = true;
-    var tenantToken = ViewContext.RouteData.Values["tenant"] as string;
 }
 
 <div class="card shadow-sm border-primary mb-4">
@@ -61,8 +60,6 @@
             @Html.HiddenFor(m => m.PositionTitle)
             @Html.HiddenFor(m => m.ApplicantName)
             @Html.HiddenFor(m => m.ApplicantEmail)
-            @Html.HiddenFor(m => m.ResumePath)
-            
             if (Model.QuestionAnswers != null)
             {
                 for (int i = 0; i < Model.QuestionAnswers.Count; i++)
@@ -70,18 +67,6 @@
                     <input type="hidden" name="question_@Model.QuestionAnswers[i].QuestionId" value="@Model.QuestionAnswers[i].Answer" />
                 }
             }
-
-            <div class="form-group mt-3">
-                <div class="form-check">
-                    @Html.CheckBoxFor(m => m.AcceptLegalTerms, new { @class = "form-check-input", id = "acceptLegalTerms", required = "required" })
-                    <label class="form-check-label small text-muted" for="acceptLegalTerms">
-                        I agree to the
-                        <a href="@Url.Action("Terms", "Home", new { tenant = tenantToken })" target="_blank" rel="noopener">Terms &amp; Conditions</a>
-                        and
-                        <a href="@Url.Action("Privacy", "Home", new { tenant = tenantToken })" target="_blank" rel="noopener">Privacy Policy</a>.
-                    </label>
-                </div>
-            </div>
 
             <div class="d-flex justify-content-between mt-4">
                 <a href="javascript:history.back();" class="btn btn-secondary btn-sm">Back to edit</a>

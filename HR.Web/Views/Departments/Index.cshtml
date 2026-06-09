@@ -3,6 +3,7 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewBag.Title = "Departments";
     var canManageDepartments = ViewBag.CanManageDepartments != null ? (bool)ViewBag.CanManageDepartments : false;
+    var canViewDepartments = ViewBag.CanViewDepartments != null ? (bool)ViewBag.CanViewDepartments : canManageDepartments;
 }
 @if (canManageDepartments || (User != null && User.Identity != null && User.IsInRole("HR")))
 {
@@ -35,11 +36,18 @@
                     }
                 </td>
                 <td>
+                    @if (canViewDepartments)
+                    {
+                        @Html.ActionLink("Details", "Details", new { id = item.Id }, new { @class = "btn btn-sm btn-info" })
+                    }
                     @if (canManageDepartments || (User != null && User.Identity != null && User.IsInRole("HR")))
                     {
-                        @Html.ActionLink("Details","Details", new { id=item.Id }, new { @class="btn btn-sm btn-info"}) @:|
-                        @Html.ActionLink("Edit","Edit", new { id=item.Id }, new { @class="btn btn-sm btn-secondary"}) @:|
-                        @Html.ActionLink("Delete","Delete", new { id=item.Id }, new { @class="btn btn-sm btn-danger"})
+                        if (canViewDepartments)
+                        {
+                            @: |
+                        }
+                        @Html.ActionLink("Edit", "Edit", new { id = item.Id }, new { @class = "btn btn-sm btn-secondary" }) @:|
+                        @Html.ActionLink("Delete", "Delete", new { id = item.Id }, new { @class = "btn btn-sm btn-danger" })
                     }
                 </td>
             </tr>

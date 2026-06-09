@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Specialized;
 using System.Web;
 using System.Web.Mvc;
@@ -82,9 +82,10 @@ namespace HR.Web.Controllers
                 return false;
             }
 
-            if (actionSegment.Equals("Questionnaire", StringComparison.OrdinalIgnoreCase))
+            if (actionSegment.Equals("Questionnaire", StringComparison.OrdinalIgnoreCase) ||
+                actionSegment.Equals("CoverLetter", StringComparison.OrdinalIgnoreCase))
             {
-                redirectResult = RedirectToAction("Questionnaire", "Applications", new { tenant = resolvedTenant, positionId = positionId });
+                redirectResult = RedirectToAction("CoverLetter", "Applications", new { tenant = resolvedTenant, positionId = positionId });
                 return true;
             }
 

@@ -1,8 +1,16 @@
 @model IEnumerable<HR.Web.Models.Interview>
+@using HR.Web.ViewModels
+
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewBag.Title = "Interviews";
     var canManageInterviews = ViewBag.CanManageInterviews != null ? (bool)ViewBag.CanManageInterviews : false;
+    var panelistsForCc = ViewBag.EmailCcPanelists as List<HR.Web.Models.User> ?? new List<HR.Web.Models.User>();
+    var hrContactsForCc = ViewBag.EmailCcHrContacts as List<HR.Web.Models.CompanyHrCcEmail> ?? new List<HR.Web.Models.CompanyHrCcEmail>();
+    Uri parsedManageHrCcUrl;
+    var manageHrCcUrl = Uri.TryCreate(Url.Action("HrCcEmails", "Admin"), UriKind.RelativeOrAbsolute, out parsedManageHrCcUrl)
+        ? parsedManageHrCcUrl
+        : null;
     var applicationsWithoutScheduledInterview = ViewBag.ApplicationsWithoutScheduledInterview as List<HR.Web.Models.Application>
         ?? new List<HR.Web.Models.Application>();
 
@@ -34,6 +42,63 @@
         }) + "#application-card-" + schedulePromptApplicationId)
         : null;
 }
+
+<style>
+    .email-workflow-modal .modal-dialog {
+        width: 96vw;
+        max-width: 920px;
+        margin: 1.5vh auto;
+    }
+
+    .email-workflow-modal .modal-content {
+        display: flex;
+        flex-direction: column;
+        max-height: 92vh;
+        min-height: 0;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .email-workflow-modal .modal-content > form {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 92vh;
+        overflow: hidden;
+    }
+
+    .email-workflow-modal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .email-workflow-modal .modal-header,
+    .email-workflow-modal .modal-footer {
+        flex-shrink: 0;
+    }
+
+    .email-choice-card {
+        border: 1px solid var(--app-border, #dbe5f0);
+        border-radius: 12px;
+        padding: 18px;
+        background: var(--app-paper, #f8fbff);
+    }
+
+    .interview-email-template-compose {
+        border: 1px solid var(--app-border, #dbe5f0);
+        border-radius: 10px;
+        background: #fff;
+    }
+
+    .tox-silver-sink,
+    .tox-tinymce-aux {
+        z-index: 200000 !important;
+    }
+</style>
 
 <div>
     <div class="app-panel-soft">
@@ -83,34 +148,22 @@
         {
             if (canManageInterviews)
             {
-                const string batchInterviewEmailFormId = "batchInterviewEmailForm";
+                var batchRecipientCount = Model
+                    .Where(i => i.Application != null &&
+                                i.Application.Applicant != null &&
+                                !string.IsNullOrWhiteSpace(i.Application.Applicant.Email))
+                    .Select(i => i.ApplicationId)
+                    .Distinct()
+                    .Count();
+                var batchDefaultSubject = "Interview update";
                 <div class="mb-3">
                     <button type="button"
                             class="btn btn-sm btn-outline-primary"
-                            onclick="toggleElementById('@batchInterviewEmailFormId')">
+                            onclick="openInterviewBulkEmailChoice(this)"
+                            data-recipient-count="@batchRecipientCount"
+                            data-default-subject="@batchDefaultSubject">
                         <i class="fas fa-envelope"></i> Email Candidates (Batch)
                     </button>
-                </div>
-                <div id="@batchInterviewEmailFormId" class="border rounded p-2 bg-light mb-3 d-none">
-                    @using (Html.BeginForm("SendInterviewCandidatesBatchEmail", "Interviews", FormMethod.Post))
-                    {
-                        @Html.AntiForgeryToken()
-                        <label class="font-weight-bold mb-1">Batch message to all scheduled interview candidates</label>
-                        <textarea name="message"
-                                  class="form-control form-control-sm mb-2"
-                                  rows="4"
-                                  maxlength="4000"
-                                  required
-                                  placeholder="Type the email message for all candidates with scheduled interviews."></textarea>
-                        <div class="d-flex">
-                            <button type="submit" class="btn btn-sm btn-primary mr-2">Send Batch Email</button>
-                            <button type="button"
-                                    class="btn btn-sm btn-secondary"
-                                    onclick="hideElementById('@batchInterviewEmailFormId')">
-                                Cancel
-                            </button>
-                        </div>
-                    }
                 </div>
             }
 
@@ -135,9 +188,10 @@
                             var applicantName = item.Application != null && item.Application.Applicant != null ? item.Application.Applicant.FullName : "N/A";
                             var positionTitle = item.Application != null && item.Application.Position != null ? item.Application.Position.Title : "N/A";
                             var interviewerName = item.Interviewer != null ? item.Interviewer.UserName : "N/A";
-                            var emailFormId = "interviewEmailForm-" + item.ApplicationId;
                             var isResumeTarget = resumeEmailApplicationId > 0 && resumeEmailApplicationId == item.ApplicationId;
-                            var defaultMessage = isResumeTarget ? (resumeEmailMessage ?? string.Empty) : string.Empty;
+                            var defaultSubject = string.Format(
+                                "Interview update for {0}",
+                                string.IsNullOrWhiteSpace(positionTitle) || positionTitle == "N/A" ? "your application" : positionTitle);
 
                             <tr>
                                 <td class="align-middle">@applicantName</td>
@@ -162,32 +216,16 @@
                                                 new { @class = "btn btn-sm btn-blue mr-2 mb-2" }
                                             )
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-primary mb-2"
-                                                    onclick="toggleElementById('@emailFormId')">
+                                                    class="btn btn-sm btn-outline-primary mb-2 interview-email-trigger"
+                                                    onclick="openInterviewCandidateEmailChoice(this)"
+                                                    data-application-id="@item.ApplicationId"
+                                                    data-candidate-name="@applicantName"
+                                                    data-position-title="@(positionTitle == "N/A" ? "your application" : positionTitle)"
+                                                    data-default-subject="@defaultSubject"
+                                                    data-resume-draft="@(isResumeTarget ? (resumeEmailMessage ?? string.Empty) : string.Empty)"
+                                                    data-resume-auto-open="@(isResumeTarget ? "true" : "false")">
                                                 <i class="fas fa-envelope"></i> Email Candidate
                                             </button>
-                                        </div>
-                                        <div id="@emailFormId" class="border rounded p-2 bg-light @(isResumeTarget ? string.Empty : "d-none")">
-                                            @using (Html.BeginForm("SendInterviewCandidateEmail", "Interviews", FormMethod.Post))
-                                            {
-                                                @Html.AntiForgeryToken()
-                                                @Html.Hidden("applicationId", item.ApplicationId)
-                                                <label class="font-weight-bold mb-1">Message</label>
-                                                <textarea name="message"
-                                                          class="form-control form-control-sm mb-2"
-                                                          rows="3"
-                                                          maxlength="4000"
-                                                          required
-                                                          placeholder="Type the email message to send.">@defaultMessage</textarea>
-                                                <div class="d-flex">
-                                                    <button type="submit" class="btn btn-sm btn-primary mr-2">Send Email</button>
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-secondary"
-                                                            onclick="hideElementById('@emailFormId')">
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            }
                                         </div>
                                     </td>
                                 }
@@ -220,7 +258,9 @@
                         {
                             var applicantName = app.Applicant != null ? app.Applicant.FullName : "N/A";
                             var positionTitle = app.Position != null ? app.Position.Title : "N/A";
-                            var emailFormId = "unscheduledEmailForm-" + app.Id;
+                            var unscheduledDefaultSubject = string.Format(
+                                "Interview update for {0}",
+                                string.IsNullOrWhiteSpace(positionTitle) || positionTitle == "N/A" ? "your application" : positionTitle);
                             var bookUrl = Url.Action("Index", "Applications", new
                             {
                                 bookInterviewApplicationId = app.Id,
@@ -239,31 +279,15 @@
                                         </a>
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-primary mb-2"
-                                                onclick="toggleElementById('@emailFormId')">
+                                                onclick="openInterviewCandidateEmailChoice(this)"
+                                                data-application-id="@app.Id"
+                                                data-candidate-name="@applicantName"
+                                                data-position-title="@(positionTitle == "N/A" ? "your application" : positionTitle)"
+                                                data-default-subject="@unscheduledDefaultSubject"
+                                                data-resume-draft=""
+                                                data-resume-auto-open="false">
                                             <i class="fas fa-envelope"></i> Email Candidate
                                         </button>
-                                    </div>
-                                    <div id="@emailFormId" class="border rounded p-2 bg-light d-none">
-                                        @using (Html.BeginForm("SendInterviewCandidateEmail", "Interviews", FormMethod.Post))
-                                        {
-                                            @Html.AntiForgeryToken()
-                                            @Html.Hidden("applicationId", app.Id)
-                                            <label class="font-weight-bold mb-1">Message</label>
-                                            <textarea name="message"
-                                                      class="form-control form-control-sm mb-2"
-                                                      rows="3"
-                                                      maxlength="4000"
-                                                      required
-                                                      placeholder="Type the email message to send."></textarea>
-                                            <div class="d-flex">
-                                                <button type="submit" class="btn btn-sm btn-primary mr-2">Send Email</button>
-                                                <button type="button"
-                                                        class="btn btn-sm btn-secondary"
-                                                        onclick="hideElementById('@emailFormId')">
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -275,18 +299,577 @@
     }
 </div>
 
-@section Scripts {
-    <script>
-        function toggleElementById(id) {
-            var element = document.getElementById(id);
-            if (!element) return;
-            element.classList.toggle('d-none');
-        }
+@if (canManageInterviews)
+{
+    <div class="modal fade email-workflow-modal" id="interviewEmailChoiceModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title mb-0"><i class="fas fa-envelope mr-2"></i>Email Interview Candidate</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3 text-center text-md-left">
+                        <div class="font-weight-bold" id="interviewEmailChoiceCandidateLabel"></div>
+                        <div class="text-muted small" id="interviewEmailChoicePositionLabel"></div>
+                    </div>
+                    <div class="d-flex flex-column flex-md-row justify-content-center align-items-stretch mx-auto" style="gap: 1rem; max-width: 820px;">
+                        <div class="email-choice-card flex-fill" style="max-width: 400px; margin-left: auto; margin-right: auto;">
+                            <h6 class="font-weight-bold mb-2 text-center">Use Template</h6>
+                            <p class="text-muted small mb-3 text-center">Load wording from <strong>Admin &rarr; Email wording</strong> (merged with this candidate's interview details), edit, then send.</p>
+                            <div class="text-center">
+                                <button type="button" class="btn btn-outline-primary px-4" onclick="openInterviewCandidateTemplateEditor()">
+                                    <i class="fas fa-file-alt mr-2"></i>Use Template
+                                </button>
+                            </div>
+                        </div>
+                        <div class="email-choice-card flex-fill" style="max-width: 400px; margin-left: auto; margin-right: auto;">
+                            <h6 class="font-weight-bold mb-2 text-center">Compose from Scratch</h6>
+                            <p class="text-muted small mb-3 text-center">Write a custom subject and message with rich formatting for this candidate.</p>
+                            <div class="text-center">
+                                <button type="button" class="btn btn-outline-secondary px-4" onclick="openInterviewCandidateScratchEditor()">
+                                    <i class="fas fa-pen mr-2"></i>Compose from Scratch
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        function hideElementById(id) {
-            var element = document.getElementById(id);
-            if (!element) return;
-            element.classList.add('d-none');
-        }
-    </script>
+    <div class="modal fade email-workflow-modal" id="interviewEmailEditorModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <form action="@Url.Action("SendInterviewCandidateEmail", "Interviews")" method="post" id="interviewEmailEditorForm">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title mb-0" id="interviewEmailEditorTitle">Compose Email</h5>
+                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="applicationId" id="interviewEmailEditorApplicationId" />
+                        <input type="hidden" name="composeMode" id="interviewEmailEditorComposeMode" value="template_edit" />
+                        <input type="hidden" name="templateKey" value="interview_candidate_standard" />
+
+                        <div class="mb-3">
+                            <div class="font-weight-bold" id="interviewEmailEditorCandidateLabel"></div>
+                            <div class="text-muted small" id="interviewEmailEditorPositionLabel"></div>
+                        </div>
+
+                        <div class="mb-3" id="interviewEmailTemplateSelectorSection">
+                            <label class="font-weight-bold mb-1">Template</label>
+                            <div class="form-control bg-light">Interview candidate - standard (from Email wording)</div>
+                        </div>
+
+                        <div class="mb-3 interview-email-template-compose p-3">
+                            <h6 class="text-uppercase text-muted small font-weight-bold mb-2">Compose this email</h6>
+                            <p class="small text-muted mb-3">Editor matches <strong>Admin &rarr; Email wording</strong>. Scroll to CC options and <strong>Send</strong>.</p>
+                            <label class="font-weight-bold mb-1" for="interviewEmailEditorSubject">Subject line</label>
+                            <input type="text" id="interviewEmailEditorSubject" name="subject" class="form-control mb-3" maxlength="255" />
+                            <label class="font-weight-bold mb-1" for="interviewEmailEditorBody">Message</label>
+                            <textarea id="interviewEmailEditorBody"
+                                      name="body"
+                                      class="form-control"
+                                      rows="12"></textarea>
+                            <small class="text-muted d-block mb-3">Maximum length 20,000 characters (including HTML).</small>
+                        </div>
+
+                        <hr class="my-3" />
+                        <p class="small font-weight-bold text-muted mb-2">Copy on send (optional)</p>
+                        @Html.Partial("_CandidateEmailCcFields", new CandidateEmailCcFieldsModel
+                        {
+                            Prefix = "interviewEmailEditor",
+                            Panelists = panelistsForCc,
+                            HrContacts = hrContactsForCc,
+                            ManageHrCcUrl = manageHrCcUrl
+                        })
+                    </div>
+                    <div class="modal-footer flex-shrink-0 border-top">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane mr-1"></i>Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade email-workflow-modal" id="interviewBulkEmailChoiceModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title mb-0"><i class="fas fa-envelope-open-text mr-2"></i>Email All Interview Candidates</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3 text-center text-md-left">
+                        <div class="font-weight-bold">Scheduled interview candidates</div>
+                        <div class="text-muted small" id="interviewBulkEmailChoiceCountLabel"></div>
+                    </div>
+                    <div class="d-flex flex-column flex-md-row justify-content-center align-items-stretch mx-auto" style="gap: 1rem; max-width: 820px;">
+                        <div class="email-choice-card flex-fill" style="max-width: 400px; margin-left: auto; margin-right: auto;">
+                            <h6 class="font-weight-bold mb-2 text-center">Use Template</h6>
+                            <p class="text-muted small mb-3 text-center">Load wording from <strong>Admin &rarr; Email wording</strong> (sample merge), edit, then send to all scheduled candidates.</p>
+                            <div class="text-center">
+                                <button type="button" class="btn btn-outline-primary px-4" onclick="openInterviewBulkTemplateEditor()">
+                                    <i class="fas fa-file-alt mr-2"></i>Use Template
+                                </button>
+                            </div>
+                        </div>
+                        <div class="email-choice-card flex-fill" style="max-width: 400px; margin-left: auto; margin-right: auto;">
+                            <h6 class="font-weight-bold mb-2 text-center">Compose from Scratch</h6>
+                            <p class="text-muted small mb-3 text-center">Write a custom subject and message to send to every scheduled candidate.</p>
+                            <div class="text-center">
+                                <button type="button" class="btn btn-outline-secondary px-4" onclick="openInterviewBulkScratchEditor()">
+                                    <i class="fas fa-pen mr-2"></i>Compose from Scratch
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade email-workflow-modal" id="interviewBulkEmailEditorModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <form action="@Url.Action("SendInterviewCandidatesBatchEmail", "Interviews")" method="post" id="interviewBulkEmailEditorForm">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title mb-0" id="interviewBulkEmailEditorTitle">Compose Bulk Email</h5>
+                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="composeMode" id="interviewBulkEmailEditorComposeMode" value="scratch" />
+                        <input type="hidden" name="templateKey" value="interview_candidate_standard" />
+
+                        <div class="mb-3">
+                            <div class="font-weight-bold">Scheduled interview candidates</div>
+                            <div class="text-muted small" id="interviewBulkEmailEditorCountLabel"></div>
+                        </div>
+
+                        <div class="mb-3 d-none" id="interviewBulkTemplateSelectorSection">
+                            <label class="font-weight-bold mb-1">Template</label>
+                            <div class="form-control bg-light">Interview candidate - standard (from Email wording)</div>
+                        </div>
+
+                        <div class="mb-3 interview-email-template-compose p-3">
+                            <h6 class="text-uppercase text-muted small font-weight-bold mb-2">Compose this email</h6>
+                            <p class="small text-muted mb-3">Preview uses one candidate as a sample. Scroll to CC and <strong>Send to All</strong>.</p>
+                            <label class="font-weight-bold mb-1" for="interviewBulkEmailEditorSubject">Subject line</label>
+                            <input type="text" id="interviewBulkEmailEditorSubject" name="subject" class="form-control mb-3" maxlength="255" />
+                            <label class="font-weight-bold mb-1" for="interviewBulkEmailEditorBody">Message</label>
+                            <textarea id="interviewBulkEmailEditorBody"
+                                      name="body"
+                                      class="form-control"
+                                      rows="12"></textarea>
+                            <small class="text-muted d-block mb-3">Maximum length 20,000 characters (including HTML).</small>
+                        </div>
+
+                        <hr class="my-3" />
+                        <p class="small font-weight-bold text-muted mb-2">Copy on send (optional)</p>
+                        @Html.Partial("_CandidateEmailCcFields", new CandidateEmailCcFieldsModel
+                        {
+                            Prefix = "interviewBulkEmailEditor",
+                            Panelists = panelistsForCc,
+                            HrContacts = hrContactsForCc,
+                            ManageHrCcUrl = manageHrCcUrl
+                        })
+                    </div>
+                    <div class="modal-footer flex-shrink-0 border-top">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane mr-1"></i>Send to All
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @if (canManageInterviews)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.4/tinymce.min.js" referrerpolicy="origin"></script>
+        <script>
+            function setInterviewSingleEditorHtml(html) {
+                var ed = typeof tinymce !== 'undefined' ? tinymce.get('interviewEmailEditorBody') : null;
+                if (ed) {
+                    ed.setContent(html || '');
+                } else {
+                    var ta = document.getElementById('interviewEmailEditorBody');
+                    if (ta) ta.value = html || '';
+                }
+            }
+
+            function setInterviewBulkEditorHtml(html) {
+                var ed = typeof tinymce !== 'undefined' ? tinymce.get('interviewBulkEmailEditorBody') : null;
+                if (ed) {
+                    ed.setContent(html || '');
+                } else {
+                    var ta = document.getElementById('interviewBulkEmailEditorBody');
+                    if (ta) ta.value = html || '';
+                }
+            }
+
+            function ensureInterviewSingleTinyMce(done) {
+                if (typeof tinymce === 'undefined') {
+                    if (done) done();
+                    return;
+                }
+                if (tinymce.get('interviewBulkEmailEditorBody')) {
+                    tinymce.remove(tinymce.get('interviewBulkEmailEditorBody'));
+                }
+                if (tinymce.get('interviewEmailEditorBody')) {
+                    if (done) done();
+                    return;
+                }
+                tinymce.init({
+                    selector: '#interviewEmailEditorBody',
+                    height: 320,
+                    menubar: false,
+                    plugins: 'link lists autoresize',
+                    toolbar: 'undo redo | styles | bold italic underline | bullist numlist | link removeformat',
+                    branding: false,
+                    license_key: 'gpl',
+                    setup: function (editor) {
+                        editor.on('init', function () {
+                            if (done) done();
+                        });
+                    }
+                });
+            }
+
+            function ensureInterviewBulkTinyMce(done) {
+                if (typeof tinymce === 'undefined') {
+                    if (done) done();
+                    return;
+                }
+                if (tinymce.get('interviewEmailEditorBody')) {
+                    tinymce.remove(tinymce.get('interviewEmailEditorBody'));
+                }
+                if (tinymce.get('interviewBulkEmailEditorBody')) {
+                    if (done) done();
+                    return;
+                }
+                tinymce.init({
+                    selector: '#interviewBulkEmailEditorBody',
+                    height: 320,
+                    menubar: false,
+                    plugins: 'link lists autoresize',
+                    toolbar: 'undo redo | styles | bold italic underline | bullist numlist | link removeformat',
+                    branding: false,
+                    license_key: 'gpl',
+                    setup: function (editor) {
+                        editor.on('init', function () {
+                            if (done) done();
+                        });
+                    }
+                });
+            }
+
+            var interviewEmailWorkflowContext = {
+                applicationId: 0,
+                candidateName: '',
+                positionTitle: '',
+                defaultSubject: '',
+                resumeDraft: ''
+            };
+
+            function openInterviewCandidateEmailChoice(button) {
+                if (!button) return;
+
+                interviewEmailWorkflowContext.applicationId = parseInt(button.getAttribute('data-application-id') || '0', 10) || 0;
+                interviewEmailWorkflowContext.candidateName = button.getAttribute('data-candidate-name') || 'Candidate';
+                interviewEmailWorkflowContext.positionTitle = button.getAttribute('data-position-title') || 'your application';
+                interviewEmailWorkflowContext.defaultSubject = button.getAttribute('data-default-subject') || ('Interview update for ' + interviewEmailWorkflowContext.positionTitle);
+                interviewEmailWorkflowContext.resumeDraft = button.getAttribute('data-resume-draft') || '';
+
+                var candidateLabel = document.getElementById('interviewEmailChoiceCandidateLabel');
+                var positionLabel = document.getElementById('interviewEmailChoicePositionLabel');
+                if (candidateLabel) candidateLabel.textContent = interviewEmailWorkflowContext.candidateName;
+                if (positionLabel) positionLabel.textContent = 'Position: ' + interviewEmailWorkflowContext.positionTitle;
+
+                $('#interviewEmailChoiceModal').modal('show');
+            }
+
+            function resetInterviewEmailEditorCcState() {
+                var pToggle = document.getElementById('interviewEmailEditorCcPanelistsToggle');
+                var pContainer = document.getElementById('interviewEmailEditorCcPanelistsContainer');
+                var hToggle = document.getElementById('interviewEmailEditorCcHrToggle');
+                var hContainer = document.getElementById('interviewEmailEditorCcHrContainer');
+                if (pToggle) pToggle.checked = false;
+                if (hToggle) hToggle.checked = false;
+                if (pContainer) {
+                    pContainer.classList.add('d-none');
+                    Array.prototype.forEach.call(pContainer.querySelectorAll('input[type="checkbox"][name="selectedPanelistIds"]'), function (box) {
+                        box.checked = false;
+                    });
+                }
+                if (hContainer) {
+                    hContainer.classList.add('d-none');
+                    Array.prototype.forEach.call(hContainer.querySelectorAll('input[type="checkbox"][name="selectedHrCcIds"]'), function (box) {
+                        box.checked = false;
+                    });
+                }
+            }
+
+            function openInterviewCandidateTemplateEditor() {
+                if (!interviewEmailWorkflowContext.applicationId) return;
+
+                document.getElementById('interviewEmailEditorTitle').textContent = 'Template Email Editor';
+                document.getElementById('interviewEmailEditorApplicationId').value = interviewEmailWorkflowContext.applicationId;
+                document.getElementById('interviewEmailEditorComposeMode').value = 'template_edit';
+                document.getElementById('interviewEmailEditorCandidateLabel').textContent = interviewEmailWorkflowContext.candidateName;
+                document.getElementById('interviewEmailEditorPositionLabel').textContent = 'Position: ' + interviewEmailWorkflowContext.positionTitle;
+                document.getElementById('interviewEmailTemplateSelectorSection').classList.remove('d-none');
+
+                resetInterviewEmailEditorCcState();
+                $('#interviewEmailEditorModal').data('interviewSingleLoadPreview', true);
+                $('#interviewEmailChoiceModal').modal('hide');
+                $('#interviewEmailEditorModal').modal('show');
+            }
+
+            function openInterviewCandidateScratchEditor() {
+                if (!interviewEmailWorkflowContext.applicationId) return;
+
+                document.getElementById('interviewEmailEditorTitle').textContent = 'Compose Email from Scratch';
+                document.getElementById('interviewEmailEditorApplicationId').value = interviewEmailWorkflowContext.applicationId;
+                document.getElementById('interviewEmailEditorComposeMode').value = 'scratch';
+                document.getElementById('interviewEmailEditorCandidateLabel').textContent = interviewEmailWorkflowContext.candidateName;
+                document.getElementById('interviewEmailEditorPositionLabel').textContent = 'Position: ' + interviewEmailWorkflowContext.positionTitle;
+                document.getElementById('interviewEmailTemplateSelectorSection').classList.add('d-none');
+                document.getElementById('interviewEmailEditorSubject').value = interviewEmailWorkflowContext.defaultSubject;
+
+                var draft = interviewEmailWorkflowContext.resumeDraft || '';
+                setInterviewSingleEditorHtml(draft ? draft.replace(/\n/g, '<br/>') : '');
+
+                resetInterviewEmailEditorCcState();
+                $('#interviewEmailEditorModal').data('interviewSingleLoadPreview', false);
+                $('#interviewEmailChoiceModal').modal('hide');
+                $('#interviewEmailEditorModal').modal('show');
+            }
+
+            function reloadInterviewCandidateTemplatePreview() {
+                if (!interviewEmailWorkflowContext.applicationId) return;
+
+                var subjectInput = document.getElementById('interviewEmailEditorSubject');
+                if (!subjectInput) return;
+
+                setInterviewSingleEditorHtml('<p><em>Loading template...</em></p>');
+
+                var previewUrl = '@Url.Action("GetInterviewCandidateTemplatePreview", "Interviews")'
+                    + '?applicationId=' + encodeURIComponent(interviewEmailWorkflowContext.applicationId)
+                    + '&templateKey=interview_candidate_standard';
+
+                fetch(previewUrl, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        if (!response.ok) throw new Error('Unable to load template preview.');
+                        return response.json();
+                    })
+                    .then(function (result) {
+                        if (!result || result.success !== true) {
+                            throw new Error(result && result.message ? result.message : 'Unable to load template preview.');
+                        }
+                        subjectInput.value = result.subject || interviewEmailWorkflowContext.defaultSubject;
+                        setInterviewSingleEditorHtml(result.bodyHtml || '');
+                    })
+                    .catch(function (error) {
+                        subjectInput.value = interviewEmailWorkflowContext.defaultSubject;
+                        setInterviewSingleEditorHtml('');
+                        alert(error && error.message ? error.message : 'Unable to load template preview.');
+                    });
+            }
+
+            var interviewBulkEmailWorkflowContext = {
+                recipientCount: 0,
+                defaultSubject: 'Interview update'
+            };
+
+            function openInterviewBulkEmailChoice(button) {
+                if (!button) return;
+
+                interviewBulkEmailWorkflowContext.recipientCount = parseInt(button.getAttribute('data-recipient-count') || '0', 10) || 0;
+                interviewBulkEmailWorkflowContext.defaultSubject = button.getAttribute('data-default-subject') || 'Interview update';
+
+                var countLabel = document.getElementById('interviewBulkEmailChoiceCountLabel');
+                if (countLabel) countLabel.textContent = 'Recipients: ' + interviewBulkEmailWorkflowContext.recipientCount + ' candidate(s)';
+
+                $('#interviewBulkEmailChoiceModal').modal('show');
+            }
+
+            function resetInterviewBulkEmailEditorCcState() {
+                var pToggle = document.getElementById('interviewBulkEmailEditorCcPanelistsToggle');
+                var pContainer = document.getElementById('interviewBulkEmailEditorCcPanelistsContainer');
+                var hToggle = document.getElementById('interviewBulkEmailEditorCcHrToggle');
+                var hContainer = document.getElementById('interviewBulkEmailEditorCcHrContainer');
+                if (pToggle) pToggle.checked = false;
+                if (hToggle) hToggle.checked = false;
+                if (pContainer) {
+                    pContainer.classList.add('d-none');
+                    Array.prototype.forEach.call(pContainer.querySelectorAll('input[type="checkbox"][name="selectedPanelistIds"]'), function (box) {
+                        box.checked = false;
+                    });
+                }
+                if (hContainer) {
+                    hContainer.classList.add('d-none');
+                    Array.prototype.forEach.call(hContainer.querySelectorAll('input[type="checkbox"][name="selectedHrCcIds"]'), function (box) {
+                        box.checked = false;
+                    });
+                }
+            }
+
+            function openInterviewBulkTemplateEditor() {
+                document.getElementById('interviewBulkEmailEditorTitle').textContent = 'Template Bulk Email Editor';
+                document.getElementById('interviewBulkEmailEditorComposeMode').value = 'template_edit';
+                document.getElementById('interviewBulkEmailEditorCountLabel').textContent = 'Recipients: ' + interviewBulkEmailWorkflowContext.recipientCount + ' candidate(s)';
+                document.getElementById('interviewBulkTemplateSelectorSection').classList.remove('d-none');
+
+                resetInterviewBulkEmailEditorCcState();
+                $('#interviewBulkEmailChoiceModal').modal('hide');
+                $('#interviewBulkEmailEditorModal').data('interviewBulkLoadPreview', true);
+                $('#interviewBulkEmailEditorModal').modal('show');
+            }
+
+            function openInterviewBulkScratchEditor() {
+                document.getElementById('interviewBulkEmailEditorTitle').textContent = 'Compose Bulk Email from Scratch';
+                document.getElementById('interviewBulkEmailEditorComposeMode').value = 'scratch';
+                document.getElementById('interviewBulkEmailEditorCountLabel').textContent = 'Recipients: ' + interviewBulkEmailWorkflowContext.recipientCount + ' candidate(s)';
+                document.getElementById('interviewBulkTemplateSelectorSection').classList.add('d-none');
+                document.getElementById('interviewBulkEmailEditorSubject').value = interviewBulkEmailWorkflowContext.defaultSubject;
+                setInterviewBulkEditorHtml('');
+
+                resetInterviewBulkEmailEditorCcState();
+                $('#interviewBulkEmailChoiceModal').modal('hide');
+                $('#interviewBulkEmailEditorModal').data('interviewBulkLoadPreview', false);
+                $('#interviewBulkEmailEditorModal').modal('show');
+            }
+
+            function toggleOptionalCcSection(toggleId, containerId, checkboxName) {
+                var toggle = document.getElementById(toggleId);
+                var container = document.getElementById(containerId);
+                if (!toggle || !container) return;
+
+                if (toggle.checked) {
+                    container.classList.remove('d-none');
+                } else {
+                    container.classList.add('d-none');
+                    var selector = 'input[type="checkbox"][name="' + checkboxName + '"]';
+                    Array.prototype.forEach.call(container.querySelectorAll(selector), function (box) {
+                        box.checked = false;
+                    });
+                }
+            }
+
+            function reloadInterviewBulkTemplatePreview() {
+                var subjectInput = document.getElementById('interviewBulkEmailEditorSubject');
+                if (!subjectInput) return;
+
+                setInterviewBulkEditorHtml('<p><em>Loading template...</em></p>');
+
+                var previewUrl = '@Url.Action("GetInterviewCandidatesBulkTemplatePreview", "Interviews")'
+                    + '?templateKey=interview_candidate_standard';
+
+                fetch(previewUrl, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        if (!response.ok) throw new Error('Unable to load template preview.');
+                        return response.json();
+                    })
+                    .then(function (result) {
+                        if (!result || result.success !== true) {
+                            throw new Error(result && result.message ? result.message : 'Unable to load template preview.');
+                        }
+                        subjectInput.value = result.subject || interviewBulkEmailWorkflowContext.defaultSubject;
+                        setInterviewBulkEditorHtml(result.bodyHtml || '');
+                    })
+                    .catch(function (error) {
+                        subjectInput.value = interviewBulkEmailWorkflowContext.defaultSubject;
+                        setInterviewBulkEditorHtml('');
+                        alert(error && error.message ? error.message : 'Unable to load template preview.');
+                    });
+            }
+
+            $(function () {
+                $('#interviewEmailEditorModal').on('shown.bs.modal', function () {
+                    var loadPreview = $('#interviewEmailEditorModal').data('interviewSingleLoadPreview') === true;
+                    ensureInterviewSingleTinyMce(function () {
+                        if (loadPreview) {
+                            $('#interviewEmailEditorModal').data('interviewSingleLoadPreview', false);
+                            reloadInterviewCandidateTemplatePreview();
+                        }
+                    });
+                });
+                $('#interviewEmailEditorModal').on('hidden.bs.modal', function () {
+                    if (typeof tinymce !== 'undefined') {
+                        var ed = tinymce.get('interviewEmailEditorBody');
+                        if (ed) tinymce.remove(ed);
+                    }
+                });
+                $('#interviewEmailEditorForm').on('submit', function () {
+                    var ed = typeof tinymce !== 'undefined' ? tinymce.get('interviewEmailEditorBody') : null;
+                    if (ed) ed.save();
+                    var ta = document.getElementById('interviewEmailEditorBody');
+                    if (ta && ta.value && ta.value.length > 20000) {
+                        alert('Email body is too long (maximum 20000 characters).');
+                        return false;
+                    }
+                });
+
+                $('#interviewBulkEmailEditorModal').on('shown.bs.modal', function () {
+                    var loadPreview = $('#interviewBulkEmailEditorModal').data('interviewBulkLoadPreview') === true;
+                    ensureInterviewBulkTinyMce(function () {
+                        if (loadPreview) {
+                            $('#interviewBulkEmailEditorModal').data('interviewBulkLoadPreview', false);
+                            reloadInterviewBulkTemplatePreview();
+                        }
+                    });
+                });
+                $('#interviewBulkEmailEditorModal').on('hidden.bs.modal', function () {
+                    if (typeof tinymce !== 'undefined') {
+                        var ed = tinymce.get('interviewBulkEmailEditorBody');
+                        if (ed) tinymce.remove(ed);
+                    }
+                });
+                $('#interviewBulkEmailEditorForm').on('submit', function () {
+                    var ed = typeof tinymce !== 'undefined' ? tinymce.get('interviewBulkEmailEditorBody') : null;
+                    if (ed) ed.save();
+                    var ta = document.getElementById('interviewBulkEmailEditorBody');
+                    if (ta && ta.value && ta.value.length > 20000) {
+                        alert('Email body is too long (maximum 20000 characters).');
+                        return false;
+                    }
+                });
+
+                var resumeButton = document.querySelector('.interview-email-trigger[data-resume-auto-open="true"]');
+                if (resumeButton) {
+                    interviewEmailWorkflowContext.applicationId = parseInt(resumeButton.getAttribute('data-application-id') || '0', 10) || 0;
+                    interviewEmailWorkflowContext.candidateName = resumeButton.getAttribute('data-candidate-name') || 'Candidate';
+                    interviewEmailWorkflowContext.positionTitle = resumeButton.getAttribute('data-position-title') || 'your application';
+                    interviewEmailWorkflowContext.defaultSubject = resumeButton.getAttribute('data-default-subject') || 'Interview update';
+                    interviewEmailWorkflowContext.resumeDraft = resumeButton.getAttribute('data-resume-draft') || '';
+                    openInterviewCandidateScratchEditor();
+                }
+            });
+        </script>
+    }
 }

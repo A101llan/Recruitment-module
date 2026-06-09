@@ -1,4 +1,5 @@
 using System.Web.Mvc;
+using HR.Web.Models;
 using HR.Web.ViewModels;
 
 namespace HR.Web.Controllers
@@ -134,8 +135,29 @@ namespace HR.Web.Controllers
 
         private ActionResult RedirectToCoverLetter(int positionId)
         {
-            TempData["ErrorMessage"] = "Please write a cover letter before continuing.";
+            TempData["ErrorMessage"] = "Please write a cover letter for this position before continuing.";
             return RedirectToAction("CoverLetter", new { positionId = positionId });
+        }
+
+        private void ClearPendingCoverLetter()
+        {
+            Session.Remove(CoverLetterSession);
+            Session.Remove(CoverLetterPositionSession);
+        }
+
+        private ActionResult RequireCoverLetterForNewApplication(Applicant applicant, int positionId)
+        {
+            if (applicant == null)
+            {
+                return RedirectToAction("Index", "Positions");
+            }
+
+            if (HasExistingApplication(applicant.Id, positionId))
+            {
+                return null;
+            }
+
+            return HasPendingCoverLetter(positionId) ? null : RedirectToCoverLetter(positionId);
         }
     }
 }

@@ -25,21 +25,8 @@ namespace HR.Web
             ViewEngines.Engines.Clear();
             ViewEngines.Engines.Add(new RazorViewEngine());
 
-            // Disable automatic database changes to prevent schema conflicts
+            // Disable automatic database changes — schema is applied via SQL scripts only.
             Database.SetInitializer<HrContext>(null);
-
-            // Ensure optional columns exist when migrations were not applied manually (EF still maps them).
-            try
-            {
-                using (var db = new HrContext())
-                {
-                    DatabaseSchemaEnsure.ApplyOptionalColumns(db);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[MvcApplication] DatabaseSchemaEnsure: " + ex.Message);
-            }
 
             // Purge stale security records on startup (background — non-blocking)
             System.Threading.ThreadPool.QueueUserWorkItem(_ => PurgeStaleSecurityRecords());
@@ -168,20 +155,35 @@ namespace HR.Web
 
         private bool ValidateSessionAccessToken(string userName, string companyIdStr, string accessToken)
         {
-            using (var db = new HrContext())
+            if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(accessToken))
             {
-                var query = db.Users.AsQueryable();
-                if (!string.IsNullOrEmpty(companyIdStr) && int.TryParse(companyIdStr, out int cid))
-                {
-                    query = query.Where(u => u.UserName == userName && u.CompanyId == cid);
-                }
-                else
-                {
-                    query = query.Where(u => u.UserName == userName && u.CompanyId == null);
-                }
+                return false;
+            }
 
-                var user = query.FirstOrDefault();
-                return user != null && user.AccessToken == accessToken;
+            try
+            {
+                using (var db = new HrContext())
+                {
+                    var query = db.Users.AsQueryable();
+                    if (!string.IsNullOrEmpty(companyIdStr) && int.TryParse(companyIdStr, out int cid))
+                    {
+                        query = query.Where(u => u.UserName == userName && u.CompanyId == cid);
+                    }
+                    else
+                    {
+                        query = query.Where(u => u.UserName == userName && u.CompanyId == null);
+                    }
+
+                    var user = query.FirstOrDefault();
+                    return user != null &&
+                        !string.IsNullOrEmpty(user.AccessToken) &&
+                        string.Equals(user.AccessToken, accessToken, StringComparison.Ordinal);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[ValidateSessionAccessToken] " + ex.Message);
+                return false;
             }
         }
 
@@ -218,9 +220,14 @@ namespace HR.Web
 
             FormsAuthentication.SignOut();
             var loginUrl = FormsAuthentication.LoginUrl;
-            if (string.IsNullOrEmpty(loginUrl)) loginUrl = "~/Account/Login";
-            Response.Redirect(string.Format("{0}?reason={1}", loginUrl, reason));
-            Response.End();
+            if (string.IsNullOrEmpty(loginUrl))
+            {
+                loginUrl = "~/Account/Login";
+            }
+
+            var separator = loginUrl.Contains("?") ? "&" : "?";
+            Response.Redirect(string.Format("{0}{1}reason={2}", loginUrl, separator, reason), false);
+            HttpContext.Current.ApplicationInstance.CompleteRequest();
         }
 
         private void SetupPrincipal(string username, string rolesString)

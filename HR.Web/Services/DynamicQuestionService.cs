@@ -833,7 +833,7 @@ namespace HR.Web.Services
             var max = uint.MaxValue - (uint.MaxValue % bound);
             uint value;
 
-            using (var rng = RandomNumberGenerator.Create())
+            using (var rng = new RNGCryptoServiceProvider())
             {
                 do
                 {

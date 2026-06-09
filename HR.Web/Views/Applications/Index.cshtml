@@ -11,6 +11,8 @@
     var interviewers = ViewBag.Interviewers as List<HR.Web.Models.User>;
     var interviewedAppIds = ViewBag.InterviewedAppIds as List<int> ?? new List<int>();
     var canManageApplications = ViewBag.CanManageApplications != null ? (bool)ViewBag.CanManageApplications : false;
+    var canViewApplicationScores = ViewBag.CanViewApplicationScores != null && (bool)ViewBag.CanViewApplicationScores;
+    var isManagementApplicationsView = ViewBag.IsManagementApplicationsView != null && (bool)ViewBag.IsManagementApplicationsView;
     var canInviteQuestionnaireSecondaryStage = ViewBag.CanInviteQuestionnaireSecondaryStage != null && (bool)ViewBag.CanInviteQuestionnaireSecondaryStage;
     var returnTo = Request != null ? Request.QueryString["returnTo"] : null;
     var shouldReturnToInterviewsAfterBooking = string.Equals(returnTo, "interviews", StringComparison.OrdinalIgnoreCase);
@@ -35,7 +37,8 @@
 
     var panelistsForCc = ViewBag.EmailCcPanelists as List<HR.Web.Models.User> ?? new List<HR.Web.Models.User>();
     var hrContactsForCc = ViewBag.EmailCcHrContacts as List<HR.Web.Models.CompanyHrCcEmail> ?? new List<HR.Web.Models.CompanyHrCcEmail>();
-    var manageHrCcUrl = Uri.TryCreate(Url.Action("HrCcEmails", "Admin"), UriKind.RelativeOrAbsolute, out var parsedManageHrCcUrl)
+    Uri parsedManageHrCcUrl;
+    var manageHrCcUrl = Uri.TryCreate(Url.Action("HrCcEmails", "Admin"), UriKind.RelativeOrAbsolute, out parsedManageHrCcUrl)
         ? parsedManageHrCcUrl
         : null;
     var failedCandidateEmailApplicationIds = ViewBag.FailedCandidateEmailApplicationIds as HashSet<int>
@@ -458,6 +461,10 @@
             {
                 @:Review scored candidates by role, adjust passmarks, and move top talent toward interviews.
             }
+            else if (isManagementApplicationsView)
+            {
+                @:Review incoming applications and candidate status. Scoring and rankings are available to administrators only.
+            }
             else
             {
                 @:Track every application you have submitted across open positions.
@@ -538,10 +545,14 @@ else
         passMarkRounded = Math.Max(0, Math.Min(100, passMarkRounded));
         const int compactRecordLimit = 5;
 
-        var positionApplications = positionGroup
-            .OrderByDescending(a => a.Score ?? 0)
-            .ThenBy(a => a.AppliedOn)
-            .ToList();
+        var positionApplications = canViewApplicationScores
+            ? positionGroup
+                .OrderByDescending(a => a.Score ?? 0)
+                .ThenBy(a => a.AppliedOn)
+                .ToList()
+            : positionGroup
+                .OrderByDescending(a => a.AppliedOn)
+                .ToList();
         var passedApplications = positionApplications
             .Where(a => (a.Score ?? 0m) >= passMark)
             .ToList();
@@ -671,7 +682,7 @@ else
                                     foreach (var item in passedApplications)
                                     {
                                         var hasInterview = interviewedAppIds.Contains(item.Id);
-                                        var score = item.Score ?? 0m;
+                                        var score = canViewApplicationScores ? (item.Score ?? 0m) : 0m;
                                         var applicantName = item.Applicant != null ? item.Applicant.FullName : "N/A";
                                         var cardClass = passedCardIndex >= compactRecordLimit
                                             ? "application-card mb-3 compact-extra d-none"
@@ -687,7 +698,7 @@ else
                                                     <div class="d-flex justify-content-between mb-2">
                                                         <div>
                                                             <div class="d-flex align-items-center">
-                                                                @if (item.Score.HasValue)
+                                                                @if (canViewApplicationScores && item.Score.HasValue)
                                                                 {
                                                                     <span class="rank-pill mr-2">#@rank</span>
                                                                 }
@@ -700,7 +711,7 @@ else
                                                             </small>
                                                         </div>
                                                         <div class="text-right">
-                                                            @if (item.Score.HasValue)
+                                                            @if (canViewApplicationScores && item.Score.HasValue)
                                                             {
                                                                 <div class="mt-1">
                                                                     <span class="score-pill">
@@ -867,7 +878,7 @@ else
                                     foreach (var item in failedApplications)
                                     {
                                         var hasInterview = interviewedAppIds.Contains(item.Id);
-                                        var score = item.Score ?? 0m;
+                                        var score = canViewApplicationScores ? (item.Score ?? 0m) : 0m;
                                         var applicantName = item.Applicant != null ? item.Applicant.FullName : "N/A";
                                         var cardClass = failedCardIndex >= compactRecordLimit
                                             ? "application-card mb-3 compact-extra d-none"
@@ -883,7 +894,7 @@ else
                                                     <div class="d-flex justify-content-between mb-2">
                                                         <div>
                                                             <div class="d-flex align-items-center">
-                                                                @if (item.Score.HasValue)
+                                                                @if (canViewApplicationScores && item.Score.HasValue)
                                                                 {
                                                                     <span class="rank-pill mr-2" style="background:#5a6b7d;">#@rank</span>
                                                                 }
@@ -900,7 +911,7 @@ else
                                                             </small>
                                                         </div>
                                                         <div class="text-right">
-                                                            @if (item.Score.HasValue)
+                                                            @if (canViewApplicationScores && item.Score.HasValue)
                                                             {
                                                                 <div class="mt-1">
                                                                     <span class="score-pill">
@@ -1054,7 +1065,7 @@ else
                     }
                     @foreach (var item in positionApplications)
                     {
-                        var score = item.Score ?? 0m;
+                        var score = canViewApplicationScores ? (item.Score ?? 0m) : 0m;
                         var applicantName = item.Applicant != null ? item.Applicant.FullName : "N/A";
                         var cardClass = publicCardIndex >= compactRecordLimit
                             ? "application-card col-12 col-lg-6 mb-3 compact-extra d-none"
@@ -1079,7 +1090,7 @@ else
                                             <span class="position-chip">@item.Status</span>
                                         }
                                     </div>
-                                    @if (item.Score.HasValue)
+                                    @if (canViewApplicationScores && item.Score.HasValue)
                                     {
                                         <div class="mt-auto">
                                             <span class="score-pill">Score @item.Score.Value.ToString("F1")</span>

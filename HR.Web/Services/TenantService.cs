@@ -447,7 +447,7 @@ namespace HR.Web.Services
         private static string GenerateRandomAccessTokenSlug()
         {
             var bytes = new byte[9];
-            using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+            using (var rng = new System.Security.Cryptography.RNGCryptoServiceProvider())
             {
                 rng.GetBytes(bytes);
             }

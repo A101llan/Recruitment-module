@@ -10,11 +10,15 @@ function Get-PBKDF2Hash($password) {
     return "$iterations.$saltBase64.$keyBase64"
 }
 
-$pw1 = "Admin@123"
-$pw2 = ";;XobH9tFh{sYm}g"
+$pw1 = Read-Host "Enter password #1"
+$pw2 = Read-Host "Enter password #2 (optional; press Enter to skip)"
 
-$hash1 = Get-PBKDF2Hash $pw1
-$hash2 = Get-PBKDF2Hash $pw2
+if (-not [string]::IsNullOrWhiteSpace($pw1)) {
+    $hash1 = Get-PBKDF2Hash $pw1
+    Write-Host "Password #1 hash: $hash1"
+}
 
-Write-Host "Admin@123 Hash: $hash1"
-Write-Host ";;XobH9tFh{sYm}g Hash: $hash2"
+if (-not [string]::IsNullOrWhiteSpace($pw2)) {
+    $hash2 = Get-PBKDF2Hash $pw2
+    Write-Host "Password #2 hash: $hash2"
+}

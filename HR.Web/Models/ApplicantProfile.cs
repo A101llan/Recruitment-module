@@ -8,7 +8,6 @@ namespace HR.Web.Models
     {
         public int Id { get; set; }
 
-        [Index("IX_ApplicantProfile_Applicant", IsUnique = true)]
         public int ApplicantId { get; set; }
         public virtual Applicant Applicant { get; set; }
 

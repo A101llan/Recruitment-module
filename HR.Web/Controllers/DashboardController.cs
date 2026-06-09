@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Web.Mvc;
 using HR.Web.Data;
+using HR.Web.Helpers;
 using HR.Web.Models;
 using HR.Web.Services;
 
@@ -70,29 +71,72 @@ namespace HR.Web.Controllers
                 return Json(new { isLocked = false }, JsonRequestBehavior.AllowGet);
             }
 
-            ExpireStaleImpersonationRequests(user.CompanyId.Value);
+            ImpersonationSessionHelper.ExpireStaleImpersonationRequestsForCompany(user.CompanyId.Value, _uow);
             var activeImpersonation = GetActiveImpersonationRequest(user.CompanyId.Value);
-            return BuildImpersonationStatusResponse(activeImpersonation);
+            var company = _uow.Companies.Get(user.CompanyId.Value);
+            return BuildImpersonationStatusResponse(activeImpersonation, company);
         }
 
         public JsonResult GetMyImpersonationStatus()
         {
-            if (!User.Identity.IsAuthenticated) return Json(new { secondsLeft = 0 }, JsonRequestBehavior.AllowGet);
-            
-            var requestId = Session["ImpersonatedRequestId"] as int?;
-            if (!requestId.HasValue) return Json(new { secondsLeft = 0 }, JsonRequestBehavior.AllowGet);
-            
-            var request = _uow.ImpersonationRequests.Get(requestId.Value);
-            if (request == null || (request.Status != ImpersonationRequestStatus.Active && request.Status != ImpersonationRequestStatus.Approved)) 
+            if (!User.Identity.IsAuthenticated)
+            {
                 return Json(new { secondsLeft = 0 }, JsonRequestBehavior.AllowGet);
-                
+            }
+
+            if (!ImpersonationSessionHelper.IsSessionImpersonating(Session))
+            {
+                return Json(new { secondsLeft = 0 }, JsonRequestBehavior.AllowGet);
+            }
+
+            var companyId = Session["ImpersonatedCompanyId"] as int?;
+            var request = ImpersonationSessionHelper.GetSessionRequest(Session, _uow);
+            if (!ImpersonationSessionHelper.IsRequestActive(request))
+            {
+                if (request != null)
+                {
+                    ImpersonationSessionHelper.ExpireRequest(request, _uow);
+                    _uow.Complete();
+                }
+
+                ImpersonationSessionHelper.ClearSession(Session);
+                return Json(
+                    new
+                    {
+                        secondsLeft = 0,
+                        redirectUrl = ImpersonationSessionHelper.BuildSuperAdminPostExpiryUrl(Url, companyId)
+                    },
+                    JsonRequestBehavior.AllowGet);
+            }
+
             var secondsLeft = 0;
             if (request.ExpiryDate.HasValue)
             {
                 secondsLeft = (int)(request.ExpiryDate.Value - DateTime.Now).TotalSeconds;
             }
-            
-            return Json(new { secondsLeft = Math.Max(0, secondsLeft) }, JsonRequestBehavior.AllowGet);
+
+            secondsLeft = Math.Max(0, secondsLeft);
+            if (secondsLeft == 0)
+            {
+                ImpersonationSessionHelper.ExpireRequest(request, _uow);
+                _uow.Complete();
+                ImpersonationSessionHelper.ClearSession(Session);
+                return Json(
+                    new
+                    {
+                        secondsLeft = 0,
+                        redirectUrl = ImpersonationSessionHelper.BuildSuperAdminPostExpiryUrl(Url, companyId)
+                    },
+                    JsonRequestBehavior.AllowGet);
+            }
+
+            return Json(
+                new
+                {
+                    secondsLeft = secondsLeft,
+                    redirectUrl = ImpersonationSessionHelper.BuildSuperAdminPostExpiryUrl(Url, companyId)
+                },
+                JsonRequestBehavior.AllowGet);
         }
 
         [Authorize(Roles = "SuperAdmin")]
@@ -160,29 +204,6 @@ namespace HR.Web.Controllers
             return _uow.Users.GetAll().FirstOrDefault(u => u.UserName.ToLower() == lowerUsername);
         }
 
-        private void ExpireStaleImpersonationRequests(int companyId)
-        {
-            var now = DateTime.Now;
-            var staleRequests = _uow.ImpersonationRequests.GetAll()
-                .Where(r => r.CompanyId == companyId &&
-                    (r.Status == ImpersonationRequestStatus.Active || r.Status == ImpersonationRequestStatus.Approved) &&
-                    r.ExpiryDate.HasValue &&
-                    r.ExpiryDate < now)
-                .ToList();
-
-            if (!staleRequests.Any())
-            {
-                return;
-            }
-
-            foreach (var staleRequest in staleRequests)
-            {
-                staleRequest.Status = ImpersonationRequestStatus.Expired;
-            }
-
-            _uow.Complete();
-        }
-
         private ImpersonationRequest GetActiveImpersonationRequest(int companyId)
         {
             return _uow.ImpersonationRequests.GetAll()
@@ -191,11 +212,13 @@ namespace HR.Web.Controllers
                 .FirstOrDefault();
         }
 
-        private JsonResult BuildImpersonationStatusResponse(ImpersonationRequest activeImpersonation)
+        private JsonResult BuildImpersonationStatusResponse(ImpersonationRequest activeImpersonation, Company company)
         {
+            var unlockUrl = ImpersonationSessionHelper.BuildTenantAdminPostUnlockUrl(Url, company);
+
             if (activeImpersonation == null)
             {
-                return Json(new { isLocked = false }, JsonRequestBehavior.AllowGet);
+                return Json(new { isLocked = false, unlockUrl = unlockUrl }, JsonRequestBehavior.AllowGet);
             }
 
             var secondsLeft = activeImpersonation.ExpiryDate.HasValue
@@ -207,7 +230,8 @@ namespace HR.Web.Controllers
                 {
                     isLocked = true,
                     expiry = activeImpersonation.ExpiryDate.HasValue ? activeImpersonation.ExpiryDate.Value.ToString("yyyy-MM-ddTHH:mm:ss") : null,
-                    secondsLeft = Math.Max(0, secondsLeft)
+                    secondsLeft = Math.Max(0, secondsLeft),
+                    unlockUrl = unlockUrl
                 },
                 JsonRequestBehavior.AllowGet);
         }

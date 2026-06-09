@@ -32,6 +32,11 @@ namespace HR.Web.Helpers
 #if DEBUG
             return true;
 #else
+            if (AppConfig.IsDevelopment)
+            {
+                return true;
+            }
+
             try
             {
                 return HttpContext.Current != null && HttpContext.Current.IsDebuggingEnabled;

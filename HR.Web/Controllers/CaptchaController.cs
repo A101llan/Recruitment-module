@@ -65,7 +65,7 @@ namespace HR.Web.Controllers
                 var isValid = _captchaService.ValidateCaptcha(captchaId, userInput);
                 if (isValid && string.Equals(state.CaptchaText, userInput, StringComparison.OrdinalIgnoreCase))
                 {
-                    ClearCaptchaSession();
+                    // Keep session values so the subsequent login POST can validate the same CAPTCHA.
                     return Json(new { success = true });
                 }
 

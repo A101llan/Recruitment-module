@@ -18,7 +18,6 @@ namespace HR.Web.Controllers
     public partial class ApplicationsController : Controller
 {
     private readonly UnitOfWork _uow = new UnitOfWork();
-    private readonly IStorageService _storage = new StorageService();
     private readonly IEmailService _email = new EmailService();
     private readonly IEmailTemplateService _emailTemplateService = new EmailTemplateService();
     private readonly ICandidateEvaluationService _evaluationService = new CandidateEvaluationService();
@@ -115,10 +114,19 @@ namespace HR.Web.Controllers
             return applicantResult;
         }
 
-        var workflowResult = TryValidateQuestionnaireWorkflow(positionId, applicant, out var position, out var activeQuestionnaireStage, out _);
+        var workflowResult = TryValidateQuestionnaireWorkflow(positionId, applicant, out var position, out var activeQuestionnaireStage, out var existingApplication);
         if (workflowResult != null)
         {
             return workflowResult;
+        }
+
+        if (existingApplication == null)
+        {
+            var coverLetterResult = RequireCoverLetterForNewApplication(applicant, positionId);
+            if (coverLetterResult != null)
+            {
+                return coverLetterResult;
+            }
         }
 
         var profileResult = RequireCompleteApplicantProfile(applicant, position);
@@ -126,8 +134,6 @@ namespace HR.Web.Controllers
         {
             return profileResult;
         }
-
-        LogPositionQuestions(position);
 
         ViewBag.Position = position;
         PopulateApplicantViewBag(position.CompanyId);
@@ -142,7 +148,7 @@ namespace HR.Web.Controllers
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public ActionResult Questionnaire(int positionId, FormCollection form, HttpPostedFileBase resume, bool acceptLegalTerms = false)
+    public ActionResult Questionnaire(int positionId, FormCollection form)
     {
         if (positionId <= 0)
         {
@@ -174,26 +180,11 @@ namespace HR.Web.Controllers
             return workflowResult;
         }
 
-        if (!acceptLegalTerms)
-        {
-            TempData["ErrorMessage"] = "You must agree to the candidate Terms & Conditions and Privacy Policy to continue.";
-            return RedirectToAction("Questionnaire", new { positionId = positionId });
-        }
-
         var positionQuestions = GetPositionQuestions(positionId, true, activeQuestionnaireStage);
         var review = BuildQuestionnaireReviewModel(positionWithQuestions, positionQuestions, submittedForm);
 
-        string resumePath;
-        string resumeError;
-        if (!TrySaveResumeForQuestionnaire(resume, out resumePath, out resumeError))
-        {
-            TempData["ErrorMessage"] = resumeError;
-            return RedirectToAction("Questionnaire", new { positionId = positionId });
-        }
-
         review.AcceptLegalTerms = true;
-        StoreQuestionnaireSession(positionId, review.QuestionAnswers, resumePath, activeQuestionnaireStage, true);
-        review.ResumePath = resumePath;
+        StoreQuestionnaireSession(positionId, review.QuestionAnswers, activeQuestionnaireStage, true);
 
         return View("QuestionnaireReview", review);
     }
@@ -201,7 +192,7 @@ namespace HR.Web.Controllers
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public ActionResult FinishQuestionnaire(ApplicationReviewViewModel model, FormCollection form, bool acceptLegalTerms = false)
+    public ActionResult FinishQuestionnaire(ApplicationReviewViewModel model, FormCollection form)
     {
         if (model == null || model.PositionId <= 0)
         {
@@ -229,12 +220,6 @@ namespace HR.Web.Controllers
         if (applicantResult != null)
         {
             return applicantResult;
-        }
-
-        if (!acceptLegalTerms)
-        {
-            TempData["ErrorMessage"] = "You must agree to the candidate Terms & Conditions and Privacy Policy to finish your application.";
-            return RedirectToAction("Questionnaire", new { positionId = reviewModel.PositionId });
         }
 
         LegalPolicyHelper.ApplyApplicantAcceptance(applicant, DateTime.UtcNow);
@@ -301,11 +286,15 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index", "Positions");
         }
 
+        var coverLetterResult = RequireCoverLetterForNewApplication(applicant, positionId);
+        if (coverLetterResult != null)
+        {
+            return coverLetterResult;
+        }
+
         var profile = GetApplicantProfile(applicant.Id);
         var model = BuildApplicantProfileViewModel(position, applicant, profile);
 
-        ApplyPendingLinkedInImport(model);
-        PopulateLinkedInImportViewBag();
         return View("ProfileDetails", model);
     }
 
@@ -333,15 +322,22 @@ namespace HR.Web.Controllers
             return RedirectToAction("Index", "Positions");
         }
 
+        var coverLetterResult = RequireCoverLetterForNewApplication(applicant, profileModel.PositionId);
+        if (coverLetterResult != null)
+        {
+            return coverLetterResult;
+        }
+
         profileModel.PositionTitle = position.Title;
         profileModel.IsTechnical = position.IsTechnical == true;
         profileModel.ApplicantId = applicant.Id;
         NormalizeSelectableProfileFields(profileModel);
+        NormalizeOptionalEmploymentHistoryFields(profileModel);
+        NormalizePortfolioUrlField(profileModel);
         ValidateTechnicalProfileFields(profileModel);
 
         if (!ModelState.IsValid)
         {
-            PopulateLinkedInImportViewBag();
             return View("ProfileDetails", profileModel);
         }
 
@@ -359,10 +355,9 @@ namespace HR.Web.Controllers
         ApplyApplicantProfileViewModel(applicant, profile, profileModel);
 
         _uow.Complete();
-        ClearPendingLinkedInImport();
 
         TempData["SuccessMessage"] = "Profile details saved. Continue to the questionnaire.";
-        return RedirectToAction("Questionnaire", new { positionId = position.Id });
+        return RedirectToAction("Questionnaire", GetApplicationFlowRouteValues(position.Id));
     }
 
         public ActionResult Index()
@@ -370,6 +365,8 @@ namespace HR.Web.Controllers
             var rolePermissionService = new RolePermissionService();
             ViewBag.CanManageApplications = false;
             ViewBag.CanInviteQuestionnaireSecondaryStage = false;
+            ViewBag.CanViewApplicationScores = false;
+            ViewBag.IsManagementApplicationsView = false;
 
             if (!IsCurrentUserAuthenticated())
             {
@@ -386,6 +383,8 @@ namespace HR.Web.Controllers
             if (IsManagementUser(user))
             {
                 PopulateFailedCandidateEmailApplicationIdsForIndexView();
+                ViewBag.IsManagementApplicationsView = true;
+                ViewBag.CanViewApplicationScores = CanViewApplicationScores(user);
                 ViewBag.CanManageApplications = rolePermissionService.CanCurrentUserAccessModule(RoleModuleCatalog.Applications, RoleAccessLevels.Manage);
                 ViewBag.CanInviteQuestionnaireSecondaryStage = rolePermissionService.IsFullCompanyAdmin(user) ||
                     _tenantService.IsActualSuperAdmin();
@@ -464,7 +463,7 @@ namespace HR.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Create(Application model, HttpPostedFileBase resume)
+        public ActionResult Create(Application model)
         {
             if (model == null)
             {
@@ -473,10 +472,6 @@ namespace HR.Web.Controllers
             }
 
             var applicationModel = model;
-            if (resume != null)
-            {
-                applicationModel.ResumePath = _storage.SaveResume(resume);
-            }
 
             var ownershipError = ValidateApplicationOwnership(applicationModel);
             if (!string.IsNullOrWhiteSpace(ownershipError))
@@ -524,7 +519,7 @@ namespace HR.Web.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin, SuperAdmin")]
         [RoleBasedAuthorization("Admin")]
-        public ActionResult Edit(Application model, HttpPostedFileBase resume)
+        public ActionResult Edit(Application model)
         {
             if (model == null)
             {
@@ -532,10 +527,6 @@ namespace HR.Web.Controllers
             }
 
             var applicationModel = model;
-            if (resume != null)
-            {
-                applicationModel.ResumePath = _storage.SaveResume(resume);
-            }
 
             var accessResult = TryGetManagedApplication(applicationModel.Id, out var existingApp);
             if (accessResult != null)

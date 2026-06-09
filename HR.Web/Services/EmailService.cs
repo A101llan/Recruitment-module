@@ -36,7 +36,7 @@ namespace HR.Web.Services
         {
             if (settingsService == null)
             {
-                throw new ArgumentNullException(nameof(settingsService));
+                throw new ArgumentNullException("settingsService");
             }
 
             _settingsService = settingsService;
@@ -88,6 +88,7 @@ namespace HR.Web.Services
             {
                 client.EnableSsl = _enableSsl;
                 client.UseDefaultCredentials = false;
+                client.Timeout = 10000;
 
                 if (!string.IsNullOrEmpty(_smtpUser) || !string.IsNullOrEmpty(_smtpPass))
                 {
@@ -111,7 +112,7 @@ namespace HR.Web.Services
                     }
                 }
 
-                await client.SendMailAsync(mailMessage);
+                await Task.Factory.StartNew(() => client.Send(mailMessage));
             }
         }
 

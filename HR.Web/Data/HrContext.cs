@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using HR.Web.Models;
-using Oracle.ManagedDataAccess.EntityFramework;
 
 namespace HR.Web.Data
 {

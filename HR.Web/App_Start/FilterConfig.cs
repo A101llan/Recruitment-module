@@ -21,6 +21,9 @@ namespace HR.Web
             // Global tenant context resolution
             filters.Add(new HR.Web.Helpers.TenantFilterAttribute());
 
+            // End expired SuperAdmin impersonation and redirect to global portal
+            filters.Add(new HR.Web.Filters.ImpersonationExpiryFilterAttribute());
+
             // Prevent browser caching for back-button security
             filters.Add(new HR.Web.Filters.NoCacheAttribute());
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using HR.Web.Helpers;
 using HR.Web.Models;
 
 namespace HR.Web.Controllers
@@ -12,7 +13,7 @@ namespace HR.Web.Controllers
             var lines = new List<string>
             {
                 "=================================================",
-                "   HR SYSTEM - SECURE ADMIN CREDENTIALS",
+                "   " + AppConfig.CredentialsFileBrandName.ToUpperInvariant() + " - SECURE ADMIN CREDENTIALS",
                 "=================================================",
                 string.Empty,
                 "Company Name:   " + data.CompanyName,

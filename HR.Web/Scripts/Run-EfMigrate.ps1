@@ -1,30 +1,8 @@
-# Optional: applies pending EF6 code-based migrations via DbMigrator (uses __MigrationHistory).
-# If EF is disabled, use scripts\Apply-MigrationsSql.ps1 instead (see ENTITY_FRAMEWORK_MIGRATIONS.txt).
-$ErrorActionPreference = 'Stop'
-# PSScriptRoot = ...\HR.Web\scripts
-$root = Split-Path $PSScriptRoot -Parent
-$bin = Join-Path $root 'bin'
-$webConfig = Join-Path $root 'Web.config'
-if (-not (Test-Path $webConfig)) {
-    throw "Web.config not found at $webConfig"
-}
-[System.AppDomain]::CurrentDomain.SetData('APP_CONFIG_FILE', $webConfig)
-Add-Type -Path (Join-Path $bin 'EntityFramework.dll')
-$hr = [Reflection.Assembly]::LoadFrom((Join-Path $bin 'HR.Web.dll'))
-$cfgType = $hr.GetType('HR.Web.Migrations.Configuration')
-if ($null -eq $cfgType) {
-    throw 'HR.Web.Migrations.Configuration not found. Build HR.Web first.'
-}
-$config = [Activator]::CreateInstance($cfgType)
-$migratorType = [System.Data.Entity.Migrations.DbMigrator]
-$migrator = [Activator]::CreateInstance($migratorType, @($config))
-try {
-    $migrator.Update()
-    Write-Host 'Entity Framework migrations applied successfully.'
-}
-catch {
-    Write-Host $_.Exception.Message
-    Write-Host ''
-    Write-Host 'See scripts/ENTITY_FRAMEWORK_MIGRATIONS.txt for the Visual Studio fix (Add-Migration ... -IgnoreChanges).'
-    exit 1
-}
+# DEPRECATED — EF code migrations are no longer used for deployment.
+# Use SQL-only schema workflow instead:
+#   1. Infrastructure\Database\HR_CREATE_DATABASE_COMPLETE.sql (or Invoke-HostDatabaseScript.ps1)
+#   2. HR.Web\Scripts\Apply-MigrationsSql.ps1
+#   3. HR.Web\Migrations\Verify-ModelColumns.sql
+# See Docs\IIS_DEPLOYMENT_GUIDE.md
+Write-Host "Run-EfMigrate.ps1 is deprecated. Use Apply-MigrationsSql.ps1 and HR_CREATE_DATABASE_COMPLETE.sql instead." -ForegroundColor Yellow
+exit 1

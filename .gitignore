@@ -32,10 +32,15 @@ Web.config
 .cursor/
 .vscode/
 .history/
+.agents/
+skills-lock.json
+hr_files.txt
+recruitment_files.txt
+HR.Web/disk_files.txt
 
 # Generated artifacts
 .codacy/codacy-report*.sarif
-HR.Web/App_Data/Resumes/
+.codacy/tmp-*.sarif
 HR.Web/Reports/
 backups/
 

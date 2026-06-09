@@ -9,7 +9,8 @@ namespace HR.Web.Helpers
     {
         private const int SaltSize = 16; // 128 bit 
         private const int KeySize = 32; // 256 bit
-        private const int Iterations = 100000; // Increased from 10,000 to 100,000 for better security
+        private const int Iterations = 1000; // .NET 4.0 default-compatible iteration count for new hashes
+        private const int LegacyIterations = 100000; // Existing production hashes
         private const int MinPasswordLength = 8; // Reduced from 12 to 8 for better usability
         private const int MaxPasswordLength = 128; // Maximum reasonable length
 
@@ -21,16 +22,17 @@ namespace HR.Web.Helpers
             if (!IsPasswordStrong(password))
                 throw new ArgumentException("Password does not meet security requirements", "password");
 
-            using (var algorithm = new Rfc2898DeriveBytes(
-                password,
-                SaltSize,
-                Iterations))
+            var saltBytes = new byte[SaltSize];
+            using (var rng = new RNGCryptoServiceProvider())
             {
-                var key = Convert.ToBase64String(algorithm.GetBytes(KeySize));
-                var salt = Convert.ToBase64String(algorithm.Salt);
-
-                return string.Format("{0}.{1}.{2}", Iterations, salt, key);
+                rng.GetBytes(saltBytes);
             }
+
+            var keyBytes = Pbkdf2Helper.DeriveKey(password, saltBytes, Iterations, KeySize);
+            var key = Convert.ToBase64String(keyBytes);
+            var salt = Convert.ToBase64String(saltBytes);
+
+            return string.Format("{0}.{1}.{2}", Iterations, salt, key);
         }
 
         public static bool VerifyPassword(string hash, string password)
@@ -52,21 +54,8 @@ namespace HR.Web.Helpers
                 var salt = Convert.FromBase64String(parts[1]);
                 var key = Convert.FromBase64String(parts[2]);
 
-                using (var algorithm = new Rfc2898DeriveBytes(
-                    password,
-                    salt,
-                    iterations))
-                {
-                    var keyToCheck = algorithm.GetBytes(KeySize);
-                    var verified = keyToCheck.Length == key.Length;
-
-                    for (int i = 0; i < keyToCheck.Length && i < key.Length; i++)
-                    {
-                        verified &= keyToCheck[i] == key[i];
-                    }
-
-                    return verified;
-                }
+                var keyToCheck = Pbkdf2Helper.DeriveKey(password, salt, iterations, KeySize);
+                return SlowEquals(keyToCheck, key);
             }
             catch
             {
@@ -88,26 +77,29 @@ namespace HR.Web.Helpers
                 var salt = Convert.FromBase64String(parts[1]);
                 var key = Convert.FromBase64String(parts[2]);
 
-                using (var algorithm = new Rfc2898DeriveBytes(
-                    password,
-                    salt,
-                    iterations)) // Old format without explicit hash algorithm
-                {
-                    var keyToCheck = algorithm.GetBytes(KeySize);
-                    var verified = keyToCheck.Length == key.Length;
-
-                    for (int i = 0; i < keyToCheck.Length && i < key.Length; i++)
-                    {
-                        verified &= keyToCheck[i] == key[i];
-                    }
-
-                    return verified;
-                }
+                var keyToCheck = Pbkdf2Helper.DeriveKey(password, salt, iterations, KeySize);
+                return SlowEquals(keyToCheck, key);
             }
             catch
             {
                 return false;
             }
+        }
+
+        private static bool SlowEquals(byte[] a, byte[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length)
+            {
+                return false;
+            }
+
+            var diff = 0;
+            for (var i = 0; i < a.Length; i++)
+            {
+                diff |= a[i] ^ b[i];
+            }
+
+            return diff == 0;
         }
 
         public static bool IsPasswordStrong(string password)

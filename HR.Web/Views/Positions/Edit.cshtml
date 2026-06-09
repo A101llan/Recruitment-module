@@ -167,14 +167,12 @@
     var selectedQuestionWeights = postedQuestionWeights ?? (Model != null && Model.PositionQuestions != null
         ? Model.PositionQuestions.GroupBy(pq => pq.QuestionId).ToDictionary(g => g.Key, g => g.First().Weight ?? 0m)
         : new System.Collections.Generic.Dictionary<int, decimal>());
-    var postedQuestionStages = ViewBag.SelectedQuestionStages as System.Collections.Generic.Dictionary<int, int>;
+    var postedQuestionStages = ViewBag.SelectedQuestionStages as System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>;
     var selectedQuestionStages = postedQuestionStages ?? (Model != null && Model.PositionQuestions != null
-        ? Model.PositionQuestions.GroupBy(pq => pq.QuestionId).ToDictionary(g => g.Key, g =>
-        {
-            var sn = g.First().StageNumber;
-            return sn <= 0 ? 1 : sn;
-        })
-        : new System.Collections.Generic.Dictionary<int, int>());
+        ? Model.PositionQuestions.GroupBy(pq => pq.QuestionId).ToDictionary(
+            g => g.Key,
+            g => g.Select(pq => pq.StageNumber <= 0 ? 1 : pq.StageNumber).Distinct().OrderBy(s => s).ToList())
+        : new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>());
     Html.EnableClientValidation(false);
     Html.EnableUnobtrusiveJavaScript(false);
     var currencyProp = typeof(HR.Web.Models.Position).GetProperty("Currency");
@@ -285,7 +283,7 @@
                 </div>
                 <div class="form-group mb-3">
                     @Html.LabelFor(m => m.ExpiryDate, "Position Expiry Date", htmlAttributes: new { @class = "font-weight-bold w-100" })
-                    @Html.TextBoxFor(m => m.ExpiryDate, "{0:yyyy-MM-dd}", new { @class = "form-control mx-auto", type = "date", style = "max-width: 350px;" })
+                    @Html.TextBoxFor(m => m.ExpiryDate, "{0:yyyy-MM-dd}", new { @class = "form-control mx-auto", type = "date", style = "max-width: 350px;", min = DateTime.UtcNow.ToString("yyyy-MM-dd") })
                     <small class="form-text text-muted">This position will be automatically moved to Closed on the selected date.</small>
                     @Html.ValidationMessageFor(m => m.ExpiryDate, "", new { @class = "text-danger" })
                 </div>
@@ -342,7 +340,7 @@
                     <div id="questionnaireStageLegendRow" class="mb-3 d-none">
                         <div class="small font-weight-bold mb-2" style="color:#0d2c4a;">Questionnaire stage</div>
                         <div id="questionnaireStageLegend" class="d-flex flex-wrap align-items-stretch" role="tablist" aria-label="Questionnaire stages"></div>
-                        <small class="form-text text-muted d-block mt-2">Choose a stage above, then tick or untick questions for that questionnaire only. Weights below apply to all selected questions across stages.</small>
+                        <small class="form-text text-muted d-block mt-2">Choose a stage above, then tick questions for that stage. The same question can appear in more than one stage. Weights below apply once per question across all stages.</small>
                     </div>
                     @if (questions != null && questions.Any())
                     {
@@ -365,7 +363,7 @@
                                     <div class="card-body p-3">
                                         @foreach (var q in group)
                                         {
-                                            bool isChecked = selectedQuestionIds.Contains(q.Id);
+                                            bool isChecked = selectedQuestionStages.ContainsKey(q.Id) && selectedQuestionStages[q.Id].Any();
                                             <div class="question-item mb-3 p-3 border rounded @(groupId)-item">
                                                 <div class="form-check mb-2">
                                                     <input class="form-check-input question-checkbox @groupId-checkbox"
@@ -375,7 +373,7 @@
                                                            data-question-id="@q.Id"
                                                            data-question-text="@q.Text"
                                                            data-initial-weight="@(selectedQuestionWeights.ContainsKey(q.Id) ? selectedQuestionWeights[q.Id] : 0m)"
-                                                           data-initial-stage="@(selectedQuestionStages.ContainsKey(q.Id) ? selectedQuestionStages[q.Id] : 1)"
+                                                           data-initial-stages="@(selectedQuestionStages.ContainsKey(q.Id) ? string.Join(",", selectedQuestionStages[q.Id]) : "1")"
                                                            @(isChecked ? "checked" : "") />
                                                     <label class="form-check-label" for="q_@q.Id">
                                                         <strong>Question:</strong> @q.Text

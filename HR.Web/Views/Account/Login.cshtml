@@ -95,6 +95,25 @@
                     </div>
                 }
 
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+                        <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+                        @TempData["ErrorMessage"]
+                    </div>
+                }
+
+                @Html.ValidationSummary(true, "", new { @class = "alert auth-alert alert-danger mb-4" })
+
+                @if (ViewBag.GlobalLoginUrl != null)
+                {
+                    <div class="alert auth-alert alert-info mb-4">
+                        <a href="@ViewBag.GlobalLoginUrl" class="btn btn-sm btn-primary mt-2">
+                            Open global sign-in
+                        </a>
+                    </div>
+                }
+
                 @if (ViewBag.MultiCandidates != null)
                 {
                     var multiCandidates = ((IEnumerable<HR.Web.Models.User>)ViewBag.MultiCandidates).ToList();
@@ -128,16 +147,6 @@
                         </div>
                     </div>
                 }
-
-                @if (TempData["ErrorMessage"] != null)
-                {
-                    <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
-                        <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
-                        @TempData["ErrorMessage"]
-                    </div>
-                }
-
-                @Html.ValidationSummary(true, "", new { @class = "alert auth-alert alert-danger mb-4" })
 
                 @using (Html.BeginForm("Login", "Account", new { tenant = tenantToken }, FormMethod.Post, new { autocomplete = "off", id = "loginForm" })) {
                     @Html.AntiForgeryToken()
@@ -228,17 +237,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Captcha image selector
-        var captchaButtons = document.querySelectorAll('.captcha-image-btn');
-        var captchaHidden = document.getElementById('captcha');
-        captchaButtons.forEach(function(btn) {
-            btn.addEventListener('click', function () {
-                captchaButtons.forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                captchaHidden.value = btn.dataset.index;
-            });
-        });
-
         // Password visibility toggle
         var toggleBtn = document.getElementById('togglePwd');
         var pwdInput  = document.getElementById('password');
@@ -264,7 +262,6 @@
             btn.appendChild(document.createTextNode(label));
         }
 
-        // Subtle submit button animation on click
         var form = document.getElementById('loginForm');
         var btn  = document.getElementById('loginSubmitBtn');
         if (form && btn) {

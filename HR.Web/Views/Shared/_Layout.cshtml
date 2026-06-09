@@ -138,6 +138,7 @@
 <body class="recruitment-app@(isAuthPage ? " auth-layout" : "")">
     @if (Session["ImpersonatedCompanyId"] != null)
     {
+        var globalStopImpersonationUrl = Url.RouteUrl("Default", new { controller = "Companies", action = "StopImpersonating" });
         <div class="app-impersonation-bar py-2">
             <div class="container d-flex flex-wrap justify-content-between align-items-center">
                 <span>
@@ -148,7 +149,7 @@
                         <i class="far fa-clock mr-1"></i> <span id="impersonation-countdown">--:--</span> left
                     </span>
                 </span>
-                <a href="@Url.Action("StopImpersonating", "Companies")" class="btn btn-dark btn-sm shadow-sm font-weight-bold">
+                <a href="@globalStopImpersonationUrl" class="btn btn-dark btn-sm shadow-sm font-weight-bold">
                     <i class="fas fa-sign-out-alt mr-1"></i> Return to SuperAdmin role
                 </a>
             </div>
@@ -351,6 +352,10 @@
             </div>
         </div>
 
+        var layoutStopImpersonationUrl = Session["ImpersonatedCompanyId"] != null
+            ? Url.RouteUrl("Default", new { controller = "Companies", action = "StopImpersonating" })
+            : null;
+        var layoutUnlockDashboardUrl = Url.Action("Index", "Dashboard", new { tenant = ViewBag.TenantToken as string });
         <script>
             $(document).ready(function() {
                 // Shared timer formatting
@@ -365,6 +370,16 @@
                     if (h > 0) { timeStr += h + ":" + (m < 10 ? "0" : ""); }
                     timeStr += m + ":" + (s < 10 ? "0" : "") + s;
                     return timeStr;
+                }
+
+                var stopImpersonationUrl = '@Html.Raw(layoutStopImpersonationUrl ?? "")';
+                var defaultUnlockUrl = '@Html.Raw(layoutUnlockDashboardUrl ?? "")';
+
+                function redirectOnImpersonationExpired(data) {
+                    var target = (data && data.redirectUrl) ? data.redirectUrl : stopImpersonationUrl;
+                    if (target) {
+                        window.location.href = target;
+                    }
                 }
 
                 // AUTHORITATIVE TIMER LOGIC (Using Server Time)
@@ -384,10 +399,13 @@
                     $('#impersonation-countdown').text(formatTime(impersonationSecondsLeft));
                     
                     if (impersonationSecondsLeft === 0) {
-                        setTimeout(function() { 
-                            // Properly stop impersonation and redirect instead of just reloading
-                            window.location.href = '@Url.Action("StopImpersonating", "Companies")';
-                        }, 1000);
+                        if (impersonationInterval) {
+                            clearInterval(impersonationInterval);
+                            impersonationInterval = null;
+                        }
+                        setTimeout(function() {
+                            $.get('@Url.Action("GetMyImpersonationStatus", "Dashboard")', redirectOnImpersonationExpired);
+                        }, 500);
                     }
                 }
 
@@ -400,11 +418,12 @@
                         
                         if (impersonationSecondsLeft > 0 && !impersonationInterval) {
                             impersonationInterval = setInterval(updateImpersonationTimer, 1000);
-                        } else if (impersonationSecondsLeft <= 0 && impersonationInterval) {
-                            clearInterval(impersonationInterval);
-                            impersonationInterval = null;
-                            // Server-side detected expiration, redirect properly
-                            window.location.href = '@Url.Action("StopImpersonating", "Companies")';
+                        } else if (impersonationSecondsLeft <= 0) {
+                            if (impersonationInterval) {
+                                clearInterval(impersonationInterval);
+                                impersonationInterval = null;
+                            }
+                            redirectOnImpersonationExpired(data);
                         }
                     });
                 }
@@ -415,14 +434,6 @@
                 // Additional check: If impersonation banner exists but server says no active session, redirect
                 if ($('#impersonation-countdown').length > 0) {
                     setInterval(syncImpersonationStatus, 15000); // Re-sync with server every 15s
-                    
-                    // Immediate check for expired session on page load
-                    $.get('@Url.Action("GetMyImpersonationStatus", "Dashboard")', function(data) {
-                        if (data.secondsLeft <= 0) {
-                            // Session expired on server, redirect properly
-                            window.location.href = '@Url.Action("StopImpersonating", "Companies")';
-                        }
-                    });
                 }
 
                 // Only poll if on a page where we want the popup
@@ -452,6 +463,7 @@
                 // --- Freeze Overlay & Countdown ---
                 var freezeSecondsLeft = 0;
                 var freezeInterval = null;
+                var wasFrozen = false;
 
                 function updateFreezeTimer() {
                     if (freezeSecondsLeft <= 0) {
@@ -460,16 +472,26 @@
                             clearInterval(freezeInterval);
                             freezeInterval = null;
                         }
+                        checkSystemFreeze();
                         return;
                     }
                     freezeSecondsLeft--;
                     $('#freeze-countdown').text(formatTime(freezeSecondsLeft));
+
+                    if (freezeSecondsLeft === 0) {
+                        if (freezeInterval) {
+                            clearInterval(freezeInterval);
+                            freezeInterval = null;
+                        }
+                        checkSystemFreeze();
+                    }
                 }
 
                 // Check for System Freeze (Authoritative Server Time)
                 function checkSystemFreeze() {
                     $.get('@Url.Action("GetImpersonationStatus", "Dashboard")', function(data) {
                         if (data.isLocked) {
+                            wasFrozen = true;
                             $('#performance-freeze-overlay').css('display', 'flex');
                             
                             // Authoritative sync from server
@@ -484,6 +506,13 @@
                             if (freezeInterval) {
                                 clearInterval(freezeInterval);
                                 freezeInterval = null;
+                            }
+                            if (wasFrozen) {
+                                wasFrozen = false;
+                                var unlockTarget = data.unlockUrl || defaultUnlockUrl;
+                                if (unlockTarget) {
+                                    window.location.href = unlockTarget;
+                                }
                             }
                         }
                     });

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Web.Mvc;
+using HR.Web.Helpers;
 using HR.Web.Services;
 using HR.Web.ViewModels;
 
@@ -44,7 +45,7 @@ namespace HR.Web.Controllers
             }
 
             var questionWeights = ParseTemplateQuestionWeights(questionWeightValues);
-            var questionStages = ParseTemplateQuestionStages(questionStagesPayload, selectedQuestions, model.StageCount);
+            var questionStages = QuestionStagePayloadHelper.Parse(questionStagesPayload, selectedQuestions, model.StageCount);
             var assignments = BuildTemplateAssignments(selectedQuestions, questionWeights, questionStages);
 
             var error = _questionnaireTemplateService.SaveTemplate(
@@ -66,9 +67,7 @@ namespace HR.Web.Controllers
                 reload.SelectedQuestionWeights = questionWeights != null
                     ? new Dictionary<int, decimal>(questionWeights)
                     : new Dictionary<int, decimal>();
-                reload.SelectedQuestionStages = questionStages != null
-                    ? new Dictionary<int, int>(questionStages)
-                    : new Dictionary<int, int>();
+                reload.SelectedQuestionStages = QuestionStagePayloadHelper.ToOrderedLists(questionStages);
                 return View(reload);
             }
 
@@ -110,7 +109,7 @@ namespace HR.Web.Controllers
         private static IList<QuestionnaireTemplateAssignmentInput> BuildTemplateAssignments(
             int[] selectedQuestions,
             IDictionary<int, decimal> questionWeights,
-            IDictionary<int, int> questionStages)
+            IDictionary<int, HashSet<int>> questionStages)
         {
             var assignments = new List<QuestionnaireTemplateAssignmentInput>();
             if (selectedQuestions == null || selectedQuestions.Length == 0)
@@ -127,19 +126,22 @@ namespace HR.Web.Controllers
                     weight = 0m;
                 }
 
-                int stageNumber;
-                if (questionStages == null || !questionStages.TryGetValue(questionId, out stageNumber))
+                HashSet<int> stageSet;
+                if (questionStages == null || !questionStages.TryGetValue(questionId, out stageSet) || stageSet == null || !stageSet.Any())
                 {
-                    stageNumber = 1;
+                    stageSet = new HashSet<int> { 1 };
                 }
 
-                assignments.Add(new QuestionnaireTemplateAssignmentInput
+                foreach (var stageNumber in stageSet.Where(s => s > 0).OrderBy(s => s))
                 {
-                    QuestionId = questionId,
-                    Order = order++,
-                    Weight = weight,
-                    StageNumber = stageNumber
-                });
+                    assignments.Add(new QuestionnaireTemplateAssignmentInput
+                    {
+                        QuestionId = questionId,
+                        Order = order++,
+                        Weight = weight,
+                        StageNumber = stageNumber
+                    });
+                }
             }
 
             return assignments;
@@ -179,50 +181,5 @@ namespace HR.Web.Controllers
             return weights;
         }
 
-        private static IDictionary<int, int> ParseTemplateQuestionStages(string payload, int[] selectedQuestions, int stageCount)
-        {
-            var stages = new Dictionary<int, int>();
-            if (selectedQuestions != null)
-            {
-                foreach (var questionId in selectedQuestions.Distinct())
-                {
-                    if (questionId > 0)
-                    {
-                        stages[questionId] = 1;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(payload))
-            {
-                return stages;
-            }
-
-            var max = Math.Max(1, stageCount);
-            foreach (var entry in payload.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                var parts = entry.Split('=');
-                if (parts.Length != 2)
-                {
-                    continue;
-                }
-
-                int questionId;
-                if (!int.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out questionId) || questionId <= 0)
-                {
-                    continue;
-                }
-
-                int stage;
-                if (!int.TryParse(parts[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out stage))
-                {
-                    continue;
-                }
-
-                stages[questionId] = Math.Max(1, Math.Min(max, stage));
-            }
-
-            return stages;
-        }
     }
 }

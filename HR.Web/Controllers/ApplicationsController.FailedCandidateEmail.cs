@@ -372,7 +372,7 @@ namespace HR.Web.Controllers
         [RoleBasedAuthorization("Admin")]
         public async Task<ActionResult> SendFailedCandidateEmail()
         {
-            var form = Request.Unvalidated.Form;
+            var form = Request.Form;
             var applicationId = ParsePostedInt32(form["applicationId"], 0);
             var subject = form["subject"];
             var body = form["body"];
@@ -524,7 +524,7 @@ namespace HR.Web.Controllers
         [RoleBasedAuthorization("Admin")]
         public async Task<ActionResult> SendFailedCandidatesBulkEmail()
         {
-            var form = Request.Unvalidated.Form;
+            var form = Request.Form;
             var positionId = ParsePostedInt32(form["positionId"], 0);
             var subject = form["subject"];
             var body = form["body"];
@@ -613,7 +613,10 @@ namespace HR.Web.Controllers
                 return _email.SendAsync(recipientEmail, emailContent.Subject, emailContent.BodyHtml, ccRecipients);
             }).ToList();
 
-            await Task.WhenAll(emailTasks);
+            foreach (var emailTask in emailTasks)
+            {
+                await emailTask;
+            }
 
             var emailedAt = DateTime.UtcNow;
             foreach (var recipientApp in recipients)

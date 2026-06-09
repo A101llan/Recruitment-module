@@ -386,11 +386,6 @@ namespace HR.Web.Controllers
             return BuildSafeReturnRedirect(returnUri, tenantToken);
         }
 
-        private Uri ParseRegisterReturnPath(Uri returnUri)
-        {
-            return returnUri;
-        }
-
         private Uri ParseRegisterReturnPath(string returnPath)
         {
             var raw = !string.IsNullOrWhiteSpace(returnPath)

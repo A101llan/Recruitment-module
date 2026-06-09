@@ -32,9 +32,6 @@ namespace HR.Web.Models
         public string WorkMode { get; set; }
         public string AvailabilityToStart { get; set; }
 
-        // Saved resume file path
-        public string ResumePath { get; set; }
-
         public bool AcceptLegalTerms { get; set; }
 
         // Structured scoring fields (1-5 scale)

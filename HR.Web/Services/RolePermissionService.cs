@@ -40,6 +40,12 @@ namespace HR.Web.Services
 
             if (!string.Equals(context.BaseRole, "Admin", StringComparison.OrdinalIgnoreCase))
             {
+                if (string.Equals(context.BaseRole, "Client", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(moduleKey, RoleModuleCatalog.Reports, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
                 return true;
             }
 

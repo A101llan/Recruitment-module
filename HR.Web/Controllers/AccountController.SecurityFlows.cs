@@ -94,13 +94,20 @@ namespace HR.Web.Controllers
             }
 
             var lowerUsername = username.ToLower();
-            var query = _uow.Context.Users.Where(u => u.UserName.ToLower() == lowerUsername);
+            var matches = _uow.Context.Users
+                .Where(u => u.UserName.ToLower() == lowerUsername)
+                .ToList();
+
             if (companyId.HasValue)
             {
-                query = query.Where(u => u.CompanyId == companyId.Value);
+                var tenantUser = matches.FirstOrDefault(u => u.CompanyId == companyId.Value);
+                if (tenantUser != null)
+                {
+                    return tenantUser;
+                }
             }
 
-            return query.FirstOrDefault();
+            return matches.FirstOrDefault(u => !u.CompanyId.HasValue) ?? matches.FirstOrDefault();
         }
 
         private bool HasForcedPasswordChangeFlag()
@@ -688,13 +695,22 @@ namespace HR.Web.Controllers
             EnsureUserAccessToken(user);
             IssueLoginCookie(user, loginContext.Role);
 
-            if (loginContext.IsSuperAdmin &&
-                ImpersonationSessionHelper.TryRestoreAfterLogout(user.UserName, Session, _uow, AuditSvc))
+            if (loginContext.IsSuperAdmin)
             {
-                TempData["SuccessMessage"] = string.Format(
-                    "Welcome back. Your impersonation session for {0} has been restored.",
-                    Session["ImpersonatedCompanyName"] ?? "the company");
-                return RedirectToAction("Index", "Dashboard");
+                try
+                {
+                    if (ImpersonationSessionHelper.TryRestoreAfterLogout(user.UserName, Session, _uow, AuditSvc))
+                    {
+                        TempData["SuccessMessage"] = string.Format(
+                            "Welcome back. Your impersonation session for {0} has been restored.",
+                            Session["ImpersonatedCompanyName"] ?? "the company");
+                        return RedirectToAction("Index", "Dashboard");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AuditSvc.LogAction(user.UserName, "IMPERSONATION_RESUME_FAILED", "Account", user.Id.ToString(), ex.Message);
+                }
             }
 
             return BuildLoginRedirect(loginContext);

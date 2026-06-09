@@ -1,4 +1,5 @@
 using System;
+using System.Data.Entity;
 using System.Linq;
 using HR.Web.Data;
 using HR.Web.Models;

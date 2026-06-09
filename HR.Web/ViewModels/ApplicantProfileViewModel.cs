@@ -32,15 +32,13 @@ namespace HR.Web.ViewModels
         [Display(Name = "Relevant Years Experience (Technical)")]
         public decimal? RelevantYearsExperience { get; set; }
 
-        [Required]
         [Display(Name = "Most Recent Company")]
         public string MostRecentCompany { get; set; }
 
-        [Required]
         [Display(Name = "Most Recent Job Title")]
         public string MostRecentTitle { get; set; }
 
-        [Required, DataType(DataType.Date)]
+        [DataType(DataType.Date)]
         [Display(Name = "Most Recent Start Date")]
         public DateTime? MostRecentStartDate { get; set; }
 

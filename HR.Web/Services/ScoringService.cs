@@ -131,7 +131,9 @@ namespace HR.Web.Services
                     continue;
                 }
 
-                var answer = answers.FirstOrDefault(a => a.QuestionId == positionQuestion.QuestionId);
+                var answer = answers.FirstOrDefault(a =>
+                    a.QuestionId == positionQuestion.QuestionId &&
+                    Math.Max(1, a.StageNumber) == Math.Max(1, positionQuestion.StageNumber));
                 if (answer == null)
                 {
                     continue;
@@ -1319,7 +1321,9 @@ namespace HR.Web.Services
 
             foreach (var positionQuestion in positionQuestions)
             {
-                var answer = answers.FirstOrDefault(a => a.QuestionId == positionQuestion.QuestionId);
+                var answer = answers.FirstOrDefault(a =>
+                    a.QuestionId == positionQuestion.QuestionId &&
+                    Math.Max(1, a.StageNumber) == Math.Max(1, positionQuestion.StageNumber));
                 var rawScore = answer != null ?
                     CalculateQuestionScore(positionQuestion.Question, answer.AnswerText, application.PositionId) : 0;
                 var rawMaxScore = GetMaxScoreForQuestion(positionQuestion.Question, application.PositionId);

@@ -1,5 +1,5 @@
 /*
-  HR.Web — compare SQL Server schema to current EF6 models (column names only).
+  HR.Web — compare SQL Server schema to current entity models (column names only).
   Run in SSMS (or sqlcmd) against the same database as connection string "HrContext".
 
   If this query returns rows, those columns are missing (or the table is missing).
@@ -70,9 +70,9 @@ BEGIN
     SELECT 'WARN', N'dbo.Applications', v.ColumnName
     FROM (VALUES
         (N'Id'), (N'CompanyId'), (N'ApplicantId'), (N'PositionId'), (N'Status'), (N'AppliedOn'),
-        (N'ResumePath'), (N'WorkExperienceLevel'), (N'Score'), (N'ScoreReason'), (N'CurrentStage'),
+        (N'WorkExperienceLevel'), (N'Score'), (N'ScoreReason'), (N'CurrentStage'),
         (N'PendingQuestionnaireStage'), (N'LastCompletedQuestionnaireStage'), (N'QuestionnaireInvitedOn'),
-        (N'LastQuestionnaireScore'), (N'CoverLetter')
+        (N'LastQuestionnaireScore'), (N'CoverLetter'), (N'FailedCandidateEmailSentAt')
     ) AS v(ColumnName)
     WHERE NOT EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS c

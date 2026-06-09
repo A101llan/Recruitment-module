@@ -18,8 +18,11 @@ namespace HR.Web.Controllers
             var itemsQuery = _uow.Departments.GetAll(d => d.Positions).AsQueryable();
             itemsQuery = _tenantService.ApplyTenantFilter(itemsQuery);
             var items = itemsQuery.ToList();
+            var permissionService = new RolePermissionService();
             ViewBag.CanManageDepartments = Request.IsAuthenticated &&
-                new RolePermissionService().CanCurrentUserAccessModule(RoleModuleCatalog.Departments, RoleAccessLevels.Manage);
+                permissionService.CanCurrentUserAccessModule(RoleModuleCatalog.Departments, RoleAccessLevels.Manage);
+            ViewBag.CanViewDepartments = Request.IsAuthenticated &&
+                permissionService.CanCurrentUserAccessModule(RoleModuleCatalog.Departments, RoleAccessLevels.View);
             return View(items);
         }
 

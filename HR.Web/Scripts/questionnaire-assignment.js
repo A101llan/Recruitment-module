@@ -29,6 +29,54 @@ function mapIsTrue(map, key) {
     return map.get(key) === true;
 }
 
+function parseInitialQuestionStages(cb) {
+    var multi = cb.getAttribute('data-initial-stages');
+    if (multi) {
+        return multi.split(',').map((token) => {
+            return parseInt(token.trim(), 10);
+        }).filter((stage) => {
+            return !Number.isNaN(stage) && stage > 0;
+        });
+    }
+
+    var single = parseInt(cb.getAttribute('data-initial-stage'), 10);
+    if (!Number.isNaN(single) && single > 0) {
+        return [single];
+    }
+
+    return [1];
+}
+
+function getQuestionStageSet(map, questionId) {
+    if (!map.has(questionId)) {
+        map.set(questionId, new Set());
+    }
+    return map.get(questionId);
+}
+
+function isQuestionAssignedToStage(map, questionId, stage) {
+    return map.has(questionId) && map.get(questionId).has(stage);
+}
+
+function isQuestionAssignedToAnyStage(map, questionId) {
+    return map.has(questionId) && map.get(questionId).size > 0;
+}
+
+function assignQuestionToStage(map, questionId, stage) {
+    getQuestionStageSet(map, questionId).add(stage);
+}
+
+function unassignQuestionFromStage(map, questionId, stage) {
+    if (!map.has(questionId)) {
+        return;
+    }
+
+    map.get(questionId).delete(stage);
+    if (map.get(questionId).size === 0) {
+        map.delete(questionId);
+    }
+}
+
 function parseIntSafe(raw, fallback) {
     var parsed = parseInt(raw, 10);
     return Number.isNaN(parsed) ? fallback : parsed;
@@ -115,7 +163,6 @@ function initQuestionnaireAssignmentEditor(options) {
         var questionWeights = new Map();
         var questionLocks = new Map();
         var questionStages = new Map();
-        var isQuestionSelected = new Map();
         var activeQuestionnaireEditorStage = 1;
 
         function readStageCountFromInput() {
@@ -181,7 +228,7 @@ function initQuestionnaireAssignmentEditor(options) {
 
         function selectedCheckboxes() {
             return questionCheckboxes.filter((cb) => {
-                return mapIsTrue(isQuestionSelected, cb.value);
+                return isQuestionAssignedToAnyStage(questionStages, cb.value);
             });
         }
 
@@ -189,11 +236,10 @@ function initQuestionnaireAssignmentEditor(options) {
             var qid = cb.value;
             var n = getQuestionnaireStageCount();
             if (n <= 1) {
-                cb.checked = mapIsTrue(isQuestionSelected, qid);
+                cb.checked = isQuestionAssignedToAnyStage(questionStages, qid);
                 return;
             }
-            cb.checked = mapIsTrue(isQuestionSelected, qid) &&
-                parseInt(mapGet(questionStages, qid, 1), 10) === activeQuestionnaireEditorStage;
+            cb.checked = isQuestionAssignedToStage(questionStages, qid, activeQuestionnaireEditorStage);
         }
 
         function syncAllCheckboxVisuals() {
@@ -236,7 +282,7 @@ function initQuestionnaireAssignmentEditor(options) {
             clearElement(selectedQuestionsHiddenContainer);
             questionCheckboxes.forEach((cb) => {
                 var qid = cb.value;
-                if (!mapIsTrue(isQuestionSelected, qid)) {
+                if (!isQuestionAssignedToAnyStage(questionStages, qid)) {
                     return;
                 }
                 var h = document.createElement('input');
@@ -260,17 +306,34 @@ function initQuestionnaireAssignmentEditor(options) {
                 stagesPayloadInput.value = '';
                 return;
             }
-            var pairs = selected.map((cb) => {
+            var pairs = [];
+            selected.forEach((cb) => {
                 var qid = cb.value;
-                var st = parseInt(mapGet(questionStages, qid, 1), 10);
-                if (Number.isNaN(st) || st < 1) {
-                    st = 1;
+                var stageSet = questionStages.get(qid);
+                if (!stageSet || !stageSet.size) {
+                    return;
                 }
-                if (st > maxS) {
-                    st = maxS;
+
+                var stageList = Array.from(stageSet)
+                    .map((stage) => {
+                        return parseInt(stage, 10);
+                    })
+                    .filter((stage) => {
+                        return !Number.isNaN(stage) && stage >= 1;
+                    })
+                    .map((stage) => {
+                        return Math.min(maxS, stage);
+                    })
+                    .sort((a, b) => {
+                        return a - b;
+                    });
+
+                if (!stageList.length) {
+                    stageList.push(1);
                 }
-                mapSet(questionStages, qid, st);
-                return qid + '=' + st;
+
+                questionStages.set(qid, new Set(stageList));
+                pairs.push(qid + '=' + stageList.join(','));
             });
             stagesPayloadInput.value = pairs.join(';');
         }
@@ -651,8 +714,8 @@ function initQuestionnaireAssignmentEditor(options) {
             selected.forEach((cb) => {
                 ensureWeight(cb.value);
                 var qid = cb.value;
-                if (!questionStages.has(qid) || Number.isNaN(parseInt(mapGet(questionStages, qid, 1), 10))) {
-                    mapSet(questionStages, qid, 1);
+                if (!isQuestionAssignedToAnyStage(questionStages, qid)) {
+                    assignQuestionToStage(questionStages, qid, 1);
                 }
             });
 
@@ -687,22 +750,17 @@ function initQuestionnaireAssignmentEditor(options) {
                 checkboxes.forEach((box) => {
                     var qid = box.value;
                     if (nStages <= 1) {
-                        mapSet(isQuestionSelected, qid, want);
                         if (want) {
-                            mapSet(questionStages, qid, 1);
+                            questionStages.set(qid, new Set([1]));
                         } else {
                             mapDelete(questionStages, qid);
                         }
                         box.checked = want;
-                    } else {
-                        if (want) {
-                            mapSet(isQuestionSelected, qid, true);
-                            mapSet(questionStages, qid, activeQuestionnaireEditorStage);
-                        } else if (mapIsTrue(isQuestionSelected, qid) &&
-                            parseInt(mapGet(questionStages, qid, 1), 10) === activeQuestionnaireEditorStage) {
-                            mapSet(isQuestionSelected, qid, false);
-                            mapDelete(questionStages, qid);
-                        }
+                    } else if (want) {
+                        assignQuestionToStage(questionStages, qid, activeQuestionnaireEditorStage);
+                        syncCheckboxVisualFor(box);
+                    } else if (isQuestionAssignedToStage(questionStages, qid, activeQuestionnaireEditorStage)) {
+                        unassignQuestionFromStage(questionStages, qid, activeQuestionnaireEditorStage);
                         syncCheckboxVisualFor(box);
                     }
                 });
@@ -723,31 +781,25 @@ function initQuestionnaireAssignmentEditor(options) {
                 mapSet(questionWeights, qid, clamp(initial, 0, 100));
             }
             if (cb.checked) {
-                mapSet(isQuestionSelected, qid, true);
-                var initStage = parseInt(cb.getAttribute('data-initial-stage'), 10);
                 var cap = getQuestionnaireStageCount();
-                var st = (!Number.isNaN(initStage) && initStage > 0) ? initStage : 1;
-                mapSet(questionStages, qid, Math.min(cap, Math.max(1, st)));
+                parseInitialQuestionStages(cb).forEach((stage) => {
+                    assignQuestionToStage(questionStages, qid, Math.min(cap, Math.max(1, stage)));
+                });
             }
             cb.addEventListener('change', () => {
                 var nStages = getQuestionnaireStageCount();
                 var want = cb.checked;
                 if (nStages <= 1) {
-                    mapSet(isQuestionSelected, qid, want);
                     if (want) {
-                        mapSet(questionStages, qid, 1);
+                        questionStages.set(qid, new Set([1]));
                     } else {
                         mapDelete(questionStages, qid);
                     }
-                } else {
-                    if (want) {
-                        mapSet(isQuestionSelected, qid, true);
-                        mapSet(questionStages, qid, activeQuestionnaireEditorStage);
-                    } else if (mapIsTrue(isQuestionSelected, qid) &&
-                        parseInt(mapGet(questionStages, qid, 1), 10) === activeQuestionnaireEditorStage) {
-                        mapSet(isQuestionSelected, qid, false);
-                        mapDelete(questionStages, qid);
-                    }
+                } else if (want) {
+                    assignQuestionToStage(questionStages, qid, activeQuestionnaireEditorStage);
+                    syncCheckboxVisualFor(cb);
+                } else if (isQuestionAssignedToStage(questionStages, qid, activeQuestionnaireEditorStage)) {
+                    unassignQuestionFromStage(questionStages, qid, activeQuestionnaireEditorStage);
                     syncCheckboxVisualFor(cb);
                 }
                 var groupClass = Array.prototype.slice.call(cb.classList).find((cls) => {
@@ -856,14 +908,10 @@ function initQuestionnaireAssignmentEditor(options) {
         }
         template.questions.forEach((item) => {
             var qid = String(item.questionId);
-            if (mapIsTrue(isQuestionSelected, qid)) {
-                return;
-            }
-            mapSet(isQuestionSelected, qid, true);
             var weight = parseFloat(item.weight);
             mapSet(questionWeights, qid, clamp(Number.isNaN(weight) ? 0 : Math.round(weight), 0, 100));
             var stage = parseInt(item.stageNumber, 10);
-            mapSet(questionStages, qid, Number.isNaN(stage) || stage < 1 ? 1 : stage);
+            assignQuestionToStage(questionStages, qid, Number.isNaN(stage) || stage < 1 ? 1 : stage);
         });
         syncAllCheckboxVisuals();
         syncGroupSelectHeaders();

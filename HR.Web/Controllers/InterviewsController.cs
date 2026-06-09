@@ -13,10 +13,11 @@ using System.Data.Entity;
 namespace HR.Web.Controllers
 {
     [ModuleAccess(RoleModuleCatalog.Interviews)]
-    public class InterviewsController : Controller
+    public partial class InterviewsController : Controller
     {
         private readonly UnitOfWork _uow = new UnitOfWork();
         private readonly IEmailService _email = new EmailService();
+        private readonly IEmailTemplateService _emailTemplateService = new EmailTemplateService();
         private readonly AuditService _auditService = new AuditService();
         private readonly TenantService _tenantService = new TenantService();
 
@@ -53,6 +54,7 @@ namespace HR.Web.Controllers
                 if ((bool)ViewBag.CanManageInterviews)
                 {
                     ViewBag.ApplicationsWithoutScheduledInterview = GetApplicationsWithoutScheduledInterview(interviews);
+                    PopulateInterviewEmailCcForIndexView();
                 }
 
                 return View(interviews);
@@ -227,55 +229,6 @@ namespace HR.Web.Controllers
             return null;
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin, SuperAdmin")]
-        [RoleBasedAuthorization("Admin")]
-        public async Task<ActionResult> SendInterviewCandidateEmail(int applicationId, string message)
-        {
-            var application = LoadInterviewApplication(applicationId);
-            if (application == null)
-            {
-                return HttpNotFound();
-            }
-
-            var accessDenied = ValidateInterviewApplicationAccess(application);
-            if (accessDenied != null)
-            {
-                return accessDenied;
-            }
-
-            var trimmedMessage = ValidateInterviewEmailMessage(message);
-            if (trimmedMessage == null)
-            {
-                TempData["InterviewEmailError"] = "Please provide a message before sending.";
-                return RedirectToAction("Index");
-            }
-
-            var interview = GetLatestInterviewForApplication(applicationId);
-            if (interview == null)
-            {
-                return RedirectForMissingInterview(application, applicationId, trimmedMessage);
-            }
-
-            var recipientEmail = application.Applicant != null ? application.Applicant.Email : null;
-            if (string.IsNullOrWhiteSpace(recipientEmail))
-            {
-                TempData["InterviewEmailError"] = "Candidate has no email address on file.";
-                return RedirectToAction("Index");
-            }
-
-            await SendInterviewUpdateEmail(application, interview, recipientEmail, trimmedMessage);
-            Session.Remove(GetPendingInterviewEmailSessionKey(applicationId));
-            TempData["InterviewEmailSuccess"] = string.Format(
-                "Email sent to {0}.",
-                application.Applicant != null && !string.IsNullOrWhiteSpace(application.Applicant.FullName)
-                    ? application.Applicant.FullName
-                    : recipientEmail.Trim());
-
-            return RedirectToAction("Index");
-        }
-
         private Application LoadInterviewApplication(int applicationId)
         {
             return _uow.Context.Applications
@@ -292,92 +245,18 @@ namespace HR.Web.Controllers
                 .FirstOrDefault();
         }
 
-        private ActionResult RedirectForMissingInterview(Application application, int applicationId, string trimmedMessage)
+        internal ActionResult RedirectForMissingInterview(Application application, int applicationId, string draftBody)
         {
-            Session[GetPendingInterviewEmailSessionKey(applicationId)] = trimmedMessage;
+            if (!string.IsNullOrWhiteSpace(draftBody))
+            {
+                Session[GetPendingInterviewEmailSessionKey(applicationId)] = draftBody;
+            }
+
             TempData["InterviewEmailError"] = "This candidate has no interview scheduled yet.";
             TempData["InterviewEmailSchedulePromptApplicationId"] = applicationId;
             TempData["InterviewEmailSchedulePromptCandidateName"] = application.Applicant != null
                 ? application.Applicant.FullName
                 : "Candidate";
-            return RedirectToAction("Index");
-        }
-
-        private async Task SendInterviewUpdateEmail(Application application, Interview interview, string recipientEmail, string trimmedMessage)
-        {
-            var positionTitle = application.Position != null ? application.Position.Title : "the position";
-            var subject = string.Format("Interview update for {0}", positionTitle);
-            var body = BuildInterviewCandidateEmailBody(
-                application.Applicant != null ? application.Applicant.FullName : null,
-                positionTitle,
-                interview.ScheduledAt,
-                interview.Mode,
-                trimmedMessage);
-
-            await _email.SendAsync(recipientEmail.Trim(), subject, body);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin, SuperAdmin")]
-        [RoleBasedAuthorization("Admin")]
-        public async Task<ActionResult> SendInterviewCandidatesBatchEmail(string message)
-        {
-            var trimmedMessage = ValidateInterviewEmailMessage(message);
-            if (trimmedMessage == null)
-            {
-                TempData["InterviewEmailError"] = "Please provide a message before sending (max 4000 characters).";
-                return RedirectToAction("Index");
-            }
-
-            var scheduledInterviews = GetManagementInterviews()
-                .OrderByDescending(i => i.ScheduledAt)
-                .ToList()
-                .GroupBy(i => i.ApplicationId)
-                .Select(g => g.First())
-                .ToList();
-
-            if (!scheduledInterviews.Any())
-            {
-                TempData["InterviewEmailError"] = "No scheduled interviews found for batch email.";
-                return RedirectToAction("Index");
-            }
-
-            var interviewRecipients = scheduledInterviews
-                .Where(i => i.Application != null &&
-                            i.Application.Applicant != null &&
-                            !string.IsNullOrWhiteSpace(i.Application.Applicant.Email))
-                .ToList();
-
-            if (!interviewRecipients.Any())
-            {
-                TempData["InterviewEmailError"] = "No candidate email addresses found for scheduled interviews.";
-                return RedirectToAction("Index");
-            }
-
-            var sendTasks = interviewRecipients.Select(interview =>
-            {
-                var applicant = interview.Application.Applicant;
-                var positionTitle = interview.Application.Position != null
-                    ? interview.Application.Position.Title
-                    : "the position";
-                var subject = string.Format("Interview update for {0}", positionTitle);
-                var body = BuildInterviewCandidateEmailBody(
-                    applicant.FullName,
-                    positionTitle,
-                    interview.ScheduledAt,
-                    interview.Mode,
-                    trimmedMessage);
-
-                return _email.SendAsync(applicant.Email.Trim(), subject, body);
-            });
-
-            await Task.WhenAll(sendTasks);
-
-            TempData["InterviewEmailSuccess"] = string.Format(
-                "Batch email sent to {0} candidate{1} with scheduled interviews.",
-                interviewRecipients.Count,
-                interviewRecipients.Count == 1 ? string.Empty : "s");
             return RedirectToAction("Index");
         }
 
@@ -581,22 +460,6 @@ namespace HR.Web.Controllers
                 .ToList();
         }
 
-        private string ValidateInterviewEmailMessage(string message)
-        {
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                return null;
-            }
-
-            var trimmed = message.Trim();
-            if (trimmed.Length > 4000)
-            {
-                return null;
-            }
-
-            return trimmed;
-        }
-
         private void PopulatePendingInterviewEmailContext()
         {
             int resumeEmailApplicationId;
@@ -609,36 +472,7 @@ namespace HR.Web.Controllers
             ViewBag.ResumeEmailMessage = Session[GetPendingInterviewEmailSessionKey(resumeEmailApplicationId)] as string;
         }
 
-        private static string BuildInterviewCandidateEmailBody(string applicantName, string positionTitle, DateTime scheduledAt, string mode, string customMessage)
-        {
-            var safeApplicantName = HttpUtility.HtmlEncode(string.IsNullOrWhiteSpace(applicantName) ? "Candidate" : applicantName.Trim());
-            var safePositionTitle = HttpUtility.HtmlEncode(string.IsNullOrWhiteSpace(positionTitle) ? "the position" : positionTitle.Trim());
-            var modeValue = mode ?? string.Empty;
-            var safeMode = HttpUtility.HtmlEncode(string.IsNullOrWhiteSpace(modeValue) ? "Interview" : modeValue.Trim());
-            var safeScheduledAt = HttpUtility.HtmlEncode(scheduledAt.ToString("f"));
-            var safeMessage = HttpUtility.HtmlEncode(customMessage ?? string.Empty)
-                .Replace("\r\n", "<br/>")
-                .Replace("\n", "<br/>");
-
-            return string.Format(@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <title>Interview Update</title>
-</head>
-<body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
-    <p>Dear {0},</p>
-    <p>This is an update regarding your interview for <strong>{1}</strong>.</p>
-    <p><strong>Scheduled:</strong> {2}</p>
-    <p><strong>Mode:</strong> {3}</p>
-    <p>{4}</p>
-    <p>Regards,<br/>Recruitment Team</p>
-</body>
-</html>", safeApplicantName, safePositionTitle, safeScheduledAt, safeMode, safeMessage);
-        }
-
-        private static string GetPendingInterviewEmailSessionKey(int applicationId)
+        internal static string GetPendingInterviewEmailSessionKey(int applicationId)
         {
             return string.Format("PendingInterviewEmailMessage_{0}", applicationId);
         }

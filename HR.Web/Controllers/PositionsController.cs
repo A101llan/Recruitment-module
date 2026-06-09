@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Web.Mvc;
@@ -8,6 +7,7 @@ using HR.Web.Data;
 using HR.Web.Models;
 using HR.Web.Services;
 using HR.Web.Filters;
+using HR.Web.Helpers;
 
 namespace HR.Web.Controllers
 {
@@ -185,29 +185,6 @@ namespace HR.Web.Controllers
             var allQuestions = _uow.Questions.GetAll(q => q.QuestionOptions).AsQueryable();
             allQuestions = _tenantService.ApplyTenantFilter(allQuestions);
             ViewBag.QuestionList = allQuestions.ToList();
-            Debug.WriteLine(string.Format("[PositionsController.Edit] Loaded {0} questions from database.", allQuestions.Count()));
-            
-            // Debug: Check each question and its options
-            foreach (var q in allQuestions)
-            {
-                Debug.WriteLine(string.Format("Question: {0} (Type: {1})", q.Text, q.Type));
-                Debug.WriteLine(string.Format("Options count: {0}", q.QuestionOptions != null ? q.QuestionOptions.Count() : 0));
-                if (q.QuestionOptions != null)
-                {
-                    foreach (var opt in q.QuestionOptions)
-                    {
-                        Debug.WriteLine(string.Format("  - Option: {0} (Points: {1})", opt.Text, opt.Points));
-                    }
-                }
-            }
-            
-            // Also check if there are any QuestionOptions in the database at all
-            var allOptions = _uow.Context.Set<QuestionOption>().ToList();
-            Debug.WriteLine(string.Format("[PositionsController.Edit] Total QuestionOptions in database: {0}", allOptions.Count));
-            foreach (var opt in allOptions.Take(5))
-            {
-                Debug.WriteLine(string.Format("  - Option ID {0}: {1} (QuestionId: {2})", opt.Id, opt.Text, opt.QuestionId));
-            }
             
             // Get currently selected question IDs for pre-checking
             var selectedQuestionIds = position.PositionQuestions != null ? position.PositionQuestions.Select(pq => pq.QuestionId).ToList() : new System.Collections.Generic.List<int>();
@@ -216,12 +193,10 @@ namespace HR.Web.Controllers
                 ? position.PositionQuestions
                     .Where(pq => pq != null)
                     .GroupBy(pq => pq.QuestionId)
-                    .ToDictionary(g => g.Key, g =>
-                    {
-                        var sn = g.First().StageNumber;
-                        return sn <= 0 ? 1 : sn;
-                    })
-                : new System.Collections.Generic.Dictionary<int, int>();
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(pq => pq.StageNumber <= 0 ? 1 : pq.StageNumber).Distinct().OrderBy(s => s).ToList())
+                : new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<int>>();
 
             ViewBag.QuestionnaireTemplates = new QuestionnaireTemplateService().GetActiveTemplatesForCurrentTenant();
 
@@ -455,85 +430,14 @@ namespace HR.Web.Controllers
             return weights;
         }
 
-        private static IDictionary<int, int> ParseQuestionStages(string payload, int[] selectedQuestions, int questionnaireStageCount)
+        private static Dictionary<int, HashSet<int>> ParseQuestionStages(string payload, int[] selectedQuestions, int questionnaireStageCount)
         {
-            var stages = new Dictionary<int, int>();
-            if (selectedQuestions != null)
-            {
-                foreach (var qid in selectedQuestions.Distinct())
-                {
-                    if (qid > 0)
-                    {
-                        stages[qid] = 1;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(payload))
-            {
-                return stages;
-            }
-
-            var max = Math.Max(1, questionnaireStageCount);
-            foreach (var entry in payload.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                var parts = entry.Split('=');
-                if (parts.Length != 2)
-                {
-                    continue;
-                }
-
-                int questionId;
-                if (!int.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out questionId) || questionId <= 0)
-                {
-                    continue;
-                }
-
-                int stage;
-                if (!int.TryParse(parts[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out stage))
-                {
-                    continue;
-                }
-
-                if (!stages.ContainsKey(questionId))
-                {
-                    continue;
-                }
-
-                stage = Math.Max(1, Math.Min(max, stage));
-                stages[questionId] = stage;
-            }
-
-            return stages;
+            return QuestionStagePayloadHelper.Parse(payload, selectedQuestions, questionnaireStageCount);
         }
 
-        private static string ValidateQuestionnaireStageConfiguration(int questionnaireStageCount, int[] selectedQuestions, IDictionary<int, int> stages)
+        private static string ValidateQuestionnaireStageConfiguration(int questionnaireStageCount, int[] selectedQuestions, IDictionary<int, HashSet<int>> stages)
         {
-            if (questionnaireStageCount <= 1)
-            {
-                return null;
-            }
-
-            var selected = selectedQuestions != null
-                ? selectedQuestions.Where(id => id > 0).Distinct().ToList()
-                : new List<int>();
-            if (!selected.Any())
-            {
-                return null;
-            }
-
-            for (var s = 1; s <= questionnaireStageCount; s++)
-            {
-                if (!selected.Any(qid => stages.ContainsKey(qid) && stages[qid] == s))
-                {
-                    return string.Format(
-                        "This position uses {0} questionnaire stages. Add at least one question assigned to stage {1}.",
-                        questionnaireStageCount,
-                        s);
-                }
-            }
-
-            return null;
+            return QuestionStagePayloadHelper.ValidateAllStagesHaveQuestions(questionnaireStageCount, selectedQuestions, stages);
         }
 
         [Authorize(Roles = "Admin, SuperAdmin")]

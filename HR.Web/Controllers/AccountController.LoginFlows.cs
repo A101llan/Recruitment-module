@@ -155,7 +155,8 @@ namespace HR.Web.Controllers
                 return BuildCaptchaFailureResult("CAPTCHA expired. Please try again.", request.ReturnUrl);
             }
 
-            if (string.IsNullOrEmpty(request.Captcha) || !string.Equals(request.Captcha, sessionCaptchaText, StringComparison.Ordinal))
+            if (string.IsNullOrEmpty(request.Captcha) ||
+                !string.Equals(request.Captcha, sessionCaptchaText, StringComparison.OrdinalIgnoreCase))
             {
                 return BuildCaptchaFailureResult("Invalid security code. Please try again.", request.ReturnUrl);
             }
@@ -412,12 +413,38 @@ namespace HR.Web.Controllers
                     AuditSvc.LogLogin(request.Username, false, "Identifier not in tenant, found elsewhere: " + request.Username);
                     return View();
                 }
+
+                if (!request.IsEmailLogin && TryGetGlobalManagementUser(request.LowerUsername) != null)
+                {
+                    ModelState.AddModelError(
+                        "",
+                        "System administrators must sign in from the global login page, not a company portal URL.");
+                    ViewBag.GlobalLoginUrl = Url.Action("Login", "Account", new { tenant = (string)null, returnUrl = ViewBag.ReturnUrl });
+                    SecuritySvc.RecordLoginAttempt(request.Username, request.ClientIp, false, targetCompanyId, "Global admin used tenant portal");
+                    AuditSvc.LogLogin(request.Username, false, "Global admin attempted tenant portal login");
+                    return View();
+                }
             }
 
             ModelState.AddModelError("", "Invalid username or password.");
             SecuritySvc.RecordLoginAttempt(request.Username, request.ClientIp, false, targetCompanyId, "Identifier not found");
             AuditSvc.LogLogin(request.Username, false, "Invalid identifier: " + request.Username);
             return View();
+        }
+
+        private User TryGetGlobalManagementUser(string lowerUsername)
+        {
+            if (string.IsNullOrWhiteSpace(lowerUsername))
+            {
+                return null;
+            }
+
+            return _uow.Context.Users.FirstOrDefault(u =>
+                u.CompanyId == null &&
+                u.UserName != null &&
+                u.UserName.ToLower() == lowerUsername &&
+                (string.Equals(u.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase)));
         }
 
         private List<User> FindAccountsInOtherCompanies(LoginRequestModel request, int targetCompanyId)
@@ -700,7 +727,6 @@ namespace HR.Web.Controllers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("--- [EMAIL VERIFICATION ERROR] Failed to send: " + ex.Message);
                 System.Diagnostics.Trace.WriteLine("--- [EMAIL VERIFICATION ERROR] Failed to send: " + ex.Message);
             }
         }
@@ -724,10 +750,9 @@ namespace HR.Web.Controllers
             {
                 Session[LegalConsentSession.PendingCompanyIdSession] = user.CompanyId.Value;
             }
-
-            if (UsesEmailMfa(user) || string.IsNullOrWhiteSpace(user.MfaMethod))
+            else
             {
-                SendMfaCode(user, "Email");
+                Session.Remove(LegalConsentSession.PendingCompanyIdSession);
             }
 
             return RedirectToAction("VerifyMFA", "Account", new { tenant = tenantSlug });

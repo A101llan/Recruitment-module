@@ -111,7 +111,6 @@ namespace HR.Web.Controllers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("LinkedIn import failed: " + ex);
                 TempData["ErrorMessage"] = "LinkedIn import failed. " + ex.Message;
             }
 

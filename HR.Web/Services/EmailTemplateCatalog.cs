@@ -38,7 +38,7 @@ namespace HR.Web.Services
             public string BodyHtml { get; set; }
         }
 
-        private static readonly IReadOnlyList<TemplateDefinition> Definitions = new List<TemplateDefinition>
+        private static readonly IList<TemplateDefinition> Definitions = new List<TemplateDefinition>
         {
             new TemplateDefinition
             {
@@ -122,7 +122,7 @@ namespace HR.Web.Services
             }
         }.AsReadOnly();
 
-        public static IReadOnlyList<TemplateDefinition> AllDefinitions
+        public static IList<TemplateDefinition> AllDefinitions
         {
             get { return Definitions; }
         }
