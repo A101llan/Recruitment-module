@@ -70,9 +70,10 @@ fi
 # -----------------------------------------------------------------------------
 log "3/8 Restore NuGet packages"
 # -----------------------------------------------------------------------------
-# Remove the transient Mono build project so solution restore is unambiguous.
+# Restore straight from packages.config into ./packages (matches the csproj
+# ..\packages HintPaths) to avoid solution/msbuild parsing under Mono nuget.
 rm -f HR.Web/HR.Web.mono.csproj
-mono nuget.exe restore HR.sln -Verbosity quiet
+mono nuget.exe restore HR.Web/packages.config -SolutionDirectory . -Verbosity quiet
 
 # -----------------------------------------------------------------------------
 log "4/8 Generate local dev configs (Web.config is gitignored)"
@@ -117,14 +118,14 @@ DB_EXISTS="$("$SQLCMD" -S 127.0.0.1,1433 -U sa -P "$SA_PASSWORD" -C -h -1 -W \
 
 if [ "$DB_EXISTS" != "1" ]; then
     # Compute a valid PBKDF2 password hash using the app's own PasswordHelper.
-    HASH_DIR=/tmp/cursor/genhash
-    mkdir -p "$HASH_DIR"
-    cat > "$HASH_DIR/GenHash.cs" <<'CS'
+    # Build and run the helper inside HR.Web/bin so the runtime resolves
+    # HR.Web.dll and its dependencies (EntityFramework, etc.) from that folder.
+    cat > "$REPO_ROOT/HR.Web/bin/GenHash.cs" <<'CS'
 using System; using HR.Web.Helpers;
 class GenHash { static void Main(string[] a){ Console.Write(PasswordHelper.HashPassword(a[0])); } }
 CS
-    mcs "$HASH_DIR/GenHash.cs" -r:HR.Web/bin/HR.Web.dll -out:"$HASH_DIR/GenHash.exe"
-    ADMIN_HASH="$(mono "$HASH_DIR/GenHash.exe" "$ADMIN_PASSWORD")"
+    ( cd "$REPO_ROOT/HR.Web/bin" && mcs GenHash.cs -r:HR.Web.dll -out:GenHash.exe )
+    ADMIN_HASH="$(cd "$REPO_ROOT/HR.Web/bin" && mono GenHash.exe "$ADMIN_PASSWORD")"
 
     # Pre-substitute the sqlcmd variable ourselves and disable sqlcmd variable
     # parsing (-x): the script contains a literal N'$(%' that sqlcmd otherwise
