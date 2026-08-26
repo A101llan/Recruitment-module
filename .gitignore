@@ -3,6 +3,9 @@
 .vs/
 [Bb]in/
 [Oo]bj/
+
+# Generated Mono build project (created by tools/cloud-agent build under xbuild)
+HR.Web/HR.Web.mono.csproj
 *.user
 *.suo
 *.userosscache
@@ -30,6 +33,9 @@ Web.config
 
 # AI / Editor
 .cursor/
+# Keep the Cloud Agent environment definition versioned with the repo.
+!.cursor/
+!.cursor/environment.json
 .vscode/
 .history/
 .agents/
