@@ -70,7 +70,7 @@ namespace HR.Web.Data
 
         public void Update(T entity)
         {
-            Context.Entry(entity).State = System.Data.EntityState.Modified;
+            Context.Entry(entity).State = System.Data.Entity.EntityState.Modified;
         }
 
         public void Remove(T entity)

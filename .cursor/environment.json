@@ -1,0 +1,6 @@
+{
+  "name": "NanoHireHub (Mono/Linux dev)",
+  "install": "bash tools/cloud-agent/install.sh",
+  "start": "bash tools/cloud-agent/start.sh",
+  "ports": [5002]
+}
