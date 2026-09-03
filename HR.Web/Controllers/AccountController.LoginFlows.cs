@@ -443,8 +443,23 @@ namespace HR.Web.Controllers
                 u.CompanyId == null &&
                 u.UserName != null &&
                 u.UserName.ToLower() == lowerUsername &&
-                (string.Equals(u.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase)));
+                u.Role != null &&
+                (u.Role.ToLower() == "superadmin" || u.Role.ToLower() == "admin"));
+        }
+
+        private User TryGetGlobalManagementUserByEmail(string lowerEmail)
+        {
+            if (string.IsNullOrWhiteSpace(lowerEmail))
+            {
+                return null;
+            }
+
+            return _uow.Context.Users.FirstOrDefault(u =>
+                u.CompanyId == null &&
+                u.Email != null &&
+                u.Email.ToLower() == lowerEmail &&
+                u.Role != null &&
+                (u.Role.ToLower() == "superadmin" || u.Role.ToLower() == "admin"));
         }
 
         private List<User> FindAccountsInOtherCompanies(LoginRequestModel request, int targetCompanyId)
