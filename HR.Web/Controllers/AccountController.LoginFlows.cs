@@ -447,6 +447,21 @@ namespace HR.Web.Controllers
                 (u.Role.ToLower() == "superadmin" || u.Role.ToLower() == "admin"));
         }
 
+        private User TryGetGlobalManagementUserByEmail(string lowerEmail)
+        {
+            if (string.IsNullOrWhiteSpace(lowerEmail))
+            {
+                return null;
+            }
+
+            return _uow.Context.Users.FirstOrDefault(u =>
+                u.CompanyId == null &&
+                u.Email != null &&
+                u.Email.ToLower() == lowerEmail &&
+                u.Role != null &&
+                (u.Role.ToLower() == "superadmin" || u.Role.ToLower() == "admin"));
+        }
+
         private List<User> FindAccountsInOtherCompanies(LoginRequestModel request, int targetCompanyId)
         {
             var elsewhereQuery = _uow.Context.Users
